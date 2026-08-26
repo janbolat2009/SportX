@@ -4,13 +4,17 @@ import { CoachRosterAthlete, Exercise } from '../../types';
 import { Dumbbell, X, Check } from 'lucide-react';
 
 interface Props {
-  athlete: CoachRosterAthlete;
+  athlete?: CoachRosterAthlete;
+  athleteId?: number;
+  athleteName?: string;
   exercises: Exercise[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const AssignWorkoutModal: React.FC<Props> = ({ athlete, exercises, onClose, onSuccess }) => {
+export const AssignWorkoutModal: React.FC<Props> = ({ athlete, athleteId, athleteName, exercises, onClose, onSuccess }) => {
+  const targetAthleteId = athlete?.athlete_id || athleteId || 1;
+  const targetAthleteName = athlete?.full_name || athleteName || 'Athlete';
   const [selectedExId, setSelectedExId] = useState<number>(exercises[0]?.id || 1);
   const [sets, setSets] = useState(3);
   const [reps, setReps] = useState(10);
@@ -26,7 +30,7 @@ export const AssignWorkoutModal: React.FC<Props> = ({ athlete, exercises, onClos
     setError(null);
     try {
       await api.assignExercise({
-        athlete_id: athlete.athlete_id,
+        athlete_id: targetAthleteId,
         exercise_id: selectedExId,
         target_sets: sets,
         target_reps: reps,
@@ -51,7 +55,7 @@ export const AssignWorkoutModal: React.FC<Props> = ({ athlete, exercises, onClos
             <Dumbbell className="w-5 h-5 text-cyan-400" />
             <div>
               <h3 className="text-base font-bold text-white">Assign Exercise Program</h3>
-              <p className="text-xs text-slate-400">Athlete: {athlete.full_name}</p>
+              <p className="text-xs text-slate-400">Athlete: {targetAthleteName}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">

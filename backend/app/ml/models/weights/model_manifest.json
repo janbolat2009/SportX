@@ -1,0 +1,43 @@
+{
+  "model_version": "sportx-ml-v1.0",
+  "champion_architecture": "Gradient Boosting",
+  "weights_file": "sportx_model_v1.joblib",
+  "exported_at": "2026-08-26T20:39:04.970722",
+  "feature_count": 25,
+  "features": [
+    "r_knee_angle",
+    "l_knee_angle",
+    "avg_knee_angle",
+    "r_elbow_angle",
+    "l_elbow_angle",
+    "avg_elbow_angle",
+    "r_shoulder_angle",
+    "l_shoulder_angle",
+    "knee_spread_angle",
+    "torso_lean_angle",
+    "knee_symmetry",
+    "elbow_symmetry",
+    "shoulder_symmetry",
+    "r_knee_vel",
+    "l_knee_vel",
+    "r_elbow_vel",
+    "l_elbow_vel",
+    "r_knee_acc",
+    "l_knee_acc",
+    "r_elbow_acc",
+    "l_elbow_acc",
+    "knee_dist",
+    "hip_dist",
+    "knee_to_hip_ratio",
+    "ankle_to_hip_ratio"
+  ],
+  "classes": [
+    "jumping_jack",
+    "pull_up",
+    "push_up",
+    "situp",
+    "squat"
+  ],
+  "inference_engine": "scikit-learn / joblib pipeline",
+  "latency_target_ms": "< 2.0 ms"
+}

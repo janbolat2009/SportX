@@ -9,29 +9,38 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
+          50: '#ecfdf5',
+          100: '#d1fae5',
+          200: '#a7f3d0',
+          300: '#6ee7b7',
+          400: '#34d399',
+          500: '#10b981', // Athletic Emerald
+          600: '#059669',
+          700: '#047857',
+          800: '#065f46',
+          900: '#064e3b',
         },
-        cyber: {
-          cyan: '#06b6d4',
-          neon: '#10b981',
-          electric: '#3b82f6',
-          amber: '#f59e0b',
-          rose: '#f43f5e'
+        surface: {
+          bg: '#09090b',       // Deep neutral zinc black
+          card: '#141416',     // Card surface
+          cardHover: '#1c1c1f',// Card hover
+          subtle: '#202024',   // Elevated elements
+          border: '#27272a',   // Subtle clean border
+          borderLight: '#3f3f46'
         },
-        dark: {
-          bg: '#0b0f19',
-          card: '#111827',
-          cardHover: '#1f2937',
-          border: '#374151'
+        status: {
+          good: '#22c55e',     // Optimal form
+          attention: '#f59e0b',// Form needs adjustment
+          deviation: '#ef4444',// Significant technique deviation
+          info: '#3b82f6'
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace']
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+      },
+      screens: {
+        'xs': '375px',
       }
     },
   },

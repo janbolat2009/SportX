@@ -1,10 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
-import { Exercise, LiveAnalysisFrameResult, Repetition } from '../../types';
+import { Exercise, Repetition } from '../../types';
+import { CameraQualityCheck } from './CameraQualityCheck';
+import { PostWorkoutReport } from '../athlete/PostWorkoutReport';
 import {
-  Camera, Play, Square, RefreshCw, AlertTriangle, CheckCircle2, ChevronRight,
-  ShieldAlert, Sparkles, Activity, Gauge, Flame, ArrowLeft
+  Camera as CameraIcon, Play, Square, RotateCcw, ArrowLeft,
+  CheckCircle2, AlertTriangle, Activity, Volume2, VolumeX, ShieldCheck
 } from 'lucide-react';
+import { Pose, Results as PoseResults } from '@mediapipe/pose';
+import { Camera } from '@mediapipe/camera_utils';
 
 interface Props {
   initialExerciseSlug?: string;
@@ -15,31 +19,47 @@ interface Props {
 export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat', onBack, onSessionComplete }) => {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>(initialExerciseSlug);
-  const [isRecording, setIsRecording] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isQualityPassed, setIsQualityPassed] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Live telemetry state
+  // Live Biomechanical Telemetry
   const [currentPhase, setCurrentPhase] = useState<string>('STANDING');
   const [repCount, setRepCount] = useState<number>(0);
   const [instantScore, setInstantScore] = useState<number>(95);
   const [primaryAngle, setPrimaryAngle] = useState<number>(175);
-  const [secondaryAngle, setSecondaryAngle] = useState<number>(170);
-  const [symmetryRatio, setSymmetryRatio] = useState<number>(94);
-  const [torsoAngle, setTorsoAngle] = useState<number>(8);
-  const [activeIssue, setActiveIssue] = useState<string | null>(null);
-  const [activeCue, setActiveCue] = useState<string | null>(null);
-  const [activeSeverity, setActiveSeverity] = useState<string | null>(null);
+  const [symmetryRatio, setSymmetryRatio] = useState<number>(95);
+  const [activeCue, setActiveCue] = useState<string>('Stand in position');
+  const [activeSeverity, setActiveSeverity] = useState<'good' | 'attention' | 'deviation'>('good');
+  const [latestLandmarks, setLatestLandmarks] = useState<any[] | null>(null);
 
-  // Rep history during this live session
+  // Session History & Report
   const [sessionReps, setSessionReps] = useState<Repetition[]>([]);
   const [sessionIssues, setSessionIssues] = useState<any[]>([]);
   const [sessionStartTime, setSessionStartTime] = useState<number>(0);
+  const [completedSession, setCompletedSession] = useState<any | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animationFrameId = useRef<number | null>(null);
-  const frameCountRef = useRef<number>(0);
+  const cameraInstanceRef = useRef<any>(null);
+  const poseInstanceRef = useRef<Pose | null>(null);
+  const stateMachineRef = useRef<{
+    phase: string;
+    repCount: number;
+    minAngle: number;
+    maxAngle: number;
+    repStartTime: number;
+    issuesInRep: any[];
+  }>({
+    phase: 'STANDING',
+    repCount: 0,
+    minAngle: 180,
+    maxAngle: 0,
+    repStartTime: 0,
+    issuesInRep: []
+  });
 
   useEffect(() => {
     async function loadExercises() {
@@ -56,12 +76,232 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
   const selectedExercise = exercises.find((e) => e.slug === selectedSlug) || {
     name: selectedSlug.replace('_', ' ').toUpperCase(),
     slug: selectedSlug,
-    target_muscles: 'Major Muscle Groups',
+    target_muscles: 'Core & Major Muscle Groups',
     camera_setup_instructions: 'Position camera 2.5 - 3.5m away with full body in frame.',
     ideal_rom_degrees: 90
   };
 
-  // Start Camera Stream
+  // Compute 2D Angle between 3 landmarks (vertex is b)
+  const calculateAngle = (a: any, b: any, c: any) => {
+    if (!a || !b || !c) return 180;
+    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs((radians * 180.0) / Math.PI);
+    if (angle > 180.0) angle = 360.0 - angle;
+    return Math.round(angle);
+  };
+
+  // Audio Beep Feedback
+  const playBeep = useCallback((freq = 520, durationMs = 120) => {
+    if (!soundEnabled) return;
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = freq;
+      gain.gain.value = 0.08;
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+        audioCtx.close();
+      }, durationMs);
+    } catch {
+      // Audio context might be restricted before user gesture
+    }
+  }, [soundEnabled]);
+
+  // Handle MediaPipe Pose Results
+  const onPoseResults = useCallback((results: PoseResults) => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
+      setLatestLandmarks(null);
+      return;
+    }
+
+    const lms = results.poseLandmarks;
+    setLatestLandmarks(lms);
+
+    // Draw Skeleton Lines
+    const connections = [
+      [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // Shoulders and arms
+      [11, 23], [12, 24], [23, 24],                      // Torso
+      [23, 25], [24, 26], [25, 27], [26, 28]             // Legs
+    ];
+
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#10b981'; // Athletic emerald
+
+    connections.forEach(([i, j]) => {
+      const p1 = lms[i];
+      const p2 = lms[j];
+      if (p1 && p2 && (p1.visibility || 1) > 0.4 && (p2.visibility || 1) > 0.4) {
+        ctx.beginPath();
+        ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+        ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+        ctx.stroke();
+      }
+    });
+
+    // Draw Key Joint Dots
+    lms.forEach((lm, idx) => {
+      if ([0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].includes(idx)) {
+        if ((lm.visibility || 1) > 0.4) {
+          ctx.beginPath();
+          ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 5, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#10b981';
+          ctx.stroke();
+        }
+      }
+    });
+
+    // Extract Relevant Angles based on Exercise
+    let primary = 180;
+    let symmetry = 95;
+    const now = Date.now();
+    const sm = stateMachineRef.current;
+
+    if (selectedSlug === 'squat') {
+      const l_knee = calculateAngle(lms[23], lms[25], lms[27]);
+      const r_knee = calculateAngle(lms[24], lms[26], lms[28]);
+      primary = Math.round((l_knee + r_knee) / 2);
+      symmetry = Math.round(100 - Math.abs(l_knee - r_knee));
+      setPrimaryAngle(primary);
+      setSymmetryRatio(Math.max(60, symmetry));
+
+      // Knee Valgus Check
+      const kneeDist = Math.abs(lms[25].x - lms[26].x);
+      const hipDist = Math.abs(lms[23].x - lms[24].x) || 0.1;
+      const isValgus = (kneeDist / hipDist) < 0.75;
+
+      if (isRecording) {
+        if (sm.phase === 'STANDING' && primary < 155) {
+          sm.phase = 'DESCENT';
+          sm.minAngle = primary;
+          sm.repStartTime = now;
+          setActiveCue('Control descent');
+          setActiveSeverity('good');
+        } else if (sm.phase === 'DESCENT') {
+          if (primary < sm.minAngle) sm.minAngle = primary;
+          if (isValgus) {
+            setActiveCue('Push knees outward');
+            setActiveSeverity('attention');
+          }
+          if (primary <= 95) {
+            sm.phase = 'BOTTOM';
+            setActiveCue('Good depth - drive up');
+            setActiveSeverity('good');
+          }
+        } else if (sm.phase === 'BOTTOM' && primary > 110) {
+          sm.phase = 'ASCENT';
+          setActiveCue('Drive through heels');
+        } else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && primary > 160) {
+          // Rep completed
+          const repDuration = (now - sm.repStartTime) / 1000;
+          if (repDuration >= 0.8 && sm.minAngle < 120) {
+            sm.repCount += 1;
+            setRepCount(sm.repCount);
+            playBeep(880, 150);
+
+            const repScore = sm.minAngle <= 95 ? 95 : Math.round(100 - (sm.minAngle - 90));
+            const newRep: Repetition = {
+              id: sm.repCount,
+              rep_number: sm.repCount,
+              start_time: 0,
+              end_time: repDuration,
+              duration_seconds: repDuration,
+              rep_score: Math.min(100, Math.max(50, repScore)),
+              alignment_score: symmetry,
+              rom_score: sm.minAngle <= 95 ? 98 : 80,
+              symmetry_score: symmetry,
+              tempo_score: repDuration >= 2.0 ? 92 : 80,
+              stability_score: 90,
+              peak_angle: sm.minAngle,
+              min_angle: sm.minAngle,
+              is_valid: sm.minAngle <= 110
+            };
+            setSessionReps((prev) => [...prev, newRep]);
+            setActiveCue('Good repetition!');
+            setActiveSeverity('good');
+          }
+          sm.phase = 'STANDING';
+          sm.minAngle = 180;
+        }
+      }
+      setCurrentPhase(sm.phase);
+
+    } else if (selectedSlug === 'push_up' || selectedSlug === 'pushup') {
+      const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
+      const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
+      primary = Math.round((l_elbow + r_elbow) / 2);
+      symmetry = Math.round(100 - Math.abs(l_elbow - r_elbow));
+      setPrimaryAngle(primary);
+      setSymmetryRatio(Math.max(60, symmetry));
+
+      if (isRecording) {
+        if (sm.phase === 'PLANK' && primary < 155) {
+          sm.phase = 'DESCENT';
+          sm.minAngle = primary;
+          sm.repStartTime = now;
+          setActiveCue('Lower chest with control');
+        } else if (sm.phase === 'DESCENT') {
+          if (primary < sm.minAngle) sm.minAngle = primary;
+          if (primary <= 95) {
+            sm.phase = 'BOTTOM';
+            setActiveCue('Full depth reached');
+          }
+        } else if (sm.phase === 'BOTTOM' && primary > 115) {
+          sm.phase = 'ASCENT';
+          setActiveCue('Push floor away');
+        } else if (sm.phase === 'ASCENT' && primary > 155) {
+          const repDuration = (now - sm.repStartTime) / 1000;
+          if (repDuration >= 0.7 && sm.minAngle < 125) {
+            sm.repCount += 1;
+            setRepCount(sm.repCount);
+            playBeep(880, 150);
+            setSessionReps((prev) => [...prev, {
+              id: sm.repCount,
+              rep_number: sm.repCount,
+              start_time: 0,
+              end_time: repDuration,
+              duration_seconds: repDuration,
+              rep_score: 92,
+              alignment_score: symmetry,
+              rom_score: 90,
+              symmetry_score: symmetry,
+              tempo_score: 88,
+              stability_score: 90,
+              peak_angle: sm.minAngle,
+              min_angle: sm.minAngle,
+              is_valid: true
+            }]);
+          }
+          sm.phase = 'PLANK';
+        }
+      }
+      setCurrentPhase(sm.phase);
+    } else {
+      // Default / Curl / Press joint angle
+      const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
+      setPrimaryAngle(l_elbow);
+    }
+
+  }, [selectedSlug, isRecording, playBeep]);
+
+  // Start Camera Stream & MediaPipe Pose
   const startCamera = async () => {
     setCameraError(null);
     try {
@@ -69,42 +309,87 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: false
       });
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+
+        const pose = new Pose({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+        });
+        pose.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        pose.onResults(onPoseResults);
+        poseInstanceRef.current = pose;
+
+        const camera = new Camera(videoRef.current, {
+          onFrame: async () => {
+            if (videoRef.current && poseInstanceRef.current) {
+              await poseInstanceRef.current.send({ image: videoRef.current });
+            }
+          },
+          width: 1280,
+          height: 720
+        });
+        await camera.start();
+        cameraInstanceRef.current = camera;
         setCameraActive(true);
       }
     } catch (err: any) {
-      console.warn('Webcam permission denied or camera not available. Running in high-fidelity simulated CV mode:', err);
-      setCameraActive(true); // Run simulated video stream on canvas for seamless development
+      console.warn('Webcam permission not granted or stream failed:', err);
+      setCameraError('Camera access required. Please allow webcam permissions in your browser.');
     }
   };
 
   const stopCamera = () => {
+    if (cameraInstanceRef.current) {
+      cameraInstanceRef.current.stop();
+    }
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((t) => t.stop());
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
   };
 
-  // Start / Stop Workout Session
-  const toggleWorkout = () => {
-    if (!isRecording) {
-      setIsRecording(true);
-      setRepCount(0);
-      setSessionReps([]);
-      setSessionIssues([]);
-      setSessionStartTime(Date.now());
-    } else {
-      finishWorkout();
-    }
+  useEffect(() => {
+    startCamera();
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  const handleStartWorkout = () => {
+    setIsRecording(true);
+    setRepCount(0);
+    setSessionReps([]);
+    setSessionIssues([]);
+    setSessionStartTime(Date.now());
+    stateMachineRef.current = {
+      phase: selectedSlug === 'push_up' ? 'PLANK' : 'STANDING',
+      repCount: 0,
+      minAngle: 180,
+      maxAngle: 0,
+      repStartTime: Date.now(),
+      issuesInRep: []
+    };
+    playBeep(660, 250);
   };
 
-  const finishWorkout = async () => {
+  const handleFinishWorkout = async () => {
     setIsRecording(false);
+    playBeep(440, 300);
     const duration = Math.max(1, (Date.now() - sessionStartTime) / 1000);
+
+    const calculatedOverall = sessionReps.length > 0
+      ? Math.round(sessionReps.reduce((a, b) => a + b.rep_score, 0) / sessionReps.length)
+      : 88;
 
     const sessionPayload = {
       exercise_slug: selectedSlug,
@@ -112,185 +397,41 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
       duration_seconds: duration,
       total_reps: repCount,
       valid_reps: sessionReps.filter((r) => r.is_valid).length,
-      overall_score: sessionReps.length > 0
-        ? Math.round(sessionReps.reduce((a, b) => a + b.rep_score, 0) / sessionReps.length)
-        : instantScore,
-      alignment_score: Math.round(symmetryRatio * 0.95),
-      rom_score: Math.round(instantScore * 0.98),
+      overall_score: calculatedOverall,
+      alignment_score: symmetryRatio,
+      rom_score: calculatedOverall,
       symmetry_score: symmetryRatio,
-      tempo_score: 85.0,
-      stability_score: 88.0,
-      feedback_summary: activeCue || `Completed ${repCount} repetitions of ${selectedExercise.name}.`,
+      tempo_score: 88,
+      stability_score: 90,
+      model_version: 'sportx-ml-v1.0',
+      feedback_summary: activeCue || `Completed ${repCount} repetitions with solid technique.`,
       repetitions: sessionReps,
       issues: sessionIssues
     };
 
     try {
       const saved = await api.finalizeSession(sessionPayload);
-      if (onSessionComplete) {
-        onSessionComplete(saved);
-      }
-    } catch (e) {
-      console.error('Error finalizing session:', e);
+      setCompletedSession(saved);
+    } catch {
+      setCompletedSession(sessionPayload);
     }
   };
 
-  // Real-time animation loop (pose landmarking, canvas skeleton drawing, and biomechanical state updates)
-  useEffect(() => {
-    if (!cameraActive) return;
-
-    let localFrame = 0;
-    const interval = setInterval(async () => {
-      localFrame++;
-      frameCountRef.current = localFrame;
-      const timestamp = localFrame * 0.08;
-
-      // Draw skeleton on canvas
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-          // Simulated / extracted joints
-          const t = timestamp % 3.2;
-          const cycleProgress = (t / 3.2) * Math.PI * 2;
-          
-          let kneeBend = 0;
-          let elbowBend = 0;
-
-          if (selectedSlug === 'squat') {
-            kneeBend = Math.sin(cycleProgress) > 0 ? Math.sin(cycleProgress) * 70 : 0;
-          } else {
-            elbowBend = Math.sin(cycleProgress) > 0 ? Math.sin(cycleProgress) * 75 : 0;
-          }
-
-          // Draw Cyber-Skeleton Joints
-          const cx = canvas.width / 2;
-          const cy = canvas.height / 2;
-
-          ctx.strokeStyle = '#10b981';
-          ctx.lineWidth = 4;
-          ctx.fillStyle = '#06b6d4';
-
-          // Head & Torso
-          ctx.beginPath();
-          ctx.arc(cx, cy - 140, 16, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          // Spine
-          ctx.beginPath();
-          ctx.moveTo(cx, cy - 124);
-          ctx.lineTo(cx, cy);
-          ctx.stroke();
-
-          // Shoulders & Arms
-          const l_sh = { x: cx - 45, y: cy - 100 };
-          const r_sh = { x: cx + 45, y: cy - 100 };
-          const l_el = { x: cx - 65 + elbowBend * 0.2, y: cy - 50 - elbowBend * 0.3 };
-          const r_el = { x: cx + 65 - elbowBend * 0.2, y: cy - 50 - elbowBend * 0.3 };
-          const l_wr = { x: cx - 60, y: cy - elbowBend * 0.8 };
-          const r_wr = { x: cx + 60, y: cy - elbowBend * 0.8 };
-
-          ctx.beginPath();
-          ctx.moveTo(l_wr.x, l_wr.y); ctx.lineTo(l_el.x, l_el.y); ctx.lineTo(l_sh.x, l_sh.y);
-          ctx.lineTo(r_sh.x, r_sh.y); ctx.lineTo(r_el.x, r_el.y); ctx.lineTo(r_wr.x, r_wr.y);
-          ctx.stroke();
-
-          // Hips & Legs
-          const l_hip = { x: cx - 35, y: cy };
-          const r_hip = { x: cx + 35, y: cy };
-          const l_knee = { x: cx - 40, y: cy + 70 - kneeBend * 0.4 };
-          const r_knee = { x: cx + 40, y: cy + 70 - kneeBend * 0.4 };
-          const l_ank = { x: cx - 40, y: cy + 140 };
-          const r_ank = { x: cx + 40, y: cy + 140 };
-
-          ctx.beginPath();
-          ctx.moveTo(l_hip.x, l_hip.y); ctx.lineTo(l_knee.x, l_knee.y); ctx.lineTo(l_ank.x, l_ank.y);
-          ctx.moveTo(r_hip.x, r_hip.y); ctx.lineTo(r_knee.x, r_knee.y); ctx.lineTo(r_ank.x, r_ank.y);
-          ctx.stroke();
-
-          // Draw Glowing Joint Dots
-          [l_sh, r_sh, l_el, r_el, l_wr, r_wr, l_hip, r_hip, l_knee, r_knee, l_ank, r_ank].forEach((pt) => {
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
-            ctx.fillStyle = '#38bdf8';
-            ctx.fill();
-          });
-        }
-      }
-
-      // Generate 33 landmarks payload
-      const mockLandmarks = Array.from({ length: 33 }, (_, i) => ({
-        x: 0.5 + 0.1 * Math.sin(i),
-        y: 0.3 + 0.02 * i,
-        z: 0.0,
-        visibility: 0.95
-      }));
-
-      // Invert knee angle during simulated squat descent
-      const t_val = timestamp % 3.5;
-      const progress = Math.sin((t_val / 3.5) * Math.PI);
-      const simulatedKneeAngle = 175 - progress * 95;
-      mockLandmarks[25] = { x: 0.45, y: 0.65 - progress * 0.15, z: 0.0, visibility: 0.95 };
-      mockLandmarks[26] = { x: 0.55, y: 0.65 - progress * 0.15, z: 0.0, visibility: 0.95 };
-
-      try {
-        const frameRes = await api.analyzeLiveFrame({
-          exercise_slug: selectedSlug,
-          frame_index: localFrame,
-          timestamp: timestamp,
-          landmarks: mockLandmarks
-        });
-
-        setCurrentPhase(frameRes.phase);
-        setPrimaryAngle(frameRes.primary_joint_angle || Math.round(simulatedKneeAngle));
-        setSecondaryAngle(frameRes.secondary_joint_angle || 165);
-        setSymmetryRatio(frameRes.symmetry_ratio || 94);
-        setTorsoAngle(frameRes.torso_angle || 12);
-        setInstantScore(frameRes.instantaneous_score || 88);
-
-        if (frameRes.detected_issue) {
-          setActiveIssue(frameRes.detected_issue);
-          setActiveCue(frameRes.corrective_instruction || null);
-          setActiveSeverity(frameRes.severity || 'moderate');
-        } else {
-          setActiveIssue(null);
-          setActiveCue(null);
-        }
-
-        if (isRecording && frameRes.rep_completed && frameRes.completed_rep_data) {
-          setRepCount((prev) => prev + 1);
-          setSessionReps((prev) => [...prev, frameRes.completed_rep_data!]);
-        }
-      } catch (e) {
-        // Fallback local update
-        if (isRecording && timestamp % 3.5 < 0.1 && timestamp > 1.0) {
-          setRepCount((prev) => prev + 1);
-        }
-      }
-    }, 80);
-
-    return () => clearInterval(interval);
-  }, [cameraActive, selectedSlug, isRecording]);
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-6">
       
-      {/* Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      {/* Top Bar Navigation */}
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border text-zinc-300 hover:text-white text-xs font-semibold active:scale-95 transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
+          <span>Exit Studio</span>
         </button>
 
-        {/* Exercise Selector */}
+        {/* Exercise Switcher */}
         <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-400 font-medium">Exercise:</label>
           <select
             value={selectedSlug}
             onChange={(e) => {
@@ -299,220 +440,135 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
               setSessionReps([]);
             }}
             disabled={isRecording}
-            className="bg-slate-900 border border-slate-700 text-sm text-white px-3 py-1.5 rounded-xl font-semibold focus:outline-none focus:border-emerald-500"
+            className="bg-surface-card border border-surface-border text-white text-xs font-bold rounded-xl px-3 py-1.5 focus:outline-none focus:border-brand-500 capitalize"
           >
-            {exercises.map((ex) => (
-              <option key={ex.slug} value={ex.slug}>
-                {ex.name}
-              </option>
-            ))}
+            <option value="squat">Barbell / Bodyweight Squat</option>
+            <option value="pushup">Standard Push-up</option>
+            <option value="bicep_curl">Bicep Curl</option>
+            <option value="shoulder_press">Overhead Shoulder Press</option>
           </select>
-        </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-3">
-          {!cameraActive ? (
-            <button
-              onClick={startCamera}
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all"
-            >
-              <Camera className="w-4 h-4" />
-              Enable Camera Studio
-            </button>
-          ) : (
-            <button
-              onClick={toggleWorkout}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${
-                isRecording
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/30 animate-pulse'
-                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30'
-              }`}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="w-4 h-4" />
-                  Finish Workout ({repCount} Reps)
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  Start AI Analysis Set
-                </>
-              )}
-            </button>
-          )}
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="p-1.5 rounded-xl bg-surface-card border border-surface-border text-zinc-400 hover:text-white"
+            title={soundEnabled ? 'Mute audio cues' : 'Enable audio cues'}
+          >
+            {soundEnabled ? <Volume2 className="w-4 h-4 text-brand-400" /> : <VolumeX className="w-4 h-4" />}
+          </button>
         </div>
       </div>
 
-      {/* Main Studio Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Camera & Workout Container */}
+      <div className="relative rounded-3xl overflow-hidden bg-black border border-surface-border shadow-2xl aspect-[4/3] sm:aspect-video flex items-center justify-center">
         
-        {/* Camera Viewport (2 Cols on large screens) */}
-        <div className="lg:col-span-2 relative rounded-3xl overflow-hidden glass-panel border border-slate-800 bg-slate-950/80 min-h-[460px] flex items-center justify-center shadow-2xl">
-          
-          {/* Real Video or Standby */}
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            className="absolute inset-0 w-full h-full object-cover opacity-30 transform -scale-x-100"
-          />
+        {/* Hidden HTML Video element */}
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className="absolute inset-0 w-full h-full object-cover -scale-x-100"
+        />
 
-          {/* Skeleton Overlay Canvas */}
-          <canvas
-            ref={canvasRef}
-            width={640}
-            height={480}
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none z-10"
-          />
+        {/* Pose Canvas Overlay */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full object-cover -scale-x-100 pointer-events-none"
+        />
 
-          {/* Live HUD Badges & Telemetry */}
-          {cameraActive && (
-            <>
-              {/* Phase Badge */}
-              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span className="text-xs font-mono font-bold tracking-wider text-emerald-300 uppercase">
-                  Phase: {currentPhase}
-                </span>
-              </div>
+        {/* Pre-workout Camera Quality Check Overlay */}
+        {!isQualityPassed && cameraActive && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-20">
+            <CameraQualityCheck
+              videoElement={videoRef.current}
+              landmarks={latestLandmarks}
+              onQualityPass={() => setIsQualityPassed(true)}
+              onCancel={onBack}
+            />
+          </div>
+        )}
 
-              {/* Reps Counter Counter Overlay */}
-              <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl">
-                <Flame className="w-5 h-5 text-amber-400" />
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-mono tracking-wider">Rep Count</p>
-                  <p className="text-2xl font-extrabold text-white leading-none font-mono">{repCount}</p>
+        {/* Live HUD Overlays when Quality is Passed */}
+        {isQualityPassed && (
+          <>
+            {/* Top HUD: Joint Angle & Phase */}
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
+              
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-white font-mono text-xs flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-brand-400" />
+                  <span>{primaryAngle}°</span>
+                </div>
+
+                <div className="px-3 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-white font-bold text-xs">
+                  {currentPhase}
                 </div>
               </div>
 
-              {/* Real-time Corrective Feedback Banner */}
-              {activeIssue && activeCue && (
-                <div className="absolute bottom-4 inset-x-4 z-20 bg-slate-900/95 border border-amber-500/40 backdrop-blur-xl p-3.5 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 mt-0.5">
-                    <AlertTriangle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-amber-300">{activeIssue}</span>
-                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        {activeSeverity}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-200 mt-0.5 font-medium">{activeCue}</p>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {!cameraActive && (
-            <div className="text-center p-8 z-10">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4 text-emerald-400">
-                <Camera className="w-8 h-8" />
+              <div className="px-3 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-brand-400 font-mono text-xs">
+                Symmetry: {symmetryRatio}%
               </div>
-              <h3 className="text-lg font-bold text-white">Camera Standby</h3>
-              <p className="text-xs text-slate-400 max-w-sm mt-1 mb-4">
-                Click below to start live pose estimation and biomechanical technique tracking.
-              </p>
-              <button
-                onClick={startCamera}
-                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
-              >
-                Launch Studio Camera
-              </button>
             </div>
-          )}
 
-        </div>
-
-        {/* Live Metrics & Coaching Telemetry Column */}
-        <div className="space-y-4">
-          
-          {/* Instant Score Card */}
-          <div className="glass-panel p-5 rounded-3xl border border-slate-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-400 font-medium uppercase font-mono">Live Technique Score</span>
-              <Gauge className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-extrabold text-white font-mono">{instantScore}</span>
-              <span className="text-xs text-slate-400 font-mono">/ 100</span>
-              <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${
-                instantScore >= 85 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+            {/* Center Dynamic Feedback Cue */}
+            <div className="absolute bottom-20 left-4 right-4 flex justify-center z-10 pointer-events-none">
+              <div className={`px-4 py-2 rounded-2xl backdrop-blur-md border text-xs sm:text-sm font-bold shadow-lg transition-all animate-in fade-in flex items-center gap-2 ${
+                activeSeverity === 'good'
+                  ? 'bg-status-good/20 border-status-good/40 text-green-300'
+                  : activeSeverity === 'attention'
+                  ? 'bg-status-attention/20 border-status-attention/40 text-amber-300'
+                  : 'bg-status-deviation/20 border-status-deviation/40 text-red-300'
               }`}>
-                {instantScore >= 85 ? 'Optimal Form' : 'Adjusting Form'}
-              </span>
-            </div>
-          </div>
-
-          {/* Biomechanical Kinematic Dials */}
-          <div className="glass-panel p-5 rounded-3xl border border-slate-800 space-y-4">
-            <h4 className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider">
-              Biomechanical Telemetry
-            </h4>
-
-            {/* Primary Joint Angle */}
-            <div>
-              <div className="flex justify-between text-xs font-medium mb-1">
-                <span className="text-slate-400">Primary Joint Angle</span>
-                <span className="text-white font-mono font-bold">{primaryAngle}°</span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 transition-all duration-150"
-                  style={{ width: `${Math.min(100, (primaryAngle / 180) * 100)}%` }}
-                ></div>
+                {activeSeverity === 'good' ? <CheckCircle2 className="w-4 h-4 text-status-good" /> : <AlertTriangle className="w-4 h-4 text-status-attention" />}
+                <span>{activeCue}</span>
               </div>
             </div>
 
-            {/* Bilateral Symmetry */}
-            <div>
-              <div className="flex justify-between text-xs font-medium mb-1">
-                <span className="text-slate-400">Bilateral Symmetry</span>
-                <span className="text-emerald-400 font-mono font-bold">{symmetryRatio}%</span>
+            {/* Bottom HUD: Reps Counter & Start/Stop Controls */}
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between z-10">
+              
+              {/* Rep Count Box */}
+              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-black/80 backdrop-blur-md border border-white/10">
+                <span className="text-xs text-zinc-400 uppercase font-semibold">Reps</span>
+                <span className="text-2xl sm:text-3xl font-black text-white font-mono">{repCount}</span>
               </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-cyan-500 transition-all duration-150"
-                  style={{ width: `${symmetryRatio}%` }}
-                ></div>
-              </div>
+
+              {/* Start / Finish Workout Button */}
+              {!isRecording ? (
+                <button
+                  onClick={handleStartWorkout}
+                  className="px-6 py-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black text-sm font-black transition-all shadow-lg shadow-brand-500/25 flex items-center gap-2 active:scale-95"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Start Exercise</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleFinishWorkout}
+                  className="px-6 py-3 rounded-2xl bg-red-500 hover:bg-red-400 text-white text-sm font-black transition-all shadow-lg shadow-red-500/25 flex items-center gap-2 active:scale-95"
+                >
+                  <Square className="w-4 h-4 fill-current" />
+                  <span>Finish Set</span>
+                </button>
+              )}
+
             </div>
-
-            {/* Torso Inclination */}
-            <div>
-              <div className="flex justify-between text-xs font-medium mb-1">
-                <span className="text-slate-400">Torso Lean (from vertical)</span>
-                <span className="text-slate-200 font-mono font-bold">{torsoAngle}°</span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-500 transition-all duration-150"
-                  style={{ width: `${Math.min(100, (torsoAngle / 45) * 100)}%` }}
-                ></div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Setup Guidance Card */}
-          <div className="glass-panel p-5 rounded-3xl border border-slate-800">
-            <h4 className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider mb-2">
-              Setup Guidance: {selectedExercise.name}
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              {selectedExercise.camera_setup_instructions}
-            </p>
-            <div className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-2 text-xs text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Full body landmarks in detection view</span>
-            </div>
-          </div>
-
-        </div>
+          </>
+        )}
 
       </div>
+
+      {/* Post Workout Report Modal */}
+      {completedSession && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <PostWorkoutReport
+            session={completedSession}
+            onClose={() => {
+              if (onSessionComplete) onSessionComplete(completedSession);
+              onBack();
+            }}
+          />
+        </div>
+      )}
 
     </div>
   );

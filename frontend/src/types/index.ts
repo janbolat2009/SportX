@@ -202,6 +202,7 @@ export interface AssignedWorkout {
   id: number;
   exercise_id: number;
   exercise_name: string;
+  exercise_slug?: string;
   target_sets: number;
   target_reps: number;
   target_tempo: string;
@@ -209,6 +210,8 @@ export interface AssignedWorkout {
   notes?: string;
   status?: string;
 }
+
+export type AssignedExercise = AssignedWorkout;
 
 export interface CoachRosterAthlete {
   athlete_id: number;
@@ -220,6 +223,7 @@ export interface CoachRosterAthlete {
   anonymized_subject_id: string;
   total_sessions: number;
   recent_average_score: number;
+  average_technique_score?: number;
   latest_session_exercise: string;
   latest_session_score?: number | null;
   latest_session_date: string;

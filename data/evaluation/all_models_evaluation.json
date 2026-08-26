@@ -1,0 +1,318 @@
+{
+  "Logistic Regression": {
+    "file_size_kb": 3.1,
+    "accuracy": 0.604,
+    "weighted_precision": 0.6122,
+    "weighted_recall": 0.604,
+    "weighted_f1": 0.6007,
+    "macro_f1": 0.5524,
+    "latency_ms": 0.429,
+    "inference_fps": 2329.0,
+    "confusion_matrix": [
+      [
+        2519,
+        1073,
+        22,
+        16,
+        91
+      ],
+      [
+        351,
+        1314,
+        67,
+        153,
+        130
+      ],
+      [
+        1,
+        322,
+        2047,
+        498,
+        29
+      ],
+      [
+        117,
+        54,
+        343,
+        1168,
+        313
+      ],
+      [
+        644,
+        292,
+        7,
+        269,
+        262
+      ]
+    ],
+    "per_class_metrics": {
+      "jumping_jack": {
+        "precision": 0.6935572687224669,
+        "recall": 0.6769685568395593,
+        "f1-score": 0.6851625186998505,
+        "support": 3721.0
+      },
+      "pull_up": {
+        "precision": 0.43011456628477907,
+        "recall": 0.6521091811414392,
+        "f1-score": 0.5183431952662721,
+        "support": 2015.0
+      },
+      "push_up": {
+        "precision": 0.8234111021721641,
+        "recall": 0.7065930272695893,
+        "f1-score": 0.7605424484488204,
+        "support": 2897.0
+      },
+      "situp": {
+        "precision": 0.5551330798479087,
+        "recall": 0.5854636591478697,
+        "f1-score": 0.569895096364967,
+        "support": 1995.0
+      },
+      "squat": {
+        "precision": 0.31757575757575757,
+        "recall": 0.17774762550881953,
+        "f1-score": 0.2279251848629839,
+        "support": 1474.0
+      }
+    }
+  },
+  "Random Forest": {
+    "file_size_kb": 34990.9,
+    "accuracy": 0.7274,
+    "weighted_precision": 0.7523,
+    "weighted_recall": 0.7274,
+    "weighted_f1": 0.7341,
+    "macro_f1": 0.7058,
+    "latency_ms": 32.52,
+    "inference_fps": 30.8,
+    "confusion_matrix": [
+      [
+        2891,
+        594,
+        4,
+        17,
+        215
+      ],
+      [
+        195,
+        1538,
+        62,
+        102,
+        118
+      ],
+      [
+        2,
+        283,
+        2180,
+        287,
+        145
+      ],
+      [
+        12,
+        226,
+        353,
+        1269,
+        135
+      ],
+      [
+        123,
+        282,
+        10,
+        134,
+        925
+      ]
+    ],
+    "per_class_metrics": {
+      "jumping_jack": {
+        "precision": 0.8969903816320198,
+        "recall": 0.7769416823434561,
+        "f1-score": 0.8326612903225806,
+        "support": 3721.0
+      },
+      "pull_up": {
+        "precision": 0.5261717413616148,
+        "recall": 0.7632754342431762,
+        "f1-score": 0.6229242608343459,
+        "support": 2015.0
+      },
+      "push_up": {
+        "precision": 0.8355691835952472,
+        "recall": 0.7525025888850535,
+        "f1-score": 0.791863421721758,
+        "support": 2897.0
+      },
+      "situp": {
+        "precision": 0.7014925373134329,
+        "recall": 0.6360902255639098,
+        "f1-score": 0.667192429022082,
+        "support": 1995.0
+      },
+      "squat": {
+        "precision": 0.6014304291287387,
+        "recall": 0.6275440976933514,
+        "f1-score": 0.6142098273572377,
+        "support": 1474.0
+      }
+    }
+  },
+  "Gradient Boosting": {
+    "file_size_kb": 729.9,
+    "accuracy": 0.7288,
+    "weighted_precision": 0.7493,
+    "weighted_recall": 0.7288,
+    "weighted_f1": 0.7352,
+    "macro_f1": 0.7066,
+    "latency_ms": 1.23,
+    "inference_fps": 812.8,
+    "confusion_matrix": [
+      [
+        2998,
+        525,
+        2,
+        34,
+        162
+      ],
+      [
+        207,
+        1422,
+        80,
+        148,
+        158
+      ],
+      [
+        2,
+        238,
+        2068,
+        431,
+        158
+      ],
+      [
+        10,
+        165,
+        327,
+        1365,
+        128
+      ],
+      [
+        82,
+        245,
+        10,
+        170,
+        967
+      ]
+    ],
+    "per_class_metrics": {
+      "jumping_jack": {
+        "precision": 0.9087602303728403,
+        "recall": 0.805697393173878,
+        "f1-score": 0.8541310541310542,
+        "support": 3721.0
+      },
+      "pull_up": {
+        "precision": 0.5479768786127167,
+        "recall": 0.7057071960297767,
+        "f1-score": 0.6169197396963124,
+        "support": 2015.0
+      },
+      "push_up": {
+        "precision": 0.8315239244069159,
+        "recall": 0.7138419054193994,
+        "f1-score": 0.7682020802377415,
+        "support": 2897.0
+      },
+      "situp": {
+        "precision": 0.6354748603351955,
+        "recall": 0.6842105263157895,
+        "f1-score": 0.6589427950760318,
+        "support": 1995.0
+      },
+      "squat": {
+        "precision": 0.6147488874761602,
+        "recall": 0.6560379918588873,
+        "f1-score": 0.6347226780439776,
+        "support": 1474.0
+      }
+    }
+  },
+  "Support Vector Machine (Linear)": {
+    "file_size_kb": 12.0,
+    "accuracy": 0.5689,
+    "weighted_precision": 0.5876,
+    "weighted_recall": 0.5689,
+    "weighted_f1": 0.5672,
+    "macro_f1": 0.5214,
+    "latency_ms": 4.6,
+    "inference_fps": 217.4,
+    "confusion_matrix": [
+      [
+        2096,
+        1466,
+        41,
+        32,
+        86
+      ],
+      [
+        353,
+        1210,
+        73,
+        201,
+        178
+      ],
+      [
+        0,
+        356,
+        2144,
+        362,
+        35
+      ],
+      [
+        179,
+        37,
+        361,
+        1236,
+        182
+      ],
+      [
+        535,
+        416,
+        5,
+        319,
+        199
+      ]
+    ],
+    "per_class_metrics": {
+      "jumping_jack": {
+        "precision": 0.6626620297186215,
+        "recall": 0.5632894383230315,
+        "f1-score": 0.6089482858803021,
+        "support": 3721.0
+      },
+      "pull_up": {
+        "precision": 0.3472022955523673,
+        "recall": 0.6004962779156328,
+        "f1-score": 0.44,
+        "support": 2015.0
+      },
+      "push_up": {
+        "precision": 0.8170731707317073,
+        "recall": 0.7400759406282361,
+        "f1-score": 0.776670892954175,
+        "support": 2897.0
+      },
+      "situp": {
+        "precision": 0.5748837209302325,
+        "recall": 0.6195488721804512,
+        "f1-score": 0.5963811821471653,
+        "support": 1995.0
+      },
+      "squat": {
+        "precision": 0.2926470588235294,
+        "recall": 0.1350067842605156,
+        "f1-score": 0.18477251624883936,
+        "support": 1474.0
+      }
+    }
+  }
+}

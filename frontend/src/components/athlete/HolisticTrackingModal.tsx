@@ -3,12 +3,14 @@ import { api } from '../../services/api';
 import { Moon, Utensils, HeartPulse, X, Check } from 'lucide-react';
 
 interface Props {
-  type: 'sleep' | 'nutrition' | 'recovery';
+  type?: 'sleep' | 'nutrition' | 'recovery';
+  initialTab?: 'sleep' | 'nutrition' | 'recovery';
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const HolisticTrackingModal: React.FC<Props> = ({ type, onClose, onSuccess }) => {
+export const HolisticTrackingModal: React.FC<Props> = ({ type = 'sleep', initialTab, onClose, onSuccess }) => {
+  const activeType = initialTab || type;
   const todayStr = new Date().toISOString().split('T')[0];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export const HolisticTrackingModal: React.FC<Props> = ({ type, onClose, onSucces
     setLoading(true);
     setError(null);
     try {
-      if (type === 'sleep') {
+      if (activeType === 'sleep') {
         await api.logSleep({
           log_date: todayStr,
           bedtime,
@@ -46,7 +48,7 @@ export const HolisticTrackingModal: React.FC<Props> = ({ type, onClose, onSucces
           total_sleep_minutes: Math.round(sleepHours * 60),
           sleep_quality_score: sleepQuality
         });
-      } else if (type === 'nutrition') {
+      } else if (activeType === 'nutrition') {
         await api.logNutrition({
           log_date: todayStr,
           meal_type: mealType,
@@ -57,7 +59,7 @@ export const HolisticTrackingModal: React.FC<Props> = ({ type, onClose, onSucces
           fats_g: fats,
           water_ml: water
         });
-      } else if (type === 'recovery') {
+      } else if (activeType === 'recovery') {
         await api.logRecovery({
           log_date: todayStr,
           soreness_level: soreness,
@@ -92,7 +94,7 @@ export const HolisticTrackingModal: React.FC<Props> = ({ type, onClose, onSucces
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {type === 'sleep' && (
+          {activeType === 'sleep' && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -142,7 +144,7 @@ export const HolisticTrackingModal: React.FC<Props> = ({ type, onClose, onSucces
             </>
           )}
 
-          {type === 'nutrition' && (
+          {activeType === 'nutrition' && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -212,7 +214,7 @@ export const HolisticTrackingModal: React.FC<Props> = ({ type, onClose, onSucces
             </>
           )}
 
-          {type === 'recovery' && (
+          {activeType === 'recovery' && (
             <>
               <div>
                 <label className="text-xs text-slate-400 block mb-1">Muscle Soreness: {soreness}/10</label>

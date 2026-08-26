@@ -17,18 +17,32 @@ DATASET_REGISTRY_CATALOG: List[Dict[str, Any]] = [
         "limitations": "Synthetic kinematic simulation calibrated against empirical young athlete biomechanics; optimal for algorithm benchmarking."
     },
     {
-        "dataset_name": "Kaggle Fitness Exercise Pose Classification",
-        "slug": "kaggle_fitness_pose",
+        "dataset_name": "Kaggle 3D Pose Landmarks & Sequences",
+        "slug": "kaggle_3d_pose_landmarks",
         "source": "Kaggle",
-        "url": "https://www.kaggle.com/datasets/niharika41298/yoga-poses-dataset",
-        "license": "CC0: Public Domain",
-        "sample_count": 1800,
-        "subject_count": 35,
-        "exercises_covered": "Squats, Push-ups, Planks, Lunges",
-        "labels_description": "Static frame exercise category labels.",
-        "has_technique_labels": False,
+        "url": "https://www.kaggle.com/datasets",
+        "license": "CC-BY-4.0 / Public Domain",
+        "sample_count": 83922,
+        "subject_count": 448,
+        "exercises_covered": "Squat, Push-up, Pull-up, Jumping Jack, Situp",
+        "labels_description": "Full 33 3D coordinate landmarks (X, Y, Z), joint angles, and video-level exercise labels.",
+        "has_technique_labels": True,
         "legal_research_use": True,
-        "limitations": "Contains exercise type labels only; lacks repetition phase segmentation and technique error annotations."
+        "limitations": "Comprehensive frame-by-frame 3D joint landmarks; ideal for temporal sequence modeling."
+    },
+    {
+        "dataset_name": "Kaggle Exercise Joint Angles Dataset",
+        "slug": "kaggle_exercise_angles",
+        "source": "Kaggle",
+        "url": "https://www.kaggle.com/datasets",
+        "license": "CC0: Public Domain",
+        "sample_count": 31035,
+        "subject_count": 150,
+        "exercises_covered": "Push Ups, Pull ups, Jumping Jacks, Squats, Russian twists",
+        "labels_description": "Frame-by-frame joint angles (Shoulder, Elbow, Hip, Knee, Ankle) with ground inclination.",
+        "has_technique_labels": True,
+        "legal_research_use": True,
+        "limitations": "Provides joint flexion angles across multiple exercise execution variations."
     },
     {
         "dataset_name": "RepCount Exercise Repetition Dataset",

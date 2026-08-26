@@ -1,335 +1,215 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { HolisticSummary, AssignedWorkout } from '../../types';
+import { Exercise, WorkoutSession, AssignedExercise } from '../../types';
 import {
-  Camera, UploadCloud, Dumbbell, Award, Moon, Utensils, HeartPulse,
-  TrendingUp, CheckCircle2, ChevronRight, AlertCircle, Plus, Calendar
+  Play, Upload, Flame, Moon, Utensils, Award, TrendingUp,
+  ChevronRight, ArrowRight, ShieldCheck, Dumbbell, Clock, Activity
 } from 'lucide-react';
 import { HolisticTrackingModal } from './HolisticTrackingModal';
 
 interface Props {
-  onStartLiveCamera: (exerciseSlug: string) => void;
+  onStartLiveCamera: (exerciseSlug?: string) => void;
   onStartVideoUpload: () => void;
 }
 
 export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVideoUpload }) => {
-  const [dashboardData, setDashboardData] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showHolisticModal, setShowHolisticModal] = useState<'sleep' | 'nutrition' | 'recovery' | null>(null);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [assignedWorkouts, setAssignedWorkouts] = useState<AssignedExercise[]>([]);
+  const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
+  const [readiness, setReadiness] = useState<any>(null);
+  const [showHolisticModal, setShowHolisticModal] = useState(false);
+  const [holisticType, setHolisticType] = useState<'sleep' | 'nutrition' | 'recovery'>('sleep');
 
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await api.getAthleteDashboard();
-        setDashboardData(data);
+        const [exData, assignData, sessData, readData] = await Promise.all([
+          api.getExercises(),
+          api.getAssignedExercises(1),
+          api.getAthleteSessions(1),
+          api.getRecoveryReadiness()
+        ]);
+        setExercises(exData);
+        setAssignedWorkouts(assignData);
+        setRecentSessions(sessData);
+        setReadiness(readData);
       } catch (e) {
-        console.error('Failed to load athlete dashboard:', e);
-      } finally {
-        setLoading(false);
+        console.error('Failed to load athlete dashboard data:', e);
       }
     }
     loadData();
   }, []);
 
-  const refreshData = async () => {
-    try {
-      const data = await api.getAthleteDashboard();
-      setDashboardData(data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const defaultExercises = [
+    { slug: 'squat', name: 'Barbell / Bodyweight Squat', target: 'Quadriceps, Glutes, Core', ideal_rom: 90 },
+    { slug: 'pushup', name: 'Standard Push-up', target: 'Pectorals, Triceps, Anterior Deltoid', ideal_rom: 90 },
+    { slug: 'bicep_curl', name: 'Dumbbell Bicep Curl', target: 'Biceps Brachii, Brachialis', ideal_rom: 120 },
+    { slug: 'shoulder_press', name: 'Overhead Shoulder Press', target: 'Deltoids, Trapezius, Triceps', ideal_rom: 165 },
+  ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  const holistic = dashboardData?.holistic;
-  const stats = dashboardData?.stats;
+  const displayExercises = exercises.length > 0 ? exercises : defaultExercises;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 py-4 sm:py-6 pb-24 space-y-6 animate-in fade-in">
       
-      {/* Welcome Banner */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 flex flex-wrap items-center justify-between gap-6 shadow-2xl">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-bold">
-              Subject ID: {dashboardData?.anonymized_subject_id || 'SUBJ_001'}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">{dashboardData?.sport}</span>
+      {/* 1. Daily Readiness & Start Training Hero Banner */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-surface-card border border-surface-border relative overflow-hidden shadow-xl">
+        <div className="max-w-md space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold">
+            <Flame className="w-3.5 h-3.5 fill-current" />
+            <span>Readiness: {readiness?.readiness_score || 88}% • Prime Condition</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-1.5">
-            Welcome back, <span className="text-emerald-400">{dashboardData?.athlete_name || 'Athlete'}</span>
+
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Ready to train with real-time AI technique feedback?
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-            Real-time biomechanical exercise feedback, repetition analysis, and holistic wellness tracking.
+
+          <p className="text-xs sm:text-sm text-zinc-400">
+            Position your phone, start the camera, and receive instant biomechanical form coaching.
           </p>
-        </div>
 
-        {/* Quick Launch Buttons */}
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => onStartLiveCamera('squat')}
-            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-5 py-3 rounded-2xl text-sm shadow-xl shadow-emerald-500/20 transition-all"
-          >
-            <Camera className="w-4 h-4" />
-            Live Camera Studio
-          </button>
-          <button
-            onClick={onStartVideoUpload}
-            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 font-bold px-4 py-3 rounded-2xl text-sm transition-all"
-          >
-            <UploadCloud className="w-4 h-4 text-cyan-400" />
-            Upload Video
-          </button>
-        </div>
-      </div>
+          <div className="pt-3 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => onStartLiveCamera('squat')}
+              className="px-6 py-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black text-xs sm:text-sm font-black transition-all shadow-lg shadow-brand-500/20 flex items-center gap-2 active:scale-95"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Start Camera Workout</span>
+            </button>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-panel p-5 rounded-3xl border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase font-mono">Avg Technique</span>
-            <Award className="w-4 h-4 text-emerald-400" />
+            <button
+              onClick={onStartVideoUpload}
+              className="px-4 py-3 rounded-2xl bg-surface-subtle hover:bg-surface-cardHover border border-surface-border text-zinc-300 text-xs sm:text-sm font-semibold transition-all flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Upload Video</span>
+            </button>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white font-mono">{stats?.average_technique_score || 82.5}</span>
-            <span className="text-xs text-slate-400 font-mono">/ 100</span>
-          </div>
-          <p className="text-[11px] text-emerald-400 mt-1 font-semibold">Tier: Good Form Consistency</p>
-        </div>
-
-        <div className="glass-panel p-5 rounded-3xl border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase font-mono">Workouts</span>
-            <Dumbbell className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white font-mono">{stats?.total_workouts || 1}</span>
-            <span className="text-xs text-slate-400 font-mono">completed</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Sessions analyzed</p>
-        </div>
-
-        <div className="glass-panel p-5 rounded-3xl border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase font-mono">Reps Segmented</span>
-            <TrendingUp className="w-4 h-4 text-purple-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white font-mono">{stats?.total_reps_analyzed || 10}</span>
-            <span className="text-xs text-slate-400 font-mono">reps</span>
-          </div>
-          <p className="text-[11px] text-purple-400 mt-1">Full 3D Kinematics</p>
-        </div>
-
-        <div className="glass-panel p-5 rounded-3xl border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase font-mono">Recovery Readiness</span>
-            <HeartPulse className="w-4 h-4 text-rose-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white font-mono">{holistic?.recovery?.latest_readiness || 86.5}</span>
-            <span className="text-xs text-slate-400 font-mono">/ 100</span>
-          </div>
-          <p className="text-[11px] text-emerald-400 mt-1 font-semibold">High Training Readiness</p>
         </div>
       </div>
 
-      {/* Main Content Layout (2 Columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* 2. Holistic Quick Summary (Sleep, Nutrition, Recovery) */}
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         
-        {/* Left Column: Assigned Exercises & Recent Sessions (2 cols) */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Assigned Exercises from Coach */}
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Dumbbell className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-base font-bold text-white">Assigned Coach Workouts</h3>
-              </div>
-              <span className="text-xs text-slate-400 font-mono">
-                {dashboardData?.assigned_workouts?.length || 0} active
-              </span>
-            </div>
-
-            {dashboardData?.assigned_workouts && dashboardData.assigned_workouts.length > 0 ? (
-              <div className="space-y-3">
-                {dashboardData.assigned_workouts.map((aw: any) => (
-                  <div
-                    key={aw.id}
-                    className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-wrap items-center justify-between gap-4 hover:border-emerald-500/40 transition-colors"
-                  >
-                    <div>
-                      <h4 className="font-bold text-sm text-white">{aw.exercise_name}</h4>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Target: <span className="text-slate-200 font-mono">{aw.target_sets} sets × {aw.target_reps} reps</span> • Tempo: <span className="text-slate-200 font-mono">{aw.target_tempo}</span>
-                      </p>
-                      {aw.notes && (
-                        <p className="text-[11px] text-emerald-400/90 mt-1 italic">"{aw.notes}"</p>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => onStartLiveCamera(aw.exercise_name.toLowerCase().replace(' ', '_'))}
-                      className="flex items-center gap-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    >
-                      <span>Start Session</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 py-4 text-center">No assigned workouts from coach currently.</p>
-            )}
+        <button
+          onClick={() => {
+            setHolisticType('sleep');
+            setShowHolisticModal(true);
+          }}
+          className="p-3.5 sm:p-4 rounded-2xl bg-surface-card border border-surface-border hover:border-surface-borderLight text-left transition-all active:scale-[0.99] group"
+        >
+          <div className="flex items-center justify-between">
+            <Moon className="w-4 h-4 text-indigo-400" />
+            <span className="text-[10px] text-zinc-500 font-mono">Log</span>
           </div>
+          <p className="text-xs text-zinc-400 mt-2 font-medium">Sleep</p>
+          <p className="text-base sm:text-lg font-bold text-white mt-0.5">8h 15m</p>
+          <span className="text-[10px] text-status-good font-semibold">92% Quality</span>
+        </button>
 
-          {/* Recent Workout Sessions */}
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800">
-            <h3 className="text-base font-bold text-white mb-4">Recent Technique Sessions</h3>
-            
-            {dashboardData?.recent_sessions && dashboardData.recent_sessions.length > 0 ? (
-              <div className="space-y-2.5">
-                {dashboardData.recent_sessions.map((s: any) => (
-                  <div
-                    key={s.id}
-                    className="p-3.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-emerald-400">
-                        {s.exercise_name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-bold text-white text-sm">{s.exercise_name}</p>
-                        <p className="text-slate-400">{s.created_at} • {s.total_reps} Reps</p>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="font-mono font-extrabold text-sm text-white">{s.overall_score} / 100</p>
-                      <span className="text-[10px] text-emerald-400 font-semibold uppercase">{s.session_type}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 py-4 text-center">No sessions recorded yet. Start your first workout!</p>
-            )}
+        <button
+          onClick={() => {
+            setHolisticType('nutrition');
+            setShowHolisticModal(true);
+          }}
+          className="p-3.5 sm:p-4 rounded-2xl bg-surface-card border border-surface-border hover:border-surface-borderLight text-left transition-all active:scale-[0.99] group"
+        >
+          <div className="flex items-center justify-between">
+            <Utensils className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] text-zinc-500 font-mono">Log</span>
           </div>
+          <p className="text-xs text-zinc-400 mt-2 font-medium">Protein</p>
+          <p className="text-base sm:text-lg font-bold text-white mt-0.5">140g</p>
+          <span className="text-[10px] text-zinc-400 font-medium">Target: 150g</span>
+        </button>
 
-        </div>
-
-        {/* Right Column: Holistic Wellness (Sleep, Nutrition, Recovery) */}
-        <div className="space-y-6">
-          
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white">Holistic Wellness</h3>
-              <span className="text-[11px] text-slate-400">7-Day Trends</span>
-            </div>
-
-            {/* Sleep Summary */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                  <Moon className="w-4 h-4 text-indigo-400" />
-                  <span>Sleep ({holistic?.sleep?.average_hours || 8.5} hrs avg)</span>
-                </div>
-                <button
-                  onClick={() => setShowHolisticModal('sleep')}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Log
-                </button>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-400">Quality Score:</span>
-                  <span className="text-indigo-300 font-mono font-bold">{holistic?.sleep?.average_quality_score || 85}%</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Schedule Consistency:</span>
-                  <span className="text-indigo-300 font-mono font-bold">{holistic?.sleep?.consistency_score || 88}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Nutrition Summary */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                  <Utensils className="w-4 h-4 text-amber-400" />
-                  <span>Nutrition Today</span>
-                </div>
-                <button
-                  onClick={() => setShowHolisticModal('nutrition')}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Log
-                </button>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Calories:</span>
-                  <span className="text-white font-mono font-bold">{holistic?.nutrition?.total_calories || 720} kcal</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Macros (P / C / F):</span>
-                  <span className="text-amber-300 font-mono font-semibold">
-                    {holistic?.nutrition?.protein_g || 48}g / {holistic?.nutrition?.carbs_g || 85}g / {holistic?.nutrition?.fats_g || 18}g
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recovery Readiness */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                  <HeartPulse className="w-4 h-4 text-rose-400" />
-                  <span>Readiness & Fatigue</span>
-                </div>
-                <button
-                  onClick={() => setShowHolisticModal('recovery')}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Log
-                </button>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-400">Readiness Index:</span>
-                  <span className="text-emerald-400 font-mono font-bold">{holistic?.recovery?.latest_readiness || 86.5} / 100</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Soreness / Fatigue:</span>
-                  <span className="text-slate-200 font-mono">{holistic?.recovery?.latest_soreness || 3}/10 • {holistic?.recovery?.latest_fatigue || 2}/10</span>
-                </div>
-              </div>
-            </div>
-
+        <button
+          onClick={() => {
+            setHolisticType('recovery');
+            setShowHolisticModal(true);
+          }}
+          className="p-3.5 sm:p-4 rounded-2xl bg-surface-card border border-surface-border hover:border-surface-borderLight text-left transition-all active:scale-[0.99] group"
+        >
+          <div className="flex items-center justify-between">
+            <Activity className="w-4 h-4 text-brand-400" />
+            <span className="text-[10px] text-zinc-500 font-mono">Log</span>
           </div>
-
-        </div>
+          <p className="text-xs text-zinc-400 mt-2 font-medium">Soreness</p>
+          <p className="text-base sm:text-lg font-bold text-white mt-0.5">Low (2/10)</p>
+          <span className="text-[10px] text-brand-400 font-medium">Optimal</span>
+        </button>
 
       </div>
 
-      {/* Holistic Log Modals */}
+      {/* 3. Assigned Workouts from Coach */}
+      {assignedWorkouts.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-sm font-bold text-white">Prescribed by Coach</h3>
+            <span className="text-xs text-zinc-500">{assignedWorkouts.length} Assigned</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {assignedWorkouts.map((w) => (
+              <div
+                key={w.id}
+                className="p-4 rounded-2xl bg-surface-card border border-surface-border flex items-center justify-between gap-4"
+              >
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-white capitalize">{w.exercise_name}</h4>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    {w.target_sets} sets × {w.target_reps} reps • Tempo {w.target_tempo}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onStartLiveCamera(w.exercise_slug || 'squat')}
+                  className="px-3.5 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold transition-all active:scale-95"
+                >
+                  Start
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Supported Exercises Studio Cards */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-sm font-bold text-white">Exercise Studio Library</h3>
+          <span className="text-xs text-zinc-500">4 Movements</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {displayExercises.map((ex: any) => (
+            <div
+              key={ex.slug}
+              onClick={() => onStartLiveCamera(ex.slug)}
+              className="p-4 rounded-2xl bg-surface-card border border-surface-border hover:border-surface-borderLight cursor-pointer transition-all active:scale-[0.99] flex items-center justify-between gap-4 group"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Dumbbell className="w-4 h-4 text-brand-400" />
+                  <h4 className="text-xs sm:text-sm font-bold text-white capitalize">{ex.name}</h4>
+                </div>
+                <p className="text-[11px] text-zinc-400 line-clamp-1">{ex.target_muscles || ex.target}</p>
+                <span className="text-[10px] text-zinc-500 font-mono block">Target ROM: {ex.ideal_rom_degrees || ex.ideal_rom}°</span>
+              </div>
+
+              <div className="w-8 h-8 rounded-xl bg-surface-subtle group-hover:bg-brand-500 group-hover:text-black flex items-center justify-center text-zinc-400 transition-all shrink-0">
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Holistic Modal */}
       {showHolisticModal && (
         <HolisticTrackingModal
-          type={showHolisticModal}
-          onClose={() => setShowHolisticModal(null)}
-          onSuccess={() => {
-            setShowHolisticModal(null);
-            refreshData();
-          }}
+          initialTab={holisticType}
+          onClose={() => setShowHolisticModal(false)}
+          onSuccess={() => setShowHolisticModal(false)}
         />
       )}
 

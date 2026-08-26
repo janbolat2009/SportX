@@ -24,6 +24,15 @@ wheels/
 *.sqlite3
 sportx.db
 
+# Large Dataset Files (Keep scripts and evaluation reports in git)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/features/*.csv
+backend/app/ml/datasets/*.csv
+*.csv
+
 # Node / React
 node_modules/
 frontend/node_modules/
@@ -33,6 +42,7 @@ frontend/dist/
 
 # Environment & IDE
 .env
+.env.local
 .venv
 venv/
 ENV/

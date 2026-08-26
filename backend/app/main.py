@@ -156,16 +156,28 @@ def seed_initial_data():
                     latency_fps=1850.0
                 ),
                 ModelVersion(
-                    model_name="Temporal 1D-CNN Sequence Classifier",
+                    model_name="Gradient Boosting Biomechanics Classifier",
+                    model_type="GRADIENT_BOOSTING",
+                    version_tag="sportx-gb-v1.0",
+                    description="Gradient Boosting ensemble on 24 biomechanical & kinematic features trained on Kaggle 3D pose landmarks.",
+                    feature_version="pose-kinematics-v1.0",
+                    trained_on_dataset="Kaggle 3D Pose Landmarks & Sequences",
+                    test_accuracy=0.729,
+                    test_f1=0.735,
+                    test_mae=2.1,
+                    latency_fps=813.0
+                ),
+                ModelVersion(
+                    model_name="Temporal ExtraTrees Sequence Classifier",
                     model_type="TEMPORAL_CNN",
-                    version_tag="sportx-temporal-cnn-v1.0",
-                    description="1D Temporal Convolutional Neural Network operating on sequential pose feature windows.",
+                    version_tag="sportx-temporal-v1.0",
+                    description="Temporal sequence classifier operating on 30-frame movement sequence sliding windows.",
                     feature_version="pose-timeseries-v1.0",
-                    trained_on_dataset="SportX Biomechanical Kinematic Benchmark",
-                    test_accuracy=0.948,
-                    test_f1=0.946,
-                    test_mae=1.9,
-                    latency_fps=780.0
+                    trained_on_dataset="Kaggle 3D Pose Landmarks & Sequences",
+                    test_accuracy=0.788,
+                    test_f1=0.787,
+                    test_mae=1.8,
+                    latency_fps=950.0
                 )
             ]
             db.add_all(models_seed)

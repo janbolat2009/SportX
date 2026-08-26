@@ -3,44 +3,46 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
   body {
-    @apply bg-[#0b0f19] text-slate-100 font-sans;
+    @apply bg-surface-bg text-zinc-100 antialiased selection:bg-brand-500 selection:text-black;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Custom Sports Tech Glowing effects & Scrollbar */
+/* Clean, modern scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0b0f19;
+  background: #09090b;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1f2937;
-  border-radius: 3px;
+  background: #27272a;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: #3f3f46;
 }
 
-.glass-panel {
-  background: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Subtle, functional UI utilities without artificial glow */
+.card-base {
+  @apply bg-surface-card border border-surface-border rounded-2xl transition-colors;
 }
 
-.glow-emerald {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.3);
+.card-interactive {
+  @apply bg-surface-card border border-surface-border rounded-2xl hover:border-surface-borderLight active:scale-[0.99] transition-all;
 }
 
-.glow-cyan {
-  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.3);
-}
-
-.glow-rose {
-  box-shadow: 0 0 25px -5px rgba(244, 63, 94, 0.3);
+/* Mobile safe area spacing */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 64px);
 }

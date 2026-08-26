@@ -9,10 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/pose": "^0.5.1675469404",
+    "@mediapipe/tasks-vision": "^1.0.1",
+    "@supabase/supabase-js": "^2.112.4",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.359.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.359.0",
-    "clsx": "^2.1.0",
     "tailwind-merge": "^2.2.1"
   },
   "devDependencies": {

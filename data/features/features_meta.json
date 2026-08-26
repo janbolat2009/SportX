@@ -1,0 +1,39 @@
+{
+  "total_samples": 83922,
+  "total_videos": 448,
+  "feature_count": 25,
+  "feature_names": [
+    "r_knee_angle",
+    "l_knee_angle",
+    "avg_knee_angle",
+    "r_elbow_angle",
+    "l_elbow_angle",
+    "avg_elbow_angle",
+    "r_shoulder_angle",
+    "l_shoulder_angle",
+    "knee_spread_angle",
+    "torso_lean_angle",
+    "knee_symmetry",
+    "elbow_symmetry",
+    "shoulder_symmetry",
+    "r_knee_vel",
+    "l_knee_vel",
+    "r_elbow_vel",
+    "l_elbow_vel",
+    "r_knee_acc",
+    "l_knee_acc",
+    "r_elbow_acc",
+    "l_elbow_acc",
+    "knee_dist",
+    "hip_dist",
+    "knee_to_hip_ratio",
+    "ankle_to_hip_ratio"
+  ],
+  "class_distribution": {
+    "pull_up": 19172,
+    "jumping_jack": 18897,
+    "push_up": 17360,
+    "situp": 16676,
+    "squat": 11817
+  }
+}

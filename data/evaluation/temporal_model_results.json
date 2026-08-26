@@ -1,0 +1,54 @@
+{
+  "model_name": "Temporal_Sequence_Classifier",
+  "window_size": 30,
+  "step_size": 10,
+  "n_features": 125,
+  "test_accuracy": 0.7875,
+  "test_precision": 0.8072,
+  "test_recall": 0.7875,
+  "test_f1": 0.7871,
+  "classes": [
+    "jumping_jack",
+    "pull_up",
+    "push_up",
+    "situp",
+    "squat"
+  ],
+  "confusion_matrix": [
+    [
+      275,
+      52,
+      4,
+      3,
+      20
+    ],
+    [
+      0,
+      229,
+      4,
+      10,
+      10
+    ],
+    [
+      0,
+      13,
+      206,
+      6,
+      1
+    ],
+    [
+      0,
+      2,
+      31,
+      203,
+      15
+    ],
+    [
+      18,
+      71,
+      4,
+      29,
+      173
+    ]
+  ]
+}

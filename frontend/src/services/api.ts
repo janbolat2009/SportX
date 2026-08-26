@@ -1,7 +1,7 @@
 import {
   User, Exercise, WorkoutSession, LiveAnalysisFrameResult, AthleteProfile,
   SleepRecord, NutritionRecord, RecoveryRecord, HolisticSummary, CoachRosterAthlete,
-  NotificationItem, DatasetItem, ModelBenchmarkResult, HumanAiAgreementStats
+  NotificationItem, DatasetItem, ModelBenchmarkResult, HumanAiAgreementStats, AssignedWorkout
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -150,6 +150,36 @@ export const api = {
       headers: getHeaders()
     });
     return res.json();
+  },
+
+  async getAssignedExercises(athleteId = 1): Promise<AssignedWorkout[]> {
+    try {
+      const res = await fetch(`${API_BASE}/athletes/${athleteId}/assigned-exercises`, {
+        headers: getHeaders()
+      });
+      if (res.ok) return res.json();
+    } catch {}
+    return [];
+  },
+
+  async getAthleteSessions(athleteId = 1): Promise<WorkoutSession[]> {
+    try {
+      const res = await fetch(`${API_BASE}/athletes/${athleteId}/sessions`, {
+        headers: getHeaders()
+      });
+      if (res.ok) return res.json();
+    } catch {}
+    return [];
+  },
+
+  async getRecoveryReadiness(): Promise<{ readiness_score: number; training_recommendation: string; recovery_status: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/recovery/readiness`, {
+        headers: getHeaders()
+      });
+      if (res.ok) return res.json();
+    } catch {}
+    return { readiness_score: 88, training_recommendation: 'Optimal condition for training', recovery_status: 'Prime' };
   },
 
   // Holistic Tracking
