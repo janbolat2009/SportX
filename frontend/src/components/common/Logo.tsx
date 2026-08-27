@@ -49,7 +49,7 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true, classN
 
       {showText && (
         <div className="flex items-center">
-          <span className={`${textStyles} text-white`}>Trainee</span>
+          <span className={`${textStyles} text-white`}>SportX</span>
           <span className="text-[10px] uppercase font-mono tracking-widest text-brand-400 ml-1.5 px-1.5 py-0.5 rounded bg-brand-500/10 border border-brand-500/20 font-bold">
             AI
           </span>

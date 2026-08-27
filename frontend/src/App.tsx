@@ -119,7 +119,7 @@ const MainAppContent: React.FC = () => {
       {!isCameraStudioActive && (
         <footer className="hidden md:block border-t border-zinc-800 bg-zinc-950 py-5 px-4">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
-            <p>© 2026 Trainee AI Biomechanical Platform. Engineered for young athletes & coaches.</p>
+            <p>© 2026 SportX AI Biomechanical Platform. Engineered for young athletes & coaches.</p>
             <p className="text-[11px] text-zinc-500">
               <span className="text-brand-400 font-semibold">Principle:</span> Objective kinematic technique analysis without medical injury diagnoses.
             </p>

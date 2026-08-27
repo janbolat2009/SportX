@@ -7,12 +7,9 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Exercise, Repetition } from '../../types';
 import { PostWorkoutReport } from '../athlete/PostWorkoutReport';
 import {
-  Camera as CameraIcon, Play, Square, RotateCcw, ArrowLeft,
-  CheckCircle2, AlertTriangle, Activity, Volume2, VolumeX,
-  ShieldCheck, SwitchCamera, Loader2, Sparkles, HelpCircle, RefreshCw
+  Play, Square, ArrowLeft, CheckCircle2, AlertTriangle,
+  Volume2, VolumeX, SwitchCamera, Loader2, Sparkles, RefreshCw
 } from 'lucide-react';
-import { Pose, Results as PoseResults } from '@mediapipe/pose';
-import { Camera } from '@mediapipe/camera_utils';
 
 type CameraState =
   | 'idle'
@@ -24,6 +21,7 @@ type CameraState =
   | 'camera_unavailable'
   | 'insecure_context'
   | 'browser_unsupported'
+  | 'model_error'
   | 'stopped';
 
 interface Props {
@@ -31,6 +29,46 @@ interface Props {
   onBack: () => void;
   onSessionComplete?: (session: any) => void;
 }
+
+// Resilient loader for MediaPipe Pose & Camera
+const getMediaPipePoseConstructors = async (): Promise<{ PoseConstructor: any; CameraConstructor: any }> => {
+  if (typeof window === 'undefined') {
+    throw new Error('Window is undefined');
+  }
+
+  const loadScript = (src: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = src;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+      document.head.appendChild(script);
+    });
+  };
+
+  // Ensure scripts are loaded
+  if (!(window as any).Pose) {
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js');
+  }
+  if (!(window as any).Camera) {
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
+  }
+
+  const PoseConstructor = (window as any).Pose;
+  const CameraConstructor = (window as any).Camera;
+
+  if (!PoseConstructor) {
+    throw new Error('MediaPipe Pose constructor is unavailable.');
+  }
+
+  return { PoseConstructor, CameraConstructor };
+};
 
 export const LiveCameraStudio: React.FC<Props> = ({
   initialExerciseSlug = 'squat',
@@ -68,10 +106,11 @@ export const LiveCameraStudio: React.FC<Props> = ({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const cameraInstanceRef = useRef<Camera | null>(null);
-  const poseInstanceRef = useRef<Pose | null>(null);
+  const cameraInstanceRef = useRef<any | null>(null);
+  const poseInstanceRef = useRef<any | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isRecordingRef = useRef(false);
+  const animFrameIdRef = useRef<number | null>(null);
 
   const stateMachineRef = useRef<{
     phase: string;
@@ -146,7 +185,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
     return angle;
   };
 
-  const onPoseResults = useCallback((results: PoseResults) => {
+  const onPoseResults = useCallback((results: any) => {
     if (!canvasRef.current || !videoRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -158,7 +197,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
     if (!results.poseLandmarks || results.poseLandmarks.length < 33) {
       setLatestLandmarks(null);
       if (isRecordingRef.current) {
-        setActiveCue('Step back so your full body is visible');
+        setActiveCue('Move farther from camera so full body is visible');
         setActiveSeverity('attention');
       }
       ctx.restore();
@@ -197,20 +236,16 @@ export const LiveCameraStudio: React.FC<Props> = ({
     drawLine(12, 24, '#38bdf8', 3);
     drawLine(23, 24, '#38bdf8', 3);
 
-    // Left arm
+    // Arms
     drawLine(11, 13, '#10b981', 3.5);
     drawLine(13, 15, '#10b981', 3.5);
-
-    // Right arm
     drawLine(12, 14, '#10b981', 3.5);
     drawLine(14, 16, '#10b981', 3.5);
 
-    // Left leg
+    // Legs
     drawLine(23, 25, '#10b981', 3.5);
     drawLine(25, 27, '#10b981', 3.5);
     drawLine(27, 31, '#10b981', 3.5);
-
-    // Right leg
     drawLine(24, 26, '#10b981', 3.5);
     drawLine(26, 28, '#10b981', 3.5);
     drawLine(28, 32, '#10b981', 3.5);
@@ -407,6 +442,10 @@ export const LiveCameraStudio: React.FC<Props> = ({
   }, [selectedSlug]);
 
   const stopCamera = () => {
+    if (animFrameIdRef.current) {
+      cancelAnimationFrame(animFrameIdRef.current);
+      animFrameIdRef.current = null;
+    }
     if (cameraInstanceRef.current) {
       try {
         cameraInstanceRef.current.stop();
@@ -437,17 +476,12 @@ export const LiveCameraStudio: React.FC<Props> = ({
       return;
     }
 
-    // 2. Check secure context
-    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      console.warn('Note: Web cameras require HTTPS or localhost in modern browsers.');
-    }
-
     const mode = overrideFacingMode || facingMode;
 
     try {
       let stream: MediaStream;
 
-      // 3. Request real MediaStream via getUserMedia
+      // 2. Request real MediaStream via getUserMedia
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -458,31 +492,33 @@ export const LiveCameraStudio: React.FC<Props> = ({
           audio: false,
         });
       } catch (firstErr: any) {
-        // If ideal resolution fails on some mobile devices, fallback to generic video
-        console.warn('Retrying with relaxed video constraints:', firstErr);
+        console.warn('Retrying with standard video constraints:', firstErr);
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: mode },
           audio: false,
         });
       }
 
-      // Stream received successfully! Camera is available.
       streamRef.current = stream;
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('autoplay', 'true');
-        videoRef.current.setAttribute('muted', 'true');
+        const video = videoRef.current;
+        video.srcObject = stream;
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('autoplay', 'true');
+        video.setAttribute('muted', 'true');
 
-        await videoRef.current.play().catch((playErr) => {
+        await video.play().catch((playErr) => {
           console.warn('AutoPlay playback warning:', playErr);
         });
 
-        // 4. Initialize MediaPipe Pose Landmarker
-        const pose = new Pose({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+        // 3. Load & Initialize MediaPipe Pose Constructors
+        const { PoseConstructor, CameraConstructor } = await getMediaPipePoseConstructors();
+
+        const pose = new PoseConstructor({
+          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
         });
+
         pose.setOptions({
           modelComplexity: 1,
           smoothLandmarks: true,
@@ -490,35 +526,47 @@ export const LiveCameraStudio: React.FC<Props> = ({
           minDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
+
         pose.onResults(onPoseResults);
         poseInstanceRef.current = pose;
 
-        const camera = new Camera(videoRef.current, {
-          onFrame: async () => {
+        // 4. Connect Camera Loop
+        if (CameraConstructor) {
+          const camera = new CameraConstructor(video, {
+            onFrame: async () => {
+              if (videoRef.current && poseInstanceRef.current) {
+                await poseInstanceRef.current.send({ image: videoRef.current });
+              }
+            },
+            width: 1280,
+            height: 720,
+          });
+          await camera.start();
+          cameraInstanceRef.current = camera;
+        } else {
+          // Fallback animation frame loop
+          const renderLoop = async () => {
             if (videoRef.current && poseInstanceRef.current) {
               await poseInstanceRef.current.send({ image: videoRef.current });
             }
-          },
-          width: 1280,
-          height: 720,
-        });
-        await camera.start();
-        cameraInstanceRef.current = camera;
-        
-        // 5. Mark ready
+            animFrameIdRef.current = requestAnimationFrame(renderLoop);
+          };
+          renderLoop();
+        }
+
         setCameraState('ready');
       }
     } catch (err: any) {
-      console.warn('getUserMedia error:', err);
+      console.warn('Camera initialization error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setCameraState('permission_denied');
         setCameraError('Camera access was denied. Please allow camera permissions in your browser address bar.');
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         setCameraState('camera_in_use');
-        setCameraError('Camera is already in use by another tab or app. Please close other camera apps and retry.');
+        setCameraError('Camera is already in use by another application. Please close other camera tabs and retry.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setCameraState('camera_unavailable');
-        setCameraError('No camera device detected on your device.');
+        setCameraError('No camera hardware detected on your device.');
       } else {
         setCameraState('camera_unavailable');
         setCameraError(err.message || 'Unable to connect to camera.');
@@ -642,7 +690,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           };
         }
       } catch (err) {
-        console.warn('Supabase session persistence:', err);
+        console.warn('Supabase session save fallback:', err);
       }
     }
 
@@ -778,7 +826,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
               onClick={() => startCamera()}
               className="px-4 py-2 rounded-xl bg-zinc-800 text-white text-xs font-semibold"
             >
-              Refresh Stream
+              Retry Connection
             </button>
           </div>
         )}

@@ -188,7 +188,7 @@ export const AuthModal: React.FC<Props> = ({
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    Athlete / Trainee
+                    Athlete
                   </button>
                   <button
                     type="button"
@@ -199,7 +199,7 @@ export const AuthModal: React.FC<Props> = ({
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    Coach / Trainer
+                    Coach
                   </button>
                 </div>
               </div>
@@ -267,7 +267,7 @@ export const AuthModal: React.FC<Props> = ({
             ) : (
               <>
                 <span>
-                  {mode === 'login' && 'Log In to Trainee'}
+                  {mode === 'login' && 'Log In to SportX'}
                   {mode === 'signup' && 'Create Free Account'}
                   {mode === 'forgot' && 'Send Reset Link'}
                 </span>

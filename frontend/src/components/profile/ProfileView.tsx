@@ -177,7 +177,7 @@ export const ProfileView: React.FC = () => {
               {isResetMode
                 ? 'Reset Password'
                 : isLoginMode
-                ? 'Sign In to Trainee'
+                ? 'Sign In to SportX'
                 : 'Create Account'}
             </h2>
             <p className="text-xs text-zinc-400">
