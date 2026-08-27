@@ -1,24 +1,25 @@
 import React from 'react';
-import { Home, Dumbbell, TrendingUp, Users, User as UserIcon } from 'lucide-react';
-import { UserRole } from '../../types';
+import { Home, Dumbbell, TrendingUp, Users, User as UserIcon, LogIn } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface Props {
   currentTab: string;
   onSelectTab: (tab: string) => void;
-  userRole?: UserRole;
 }
 
-export const MobileNav: React.FC<Props> = ({ currentTab, onSelectTab, userRole = 'athlete' }) => {
+export const MobileNav: React.FC<Props> = ({ currentTab, onSelectTab }) => {
+  const { user, isAuthenticated } = useAuth();
+
   const tabs = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'train', label: 'Train', icon: Dumbbell, highlight: true },
     { id: 'progress', label: 'Progress', icon: TrendingUp },
-    { id: 'coach', label: userRole === 'coach' ? 'Roster' : 'Coach', icon: Users },
-    { id: 'profile', label: 'Profile', icon: UserIcon },
+    { id: 'coach', label: user?.role === 'coach' ? 'Roster' : 'Coach', icon: Users },
+    { id: 'profile', label: isAuthenticated ? 'Profile' : 'Log In', icon: isAuthenticated ? UserIcon : LogIn },
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-card/95 backdrop-blur-md border-t border-surface-border px-2 py-1.5 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 px-2 py-1.5 safe-area-bottom">
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -34,8 +35,8 @@ export const MobileNav: React.FC<Props> = ({ currentTab, onSelectTab, userRole =
               >
                 <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 ${
                   isActive
-                    ? 'bg-brand-500 text-black shadow-brand-500/25 ring-4 ring-surface-bg'
-                    : 'bg-brand-600 text-black hover:bg-brand-500 ring-4 ring-surface-bg'
+                    ? 'bg-brand-500 text-black shadow-brand-500/25 ring-4 ring-zinc-950'
+                    : 'bg-brand-600 text-black hover:bg-brand-500 ring-4 ring-zinc-950'
                 }`}>
                   <Icon className="w-6 h-6 stroke-[2.5]" />
                 </div>

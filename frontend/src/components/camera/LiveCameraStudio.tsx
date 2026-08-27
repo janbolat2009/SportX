@@ -9,7 +9,7 @@ import { PostWorkoutReport } from '../athlete/PostWorkoutReport';
 import {
   Camera as CameraIcon, Play, Square, RotateCcw, ArrowLeft,
   CheckCircle2, AlertTriangle, Activity, Volume2, VolumeX,
-  ShieldCheck, SwitchCamera, Loader2, Sparkles, HelpCircle, ChevronRight
+  ShieldCheck, SwitchCamera, Loader2, Sparkles, HelpCircle, RefreshCw
 } from 'lucide-react';
 import { Pose, Results as PoseResults } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
@@ -17,11 +17,13 @@ import { Camera } from '@mediapipe/camera_utils';
 type CameraState =
   | 'idle'
   | 'requesting_permission'
-  | 'permission_granted'
-  | 'permission_denied'
-  | 'camera_unavailable'
   | 'ready'
   | 'recording'
+  | 'permission_denied'
+  | 'camera_in_use'
+  | 'camera_unavailable'
+  | 'insecure_context'
+  | 'browser_unsupported'
   | 'stopped';
 
 interface Props {
@@ -43,17 +45,15 @@ export const LiveCameraStudio: React.FC<Props> = ({
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showSetupGuide, setShowSetupGuide] = useState(true);
 
   // Live Biomechanical Telemetry
   const [currentPhase, setCurrentPhase] = useState<string>('READY');
   const [repCount, setRepCount] = useState<number>(0);
-  const [instantScore, setInstantScore] = useState<number>(92);
   const [primaryAngle, setPrimaryAngle] = useState<number>(180);
   const [symmetryRatio, setSymmetryRatio] = useState<number>(96);
-  const [activeCue, setActiveCue] = useState<string>('Position your full body in camera view');
+  const [activeCue, setActiveCue] = useState<string>('Stand so your whole body is in frame');
   const [activeSeverity, setActiveSeverity] = useState<'good' | 'attention' | 'deviation'>('good');
   const [latestLandmarks, setLatestLandmarks] = useState<any[] | null>(null);
 
@@ -243,12 +243,12 @@ export const LiveCameraStudio: React.FC<Props> = ({
           if (primary < sm.minAngle) sm.minAngle = primary;
           if (primary <= 95) {
             sm.phase = 'BOTTOM';
-            setActiveCue('Good depth reached — drive through heels');
+            setActiveCue('Good depth reached — drive through midfoot');
             setActiveSeverity('good');
           }
         } else if (sm.phase === 'BOTTOM' && primary > 110) {
           sm.phase = 'ASCENT';
-          setActiveCue('Drive hips up and exhale');
+          setActiveCue('Drive hips up');
         } else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && primary > 160) {
           const repDuration = (now - sm.repStartTime) / 1000;
           if (repDuration >= 0.8 && sm.minAngle < 125) {
@@ -274,7 +274,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
               is_valid: sm.minAngle <= 110
             };
             setSessionReps((prev) => [...prev, newRep]);
-            setActiveCue('Solid repetition!');
+            setActiveCue('Great repetition!');
             setActiveSeverity('good');
           }
           sm.phase = 'STANDING';
@@ -301,7 +301,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           if (primary < sm.minAngle) sm.minAngle = primary;
           if (primary <= 95) {
             sm.phase = 'BOTTOM';
-            setActiveCue('Chest depth achieved — push up');
+            setActiveCue('Chest depth achieved — press up');
           }
         } else if (sm.phase === 'BOTTOM' && primary > 110) {
           sm.phase = 'ASCENT';
@@ -356,7 +356,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           if (primary < sm.minAngle) sm.minAngle = primary;
           if (primary <= 65) {
             sm.phase = 'PEAK';
-            setActiveCue('Peak contraction — 2s eccentric descent');
+            setActiveCue('Peak squeeze — lower under control');
           }
         } else if (sm.phase === 'PEAK' && primary > 80) {
           sm.phase = 'EXTENSION';
@@ -414,9 +414,9 @@ export const LiveCameraStudio: React.FC<Props> = ({
       cameraInstanceRef.current = null;
     }
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        track.stop();
-      });
+      try {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      } catch {}
       streamRef.current = null;
     }
     if (videoRef.current) {
@@ -430,32 +430,43 @@ export const LiveCameraStudio: React.FC<Props> = ({
     setCameraState('requesting_permission');
     setCameraError(null);
 
+    // 1. Check browser mediaDevices support
+    if (!navigator || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraState('browser_unsupported');
+      setCameraError('Camera API is not supported on this browser. Please use Chrome, Safari, or Edge.');
+      return;
+    }
+
+    // 2. Check secure context
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      console.warn('Note: Web cameras require HTTPS or localhost in modern browsers.');
+    }
+
     const mode = overrideFacingMode || facingMode;
 
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setCameraState('camera_unavailable');
-        setCameraError('Camera API is not supported on this browser or context.');
-        return;
+      let stream: MediaStream;
+
+      // 3. Request real MediaStream via getUserMedia
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: mode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch (firstErr: any) {
+        // If ideal resolution fails on some mobile devices, fallback to generic video
+        console.warn('Retrying with relaxed video constraints:', firstErr);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode },
+          audio: false,
+        });
       }
 
-      // Query available devices
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = devices.filter((d) => d.kind === 'videoinput');
-        setAvailableDevices(videoInputs);
-      } catch {}
-
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: mode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Stream received successfully! Camera is available.
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -463,9 +474,12 @@ export const LiveCameraStudio: React.FC<Props> = ({
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.setAttribute('autoplay', 'true');
         videoRef.current.setAttribute('muted', 'true');
-        await videoRef.current.play();
 
-        // Initialize MediaPipe Pose
+        await videoRef.current.play().catch((playErr) => {
+          console.warn('AutoPlay playback warning:', playErr);
+        });
+
+        // 4. Initialize MediaPipe Pose Landmarker
         const pose = new Pose({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
         });
@@ -490,19 +504,24 @@ export const LiveCameraStudio: React.FC<Props> = ({
         });
         await camera.start();
         cameraInstanceRef.current = camera;
+        
+        // 5. Mark ready
         setCameraState('ready');
       }
     } catch (err: any) {
-      console.warn('Camera stream error:', err);
+      console.warn('getUserMedia error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setCameraState('permission_denied');
-        setCameraError('Camera permission was blocked. Please enable camera access in your browser address bar.');
+        setCameraError('Camera access was denied. Please allow camera permissions in your browser address bar.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setCameraState('camera_in_use');
+        setCameraError('Camera is already in use by another tab or app. Please close other camera apps and retry.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setCameraState('camera_unavailable');
-        setCameraError('No camera device was detected on your hardware.');
+        setCameraError('No camera device detected on your device.');
       } else {
         setCameraState('camera_unavailable');
-        setCameraError(err.message || 'Unable to access camera.');
+        setCameraError(err.message || 'Unable to connect to camera.');
       }
     }
   };
@@ -615,17 +634,6 @@ export const LiveCameraStudio: React.FC<Props> = ({
                 detected_errors: (r.detected_errors as any) || null,
               }))
             );
-
-            await analysisService.saveTechniqueAnalysis({
-              session_id: newSession.id,
-              model_name: 'SportX Gradient Boosting',
-              model_version: 'sportx-gb-v1.0',
-              overall_score: calculatedOverall,
-              confidence: 0.95,
-              range_of_motion: calculatedOverall,
-              symmetry: symmetryRatio / 100,
-              tempo: 2.8,
-            });
           }
 
           savedSession = {
@@ -634,7 +642,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           };
         }
       } catch (err) {
-        console.warn('Supabase session persistence fallback:', err);
+        console.warn('Supabase session persistence:', err);
       }
     }
 
@@ -659,7 +667,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
             stopCamera();
             onBack();
           }}
-          className="px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all"
+          className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Exit Studio</span>
@@ -673,7 +681,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
               setSelectedSlug(e.target.value);
               setShowSetupGuide(true);
             }}
-            className="bg-surface-card border border-surface-border text-xs font-bold text-white rounded-xl px-3 py-1.5 focus:outline-none focus:border-brand-500"
+            className="bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl px-3 py-1.5 focus:outline-none focus:border-brand-500"
           >
             <option value="squat">Squat</option>
             <option value="pushup">Push-up</option>
@@ -684,7 +692,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           {/* Camera Flip (Mobile Switch) */}
           <button
             onClick={handleToggleCameraFacing}
-            className="p-2 rounded-xl bg-surface-card border border-surface-border text-zinc-300 hover:text-white transition-all"
+            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all"
             title="Flip Camera (Front/Back)"
           >
             <SwitchCamera className="w-4 h-4" />
@@ -693,8 +701,8 @@ export const LiveCameraStudio: React.FC<Props> = ({
           {/* Audio Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-2 rounded-xl bg-surface-card border border-surface-border text-zinc-300 hover:text-white transition-all"
-            title={soundEnabled ? 'Mute Cues' : 'Unmute Cues'}
+            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all"
+            title={soundEnabled ? 'Mute Audio Cues' : 'Unmute Audio Cues'}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4 text-brand-400" /> : <VolumeX className="w-4 h-4 text-zinc-500" />}
           </button>
@@ -702,7 +710,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
       </div>
 
       {/* Main Viewport Container */}
-      <div className="relative rounded-3xl overflow-hidden bg-black border border-surface-border aspect-[4/3] sm:aspect-video shadow-2xl flex items-center justify-center">
+      <div className="relative rounded-3xl overflow-hidden bg-black border border-zinc-800 aspect-[4/3] sm:aspect-video shadow-2xl flex items-center justify-center">
         
         {/* Hidden Raw HTML Video Element for MediaPipe */}
         <video
@@ -721,45 +729,65 @@ export const LiveCameraStudio: React.FC<Props> = ({
           className="absolute inset-0 w-full h-full object-cover -scale-x-100 pointer-events-none z-10"
         />
 
-        {/* Permission / Camera Error Banners */}
+        {/* Permission Denied Banner */}
         {cameraState === 'permission_denied' && (
           <div className="absolute inset-0 z-30 bg-black/90 p-6 flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto">
             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">Camera Permission Denied</h3>
+            <h3 className="text-base font-bold text-white">Camera Permission Needed</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Camera access is required for real-time biomechanical pose estimation. Please allow camera access in your browser address bar and tap retry.
+              Camera access is required for real-time form tracking. In mobile Safari or Chrome, tap the permissions icon in your address bar and enable Camera access.
             </p>
             <button
               onClick={() => startCamera()}
-              className="px-5 py-2.5 rounded-xl bg-brand-500 text-black text-xs font-bold active:scale-95"
+              className="px-5 py-2.5 rounded-xl bg-brand-500 text-black text-xs font-bold active:scale-95 flex items-center gap-2"
             >
-              Retry Camera Permission
+              <RefreshCw className="w-4 h-4" />
+              <span>Retry Permission</span>
             </button>
           </div>
         )}
 
-        {cameraState === 'camera_unavailable' && (
-          <div className="absolute inset-0 z-30 bg-black/90 p-6 flex flex-col items-center justify-center text-center space-y-3">
+        {/* Camera In Use Banner */}
+        {cameraState === 'camera_in_use' && (
+          <div className="absolute inset-0 z-30 bg-black/90 p-6 flex flex-col items-center justify-center text-center space-y-3 max-w-md mx-auto">
             <AlertTriangle className="w-8 h-8 text-amber-400" />
-            <h3 className="text-base font-bold text-white">No Camera Detected</h3>
-            <p className="text-xs text-zinc-400 max-w-sm">
-              {cameraError || 'Ensure your webcam or mobile camera is connected and not in use by another app.'}
+            <h3 className="text-base font-bold text-white">Camera In Use</h3>
+            <p className="text-xs text-zinc-400">
+              Another app or browser tab is currently using your camera. Please close other camera tabs and tap retry.
+            </p>
+            <button
+              onClick={() => startCamera()}
+              className="px-4 py-2 rounded-xl bg-brand-500 text-black text-xs font-bold"
+            >
+              Retry Camera
+            </button>
+          </div>
+        )}
+
+        {/* Camera Unavailable Banner */}
+        {cameraState === 'camera_unavailable' && (
+          <div className="absolute inset-0 z-30 bg-black/90 p-6 flex flex-col items-center justify-center text-center space-y-3 max-w-md mx-auto">
+            <AlertTriangle className="w-8 h-8 text-amber-400" />
+            <h3 className="text-base font-bold text-white">Connecting Camera</h3>
+            <p className="text-xs text-zinc-400">
+              {cameraError || 'Ensure your webcam or mobile camera is connected.'}
             </p>
             <button
               onClick={() => startCamera()}
               className="px-4 py-2 rounded-xl bg-zinc-800 text-white text-xs font-semibold"
             >
-              Refresh Devices
+              Refresh Stream
             </button>
           </div>
         )}
 
+        {/* Initializing State */}
         {cameraState === 'requesting_permission' && (
-          <div className="absolute inset-0 z-30 bg-black/75 flex flex-col items-center justify-center space-y-3">
+          <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center space-y-3">
             <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
-            <p className="text-xs text-zinc-300 font-mono">Initializing 3D Pose Landmarker...</p>
+            <p className="text-xs text-zinc-300 font-mono">Connecting camera & AI pose tracker...</p>
           </div>
         )}
 
@@ -779,7 +807,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
               <h3 className="text-xl sm:text-2xl font-black text-white">
                 {selectedExercise.name}
               </h3>
-              <p className="text-xs text-zinc-300 leading-relaxed bg-surface-card/80 p-3.5 rounded-2xl border border-surface-border">
+              <p className="text-xs text-zinc-300 leading-relaxed bg-zinc-900/90 p-3.5 rounded-2xl border border-zinc-800">
                 {selectedExercise.camera_setup_instructions || 'Position camera 2 to 3 meters away so your full body is visible from head to feet.'}
               </p>
 
@@ -854,7 +882,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Stop Set Button (Large touch target for mobile) */}
+              {/* Stop Set Button */}
               <button
                 onClick={handleFinishWorkout}
                 className="pointer-events-auto px-6 py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-black transition-all shadow-lg shadow-rose-600/30 flex items-center gap-2 active:scale-95"

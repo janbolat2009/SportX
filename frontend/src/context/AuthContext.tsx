@@ -12,18 +12,17 @@ interface AuthContextType {
   athleteProfile: AthleteProfileRow | null;
   coachProfile: CoachProfileRow | null;
   loading: boolean;
-  isLoading: boolean; // Alias for backward compatibility
+  isLoading: boolean;
   isAuthenticated: boolean;
   isSupabaseEnabled: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>; // Alias
+  login: (email: string, password: string) => Promise<void>;
   signUp: (params: SignUpParams) => Promise<void>;
-  register: (userData: any) => Promise<void>; // Alias
+  register: (userData: any) => Promise<void>;
   signOut: () => Promise<void>;
-  logout: () => Promise<void>; // Alias
+  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  quickLogin: (role: UserRole) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -67,7 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (effectiveRole === 'athlete') {
         ap = await profileService.getAthleteProfile(userId);
         if (!ap) {
-          // Auto-initialize athlete profile row if missing
           ap = await profileService.createAthleteProfile({
             user_id: userId,
             sport: authUser?.user_metadata?.sport || 'General Fitness',
@@ -79,10 +77,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (effectiveRole === 'coach') {
         cp = await profileService.getCoachProfile(userId);
         if (!cp) {
-          // Auto-initialize coach profile row if missing
           cp = await profileService.createCoachProfile({
             user_id: userId,
-            specialization: authUser?.user_metadata?.specialization || 'Youth Athletic Development',
+            specialization: authUser?.user_metadata?.specialization || 'Youth Biomechanics',
             experience_years: 1,
           });
         }
@@ -103,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Initialize Auth State on Mount
+  // Initialize Auth State on Mount strictly from Supabase Auth
   useEffect(() => {
     let mounted = true;
 
@@ -118,36 +115,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
         } catch (err) {
-          console.warn('Supabase session retrieval warning:', err);
+          console.warn('Supabase session retrieval:', err);
         }
       }
 
-      // Local fallback session
+      // If no valid session from Supabase, state remains unauthenticated
       if (mounted) {
-        const localToken = localStorage.getItem('sportx_token');
-        const localRole = (localStorage.getItem('sportx_role') as UserRole) || 'athlete';
-        const localName = localStorage.getItem('sportx_name') || 'Alex Chen';
-        const localEmail = localStorage.getItem('sportx_email') || 'athlete@sportx.ai';
-
-        if (localToken) {
-          setUser({
-            id: 'local-user-1',
-            email: localEmail,
-            full_name: localName,
-            role: localRole,
-            is_active: true,
-          });
-        } else {
-          // Default demo athlete state for seamless out-of-the-box exploration
-          setUser({
-            id: 'local-user-1',
-            email: 'athlete@sportx.ai',
-            full_name: 'Alex Chen',
-            role: 'athlete',
-            is_active: true,
-          });
-          localStorage.setItem('sportx_token', 'demo_token_athlete');
-        }
+        setUser(null);
+        setProfile(null);
+        setAthleteProfile(null);
+        setCoachProfile(null);
+        setSession(null);
         setLoading(false);
       }
     }
@@ -162,13 +140,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (newSession?.user) {
           await loadUserProfiles(newSession.user.id, newSession.user);
-          localStorage.setItem('sportx_token', newSession.access_token);
-        } else if (event === 'SIGNED_OUT') {
+        } else {
           setUser(null);
           setProfile(null);
           setAthleteProfile(null);
           setCoachProfile(null);
-          localStorage.removeItem('sportx_token');
         }
         setLoading(false);
       });
@@ -192,20 +168,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (newSession && authUser) {
           setSession(newSession as Session);
           await loadUserProfiles(authUser.id, authUser as any);
-          localStorage.setItem('sportx_token', newSession.access_token);
           return;
         }
       }
-
-      // Local mock login fallback
-      localStorage.setItem('sportx_token', 'local_token_' + Date.now());
-      setUser({
-        id: 'local-user-1',
-        email,
-        full_name: email.split('@')[0],
-        role: 'athlete',
-        is_active: true,
-      });
+      throw new Error('Supabase authentication is required. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -216,25 +182,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (isSupabaseEnabled) {
         const { session: newSession, user: authUser } = await authService.signUp(params);
-        if (authUser) {
-          if (newSession) {
-            setSession(newSession as Session);
-            localStorage.setItem('sportx_token', newSession.access_token);
-          }
+        if (newSession && authUser) {
+          setSession(newSession as Session);
           await loadUserProfiles(authUser.id, authUser as any);
           return;
         }
       }
-
-      // Local fallback registration
-      localStorage.setItem('sportx_token', 'local_token_' + Date.now());
-      setUser({
-        id: 'local-user-' + Date.now(),
-        email: params.email,
-        full_name: params.full_name,
-        role: params.role,
-        is_active: true,
-      });
     } finally {
       setLoading(false);
     }
@@ -243,58 +196,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     setLoading(true);
     try {
-      await authService.signOut();
-      setSession(null);
+      if (isSupabaseEnabled) {
+        await authService.signOut();
+      }
+    } finally {
       setUser(null);
       setProfile(null);
       setAthleteProfile(null);
       setCoachProfile(null);
-      localStorage.removeItem('sportx_token');
-      localStorage.removeItem('sportx_role');
-      localStorage.removeItem('sportx_name');
-      localStorage.removeItem('sportx_email');
-    } finally {
+      setSession(null);
       setLoading(false);
-    }
-  };
-
-  const refreshProfile = async () => {
-    if (user?.id && typeof user.id === 'string') {
-      await loadUserProfiles(user.id, session?.user || null);
     }
   };
 
   const resetPassword = async (email: string) => {
-    await authService.resetPassword(email);
-  };
-
-  const quickLogin = async (role: UserRole) => {
-    setLoading(true);
-    try {
-      let email = 'athlete@sportx.ai';
-      let name = 'Alex Chen';
-
-      if (role === 'coach') {
-        email = 'coach@sportx.ai';
-        name = 'Marcus Vance';
-      }
-
-      localStorage.setItem('sportx_token', 'demo_token_' + role);
-      localStorage.setItem('sportx_role', role);
-      localStorage.setItem('sportx_name', name);
-      localStorage.setItem('sportx_email', email);
-
-      setUser({
-        id: 'demo-' + role + '-id',
-        email,
-        full_name: name,
-        role,
-        is_active: true,
-      });
-    } finally {
-      setLoading(false);
+    if (isSupabaseEnabled) {
+      await authService.resetPassword(email);
     }
   };
+
+  const refreshProfile = async () => {
+    if (user?.id) {
+      await loadUserProfiles(String(user.id));
+    }
+  };
+
+  const isAuthenticated = Boolean(user && session);
 
   return (
     <AuthContext.Provider
@@ -306,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         coachProfile,
         loading,
         isLoading: loading,
-        isAuthenticated: !!user,
+        isAuthenticated,
         isSupabaseEnabled,
         signIn,
         login: signIn,
@@ -316,7 +243,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout: signOut,
         refreshProfile,
         resetPassword,
-        quickLogin,
       }}
     >
       {children}

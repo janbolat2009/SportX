@@ -8,15 +8,15 @@ import { ProgressView } from './components/athlete/ProgressView';
 import { LiveCameraStudio } from './components/camera/LiveCameraStudio';
 import { VideoUploadStudio } from './components/video/VideoUploadStudio';
 import { CoachDashboard } from './components/coach/CoachDashboard';
-import { ResearchLaboratory } from './components/research/ResearchLaboratory';
 import { ProfileView } from './components/profile/ProfileView';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AthleteRoute } from './components/auth/AthleteRoute';
 import { CoachRoute } from './components/auth/CoachRoute';
 
 const MainAppContent: React.FC = () => {
-  const { user } = useAuth();
-  const [currentTab, setCurrentTab] = useState<string>('home');
+  const { user, isAuthenticated } = useAuth();
+  // Default to train tab for new unauthenticated visitors so they see what they can train immediately
+  const [currentTab, setCurrentTab] = useState<string>('train');
   const [activeExerciseSlug, setActiveExerciseSlug] = useState<string>('squat');
 
   const handleStartLiveCamera = (exerciseSlug: string = 'squat') => {
@@ -31,7 +31,7 @@ const MainAppContent: React.FC = () => {
   const isCameraStudioActive = currentTab === 'live-camera';
 
   return (
-    <div className="min-h-screen bg-surface-bg text-zinc-100 flex flex-col font-sans selection:bg-brand-500 selection:text-black">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-brand-500 selection:text-black">
       
       {/* Top Desktop & Mobile Header (Hidden in Live Camera Studio for maximum viewport) */}
       {!isCameraStudioActive && (
@@ -44,7 +44,15 @@ const MainAppContent: React.FC = () => {
       {/* Main View Router */}
       <main className={`flex-1 ${!isCameraStudioActive ? 'pb-20 md:pb-8' : ''}`}>
         
-        {/* Home Tab */}
+        {/* Train Tab (Publicly accessible muscle selector & exercise library) */}
+        {currentTab === 'train' && (
+          <TrainLibraryView
+            onStartLiveCamera={handleStartLiveCamera}
+            onStartVideoUpload={handleStartVideoUpload}
+          />
+        )}
+
+        {/* Home Tab (Dashboard for logged in athletes) */}
         {currentTab === 'home' && (
           <ProtectedRoute>
             <AthleteDashboard
@@ -54,32 +62,26 @@ const MainAppContent: React.FC = () => {
           </ProtectedRoute>
         )}
 
-        {/* Train Tab (Comprehensive Exercise Library & Technique Studio) */}
-        {currentTab === 'train' && (
-          <ProtectedRoute>
-            <TrainLibraryView
-              onStartLiveCamera={handleStartLiveCamera}
-              onStartVideoUpload={handleStartVideoUpload}
-            />
-          </ProtectedRoute>
-        )}
-
-        {/* Live Camera Studio */}
+        {/* Live Camera Studio (Direct real-time technique analysis) */}
         {currentTab === 'live-camera' && (
-          <ProtectedRoute>
-            <LiveCameraStudio
-              initialExerciseSlug={activeExerciseSlug}
-              onBack={() => setCurrentTab('home')}
-              onSessionComplete={() => setCurrentTab('progress')}
-            />
-          </ProtectedRoute>
+          <LiveCameraStudio
+            initialExerciseSlug={activeExerciseSlug}
+            onBack={() => setCurrentTab('train')}
+            onSessionComplete={() => {
+              if (isAuthenticated) {
+                setCurrentTab('progress');
+              } else {
+                setCurrentTab('train');
+              }
+            }}
+          />
         )}
 
         {/* Video Upload Studio */}
         {currentTab === 'video-upload' && (
           <ProtectedRoute>
             <VideoUploadStudio
-              onBack={() => setCurrentTab('home')}
+              onBack={() => setCurrentTab('train')}
             />
           </ProtectedRoute>
         )}
@@ -98,13 +100,6 @@ const MainAppContent: React.FC = () => {
           </CoachRoute>
         )}
 
-        {/* Research Laboratory Tab */}
-        {currentTab === 'research' && (
-          <ProtectedRoute>
-            <ResearchLaboratory />
-          </ProtectedRoute>
-        )}
-
         {/* Profile & Settings Tab */}
         {currentTab === 'profile' && (
           <ProfileView />
@@ -117,17 +112,16 @@ const MainAppContent: React.FC = () => {
         <MobileNav
           currentTab={currentTab}
           onSelectTab={(tab) => setCurrentTab(tab)}
-          userRole={user?.role}
         />
       )}
 
       {/* Minimal Footer */}
       {!isCameraStudioActive && (
-        <footer className="hidden md:block border-t border-surface-border bg-surface-card/60 py-5 px-4">
+        <footer className="hidden md:block border-t border-zinc-800 bg-zinc-950 py-5 px-4">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
-            <p>© 2026 SportX Biomechanical AI Platform. Engineered for young athletes & remote coaches.</p>
+            <p>© 2026 Trainee AI Biomechanical Platform. Engineered for young athletes & coaches.</p>
             <p className="text-[11px] text-zinc-500">
-              <span className="text-brand-400 font-semibold">Objective Principle:</span> Analyzes kinematic movement patterns without medical injury diagnoses.
+              <span className="text-brand-400 font-semibold">Principle:</span> Objective kinematic technique analysis without medical injury diagnoses.
             </p>
           </div>
         </footer>
