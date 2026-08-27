@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../i18n/LanguageContext';
+import { LanguageSelector } from '../common/LanguageSelector';
 import { workoutService } from '../../services/workoutService';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Exercise, Repetition } from '../../types';
@@ -76,6 +78,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
   onSessionComplete
 }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>(initialExerciseSlug);
   
@@ -87,11 +90,12 @@ export const LiveCameraStudio: React.FC<Props> = ({
   const [showSetupGuide, setShowSetupGuide] = useState(true);
 
   // Live Biomechanical Telemetry
-  const [currentPhase, setCurrentPhase] = useState<string>('READY');
+  const [currentPhaseKey, setCurrentPhaseKey] = useState<string>('phase.ready');
   const [repCount, setRepCount] = useState<number>(0);
+  const [repPulse, setRepPulse] = useState<boolean>(false);
   const [primaryAngle, setPrimaryAngle] = useState<number>(180);
   const [symmetryRatio, setSymmetryRatio] = useState<number>(96);
-  const [activeCue, setActiveCue] = useState<string>('Stand so your whole body is in frame');
+  const [activeCueKey, setActiveCueKey] = useState<string>('cue.standInFrame');
   const [activeSeverity, setActiveSeverity] = useState<'good' | 'attention' | 'deviation'>('good');
   const [, setLatestLandmarks] = useState<any[] | null>(null);
 
@@ -110,6 +114,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
   const poseInstanceRef = useRef<any | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isRecordingRef = useRef(false);
+  const selectedSlugRef = useRef(selectedSlug);
   const animFrameIdRef = useRef<number | null>(null);
   const prevLandmarksRef = useRef<any[] | null>(null);
 
@@ -134,6 +139,10 @@ export const LiveCameraStudio: React.FC<Props> = ({
   useEffect(() => {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
+
+  useEffect(() => {
+    selectedSlugRef.current = selectedSlug;
+  }, [selectedSlug]);
 
   useEffect(() => {
     async function loadEx() {
@@ -168,7 +177,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.setValueAtTime(0.14, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -177,21 +186,27 @@ export const LiveCameraStudio: React.FC<Props> = ({
     } catch {}
   };
 
-  // 3-point Angle with standard geometry
+  // Vector Dot-Product Joint Angle Calculation
   const calculateAngle = (
     a: { x: number; y: number },
     b: { x: number; y: number },
     c: { x: number; y: number }
   ): number => {
-    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-    let angle = Math.abs((radians * 180.0) / Math.PI);
-    if (angle > 180.0) angle = 360.0 - angle;
-    return angle;
+    const v1x = a.x - b.x;
+    const v1y = a.y - b.y;
+    const v2x = c.x - b.x;
+    const v2y = c.y - b.y;
+    const dot = v1x * v2x + v1y * v2y;
+    const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
+    const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
+    if (mag1 * mag2 === 0) return 180;
+    const cosAngle = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+    return Math.round((Math.acos(cosAngle) * 180.0) / Math.PI);
   };
 
-  // Landmark Exponential Moving Average (EMA) Smoothing
+  // Exponential Moving Average (EMA) Landmark Smoothing
   const smoothLandmarks = (rawLandmarks: any[]): any[] => {
-    const alpha = 0.65; // Smoothing weight for new frame
+    const alpha = 0.65;
     if (!prevLandmarksRef.current || prevLandmarksRef.current.length !== rawLandmarks.length) {
       prevLandmarksRef.current = rawLandmarks;
       return rawLandmarks;
@@ -223,7 +238,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
     if (!results.poseLandmarks || results.poseLandmarks.length < 33) {
       setLatestLandmarks(null);
       if (isRecordingRef.current) {
-        setActiveCue('Move farther from camera so your full body is visible');
+        setActiveCueKey('cue.standInFrame');
         setActiveSeverity('attention');
       }
       ctx.restore();
@@ -235,10 +250,10 @@ export const LiveCameraStudio: React.FC<Props> = ({
     setLatestLandmarks(lms);
 
     // Draw Biomechanical Skeleton
-    const drawLine = (idx1: number, idx2: number, color = '#10b981', width = 3.5) => {
+    const drawLine = (idx1: number, idx2: number, color = '#10b981', width = 4) => {
       const p1 = lms[idx1];
       const p2 = lms[idx2];
-      if (!p1 || !p2 || (p1.visibility && p1.visibility < 0.3) || (p2.visibility && p2.visibility < 0.3)) return;
+      if (!p1 || !p2 || (p1.visibility && p1.visibility < 0.25) || (p2.visibility && p2.visibility < 0.25)) return;
       ctx.beginPath();
       ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
       ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
@@ -248,9 +263,9 @@ export const LiveCameraStudio: React.FC<Props> = ({
       ctx.stroke();
     };
 
-    const drawPoint = (idx: number, color = '#ffffff', radius = 4.5) => {
+    const drawPoint = (idx: number, color = '#ffffff', radius = 5) => {
       const p = lms[idx];
-      if (!p || (p.visibility && p.visibility < 0.3)) return;
+      if (!p || (p.visibility && p.visibility < 0.25)) return;
       ctx.beginPath();
       ctx.arc(p.x * canvas.width, p.y * canvas.height, radius, 0, 2 * Math.PI);
       ctx.fillStyle = color;
@@ -258,44 +273,44 @@ export const LiveCameraStudio: React.FC<Props> = ({
     };
 
     // Torso Frame
-    drawLine(11, 12, '#38bdf8', 3);
-    drawLine(11, 23, '#38bdf8', 3);
-    drawLine(12, 24, '#38bdf8', 3);
-    drawLine(23, 24, '#38bdf8', 3);
+    drawLine(11, 12, '#38bdf8', 3.5);
+    drawLine(11, 23, '#38bdf8', 3.5);
+    drawLine(12, 24, '#38bdf8', 3.5);
+    drawLine(23, 24, '#38bdf8', 3.5);
 
     // Arms
-    drawLine(11, 13, '#10b981', 3.5);
-    drawLine(13, 15, '#10b981', 3.5);
-    drawLine(12, 14, '#10b981', 3.5);
-    drawLine(14, 16, '#10b981', 3.5);
+    drawLine(11, 13, '#10b981', 4);
+    drawLine(13, 15, '#10b981', 4);
+    drawLine(12, 14, '#10b981', 4);
+    drawLine(14, 16, '#10b981', 4);
 
     // Legs
-    drawLine(23, 25, '#10b981', 3.5);
-    drawLine(25, 27, '#10b981', 3.5);
-    drawLine(27, 31, '#10b981', 3.5);
-    drawLine(24, 26, '#10b981', 3.5);
-    drawLine(26, 28, '#10b981', 3.5);
-    drawLine(28, 32, '#10b981', 3.5);
+    drawLine(23, 25, '#10b981', 4);
+    drawLine(25, 27, '#10b981', 4);
+    drawLine(27, 31, '#10b981', 4);
+    drawLine(24, 26, '#10b981', 4);
+    drawLine(26, 28, '#10b981', 4);
+    drawLine(28, 32, '#10b981', 4);
 
     [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].forEach((idx) => {
-      drawPoint(idx, '#ffffff', 4);
+      drawPoint(idx, '#ffffff', 4.5);
     });
 
     const now = Date.now();
     const sm = stateMachineRef.current;
     const cooldownPeriodMs = 350; // Minimum time between consecutive repetitions
+    const activeSlug = selectedSlugRef.current;
 
     // ==========================================
     // EXERCISE 1: SQUAT KINEMATICS & STATE MACHINE
     // ==========================================
-    if (selectedSlug === 'squat') {
-      const hipsVis = ((lms[23]?.visibility || 0) + (lms[24]?.visibility || 0)) / 2;
-      const kneesVis = ((lms[25]?.visibility || 0) + (lms[26]?.visibility || 0)) / 2;
-      const anklesVis = ((lms[27]?.visibility || 0) + (lms[28]?.visibility || 0)) / 2;
+    if (activeSlug === 'squat') {
+      const l_vis = Math.min(lms[23]?.visibility || 0, lms[25]?.visibility || 0, lms[27]?.visibility || 0);
+      const r_vis = Math.min(lms[24]?.visibility || 0, lms[26]?.visibility || 0, lms[28]?.visibility || 0);
 
-      if (hipsVis < 0.4 || kneesVis < 0.4 || anklesVis < 0.4) {
+      if (l_vis < 0.35 && r_vis < 0.35) {
         if (isRecordingRef.current) {
-          setActiveCue('Step back so your full body from hips to feet is visible');
+          setActiveCueKey('cue.stepBackFullBody');
           setActiveSeverity('attention');
         }
         ctx.restore();
@@ -304,53 +319,67 @@ export const LiveCameraStudio: React.FC<Props> = ({
 
       const l_knee = calculateAngle(lms[23], lms[25], lms[27]);
       const r_knee = calculateAngle(lms[24], lms[26], lms[28]);
-      const kneeAngle = Math.round((l_knee + r_knee) / 2);
+
+      // Visibility-weighted angle
+      let kneeAngle: number;
+      if (l_vis > 0.45 && r_vis > 0.45) {
+        kneeAngle = Math.round((l_knee + r_knee) / 2);
+      } else if (l_vis >= r_vis) {
+        kneeAngle = l_knee;
+      } else {
+        kneeAngle = r_knee;
+      }
+
       const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_knee - r_knee))));
-      
       setPrimaryAngle(kneeAngle);
       setSymmetryRatio(symmetry);
 
       if (isRecordingRef.current) {
-        // Phase 1: Initiation of Descent
-        if ((sm.phase === 'STANDING' || sm.phase === 'READY') && kneeAngle < 150) {
+        // Phase 1: Standing -> Descent initiation
+        if ((sm.phase === 'STANDING' || sm.phase === 'READY') && kneeAngle < 145) {
           if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
             sm.phase = 'DESCENT';
             sm.minAngle = kneeAngle;
             sm.repStartTime = now;
-            setActiveCue('Control descent smoothly');
+            setCurrentPhaseKey('phase.descent');
+            setActiveCueKey('cue.controlDescent');
             setActiveSeverity('good');
           }
         } 
         // Phase 2: In Descent, tracking peak depth
         else if (sm.phase === 'DESCENT') {
           if (kneeAngle < sm.minAngle) sm.minAngle = kneeAngle;
-          if (kneeAngle <= 100) {
+          if (kneeAngle <= 110) {
             sm.phase = 'BOTTOM';
-            setActiveCue('Good depth — drive up through midfoot');
+            setCurrentPhaseKey('phase.bottom');
+            setActiveCueKey('cue.goodDepth');
             setActiveSeverity('good');
           } else if (symmetry < 80) {
-            setActiveCue('Balance weight evenly between both legs');
+            setActiveCueKey('cue.balanceWeight');
             setActiveSeverity('attention');
           }
         } 
         // Phase 3: Ascent initiation
         else if (sm.phase === 'BOTTOM') {
           if (kneeAngle < sm.minAngle) sm.minAngle = kneeAngle;
-          if (kneeAngle > 115) {
+          if (kneeAngle > 120) {
             sm.phase = 'ASCENT';
-            setActiveCue('Drive hips and chest up together');
+            setCurrentPhaseKey('phase.ascent');
+            setActiveCueKey('cue.driveHipsUp');
           }
         } 
-        // Phase 4: Standing Lockout & Repetition Verification
-        else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && kneeAngle >= 155) {
+        // Phase 4: Standing Lockout & Repetition Completion
+        else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && kneeAngle >= 150) {
           const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.8 && sm.minAngle <= 120) {
+          if (repDuration >= 0.7 && sm.minAngle <= 125) {
             sm.repCount += 1;
             sm.lastRepCompleteTime = now;
             setRepCount(sm.repCount);
-            playBeep(880, 150);
+            setRepPulse(true);
+            setTimeout(() => setRepPulse(false), 400);
+            playBeep(880, 180);
 
-            const depthScore = sm.minAngle <= 90 ? 98 : sm.minAngle <= 100 ? 92 : 82;
+            const depthScore = sm.minAngle <= 95 ? 98 : sm.minAngle <= 105 ? 92 : 82;
             const newRep: Repetition = {
               id: sm.repCount,
               rep_number: sm.repCount,
@@ -361,33 +390,32 @@ export const LiveCameraStudio: React.FC<Props> = ({
               alignment_score: symmetry,
               rom_score: depthScore,
               symmetry_score: symmetry,
-              tempo_score: repDuration >= 2.0 ? 94 : 85,
+              tempo_score: repDuration >= 1.8 ? 94 : 85,
               stability_score: 90,
               peak_angle: sm.minAngle,
               min_angle: sm.minAngle,
-              is_valid: sm.minAngle <= 110
+              is_valid: sm.minAngle <= 115
             };
             setSessionReps((prev) => [...prev, newRep]);
-            setActiveCue('Rep completed! Great form.');
+            setActiveCueKey('cue.repComplete');
             setActiveSeverity('good');
           }
           sm.phase = 'STANDING';
           sm.minAngle = 180;
+          setCurrentPhaseKey('phase.standing');
         }
       }
-      setCurrentPhase(sm.phase);
 
     // ==========================================
     // EXERCISE 2: PUSH-UP KINEMATICS & STATE MACHINE
     // ==========================================
-    } else if (selectedSlug === 'push_up' || selectedSlug === 'pushup') {
-      const shouldersVis = ((lms[11]?.visibility || 0) + (lms[12]?.visibility || 0)) / 2;
-      const elbowsVis = ((lms[13]?.visibility || 0) + (lms[14]?.visibility || 0)) / 2;
-      const wristsVis = ((lms[15]?.visibility || 0) + (lms[16]?.visibility || 0)) / 2;
+    } else if (activeSlug === 'push_up' || activeSlug === 'pushup') {
+      const l_vis = Math.min(lms[11]?.visibility || 0, lms[13]?.visibility || 0, lms[15]?.visibility || 0);
+      const r_vis = Math.min(lms[12]?.visibility || 0, lms[14]?.visibility || 0, lms[16]?.visibility || 0);
 
-      if (shouldersVis < 0.4 || elbowsVis < 0.4 || wristsVis < 0.4) {
+      if (l_vis < 0.35 && r_vis < 0.35) {
         if (isRecordingRef.current) {
-          setActiveCue('Ensure your arms and torso are in frame');
+          setActiveCueKey('cue.ensureArmsVisible');
           setActiveSeverity('attention');
         }
         ctx.restore();
@@ -396,40 +424,53 @@ export const LiveCameraStudio: React.FC<Props> = ({
 
       const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
       const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
-      const elbowAngle = Math.round((l_elbow + r_elbow) / 2);
+
+      let elbowAngle: number;
+      if (l_vis > 0.45 && r_vis > 0.45) {
+        elbowAngle = Math.round((l_elbow + r_elbow) / 2);
+      } else if (l_vis >= r_vis) {
+        elbowAngle = l_elbow;
+      } else {
+        elbowAngle = r_elbow;
+      }
+
       const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_elbow - r_elbow))));
-      
       setPrimaryAngle(elbowAngle);
       setSymmetryRatio(symmetry);
 
       if (isRecordingRef.current) {
-        if ((sm.phase === 'PLANK' || sm.phase === 'READY') && elbowAngle < 150) {
+        if ((sm.phase === 'PLANK' || sm.phase === 'READY') && elbowAngle < 140) {
           if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
             sm.phase = 'DESCENT';
             sm.minAngle = elbowAngle;
             sm.repStartTime = now;
-            setActiveCue('Lower chest with control');
+            setCurrentPhaseKey('phase.descent');
+            setActiveCueKey('cue.lowerChestControl');
           }
         } else if (sm.phase === 'DESCENT') {
           if (elbowAngle < sm.minAngle) sm.minAngle = elbowAngle;
-          if (elbowAngle <= 95) {
+          if (elbowAngle <= 100) {
             sm.phase = 'BOTTOM';
-            setActiveCue('Target depth reached — press up powerfully');
+            setCurrentPhaseKey('phase.bottom');
+            setActiveCueKey('cue.targetDepthPress');
           }
         } else if (sm.phase === 'BOTTOM') {
           if (elbowAngle < sm.minAngle) sm.minAngle = elbowAngle;
           if (elbowAngle > 115) {
             sm.phase = 'ASCENT';
+            setCurrentPhaseKey('phase.ascent');
           }
-        } else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && elbowAngle >= 155) {
+        } else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && elbowAngle >= 150) {
           const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.7 && sm.minAngle <= 110) {
+          if (repDuration >= 0.7 && sm.minAngle <= 115) {
             sm.repCount += 1;
             sm.lastRepCompleteTime = now;
             setRepCount(sm.repCount);
-            playBeep(880, 150);
+            setRepPulse(true);
+            setTimeout(() => setRepPulse(false), 400);
+            playBeep(880, 180);
 
-            const romScore = sm.minAngle <= 90 ? 98 : 84;
+            const romScore = sm.minAngle <= 95 ? 98 : 84;
             const newRep: Repetition = {
               id: sm.repCount,
               rep_number: sm.repCount,
@@ -444,56 +485,81 @@ export const LiveCameraStudio: React.FC<Props> = ({
               stability_score: 92,
               peak_angle: sm.minAngle,
               min_angle: sm.minAngle,
-              is_valid: sm.minAngle <= 105
+              is_valid: sm.minAngle <= 110
             };
             setSessionReps((prev) => [...prev, newRep]);
-            setActiveCue('Good push-up repetition!');
+            setActiveCueKey('cue.repComplete');
           }
           sm.phase = 'PLANK';
           sm.minAngle = 180;
+          setCurrentPhaseKey('phase.plank');
         }
       }
-      setCurrentPhase(sm.phase);
 
     // ==========================================
     // EXERCISE 3: BICEP CURL KINEMATICS & STATE MACHINE
     // ==========================================
-    } else if (selectedSlug === 'bicep_curl') {
+    } else if (activeSlug === 'bicep_curl') {
+      const l_vis = Math.min(lms[11]?.visibility || 0, lms[13]?.visibility || 0, lms[15]?.visibility || 0);
+      const r_vis = Math.min(lms[12]?.visibility || 0, lms[14]?.visibility || 0, lms[16]?.visibility || 0);
+
+      if (l_vis < 0.35 && r_vis < 0.35) {
+        if (isRecordingRef.current) {
+          setActiveCueKey('cue.ensureArmsVisible');
+          setActiveSeverity('attention');
+        }
+        ctx.restore();
+        return;
+      }
+
       const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
       const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
-      const elbowAngle = Math.round((l_elbow + r_elbow) / 2);
+
+      let elbowAngle: number;
+      if (l_vis > 0.45 && r_vis > 0.45) {
+        elbowAngle = Math.round((l_elbow + r_elbow) / 2);
+      } else if (l_vis >= r_vis) {
+        elbowAngle = l_elbow;
+      } else {
+        elbowAngle = r_elbow;
+      }
+
       const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_elbow - r_elbow))));
-      
       setPrimaryAngle(elbowAngle);
       setSymmetryRatio(symmetry);
 
       if (isRecordingRef.current) {
-        if ((sm.phase === 'EXTENDED' || sm.phase === 'READY') && elbowAngle < 135) {
+        if ((sm.phase === 'EXTENDED' || sm.phase === 'READY') && elbowAngle < 125) {
           if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
             sm.phase = 'CURLING';
             sm.minAngle = elbowAngle;
             sm.repStartTime = now;
-            setActiveCue('Curl smoothly without swinging');
+            setCurrentPhaseKey('phase.curling');
+            setActiveCueKey('cue.curlNoSwing');
           }
         } else if (sm.phase === 'CURLING') {
           if (elbowAngle < sm.minAngle) sm.minAngle = elbowAngle;
-          if (elbowAngle <= 70) {
+          if (elbowAngle <= 85) {
             sm.phase = 'PEAK';
-            setActiveCue('Peak contraction — lower with control');
+            setCurrentPhaseKey('phase.peak');
+            setActiveCueKey('cue.peakSqueeze');
           }
         } else if (sm.phase === 'PEAK') {
-          if (elbowAngle > 85) {
+          if (elbowAngle > 95) {
             sm.phase = 'LOWERING';
+            setCurrentPhaseKey('phase.lowering');
           }
-        } else if ((sm.phase === 'LOWERING' || sm.phase === 'CURLING') && elbowAngle >= 145) {
+        } else if ((sm.phase === 'LOWERING' || sm.phase === 'CURLING') && elbowAngle >= 140) {
           const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.8 && sm.minAngle <= 80) {
+          if (repDuration >= 0.7 && sm.minAngle <= 90) {
             sm.repCount += 1;
             sm.lastRepCompleteTime = now;
             setRepCount(sm.repCount);
-            playBeep(880, 150);
+            setRepPulse(true);
+            setTimeout(() => setRepPulse(false), 400);
+            playBeep(880, 180);
 
-            const romScore = sm.minAngle <= 60 ? 98 : 85;
+            const romScore = sm.minAngle <= 70 ? 98 : 86;
             const newRep: Repetition = {
               id: sm.repCount,
               rep_number: sm.repCount,
@@ -511,53 +577,69 @@ export const LiveCameraStudio: React.FC<Props> = ({
               is_valid: true
             };
             setSessionReps((prev) => [...prev, newRep]);
-            setActiveCue('Good curl!');
+            setActiveCueKey('cue.repComplete');
           }
           sm.phase = 'EXTENDED';
           sm.minAngle = 180;
+          setCurrentPhaseKey('phase.extended');
         }
       }
-      setCurrentPhase(sm.phase);
 
     // ==========================================
     // EXERCISE 4: SHOULDER PRESS KINEMATICS & STATE MACHINE
     // ==========================================
-    } else if (selectedSlug === 'shoulder_press') {
+    } else if (activeSlug === 'shoulder_press') {
+      const l_vis = Math.min(lms[11]?.visibility || 0, lms[13]?.visibility || 0, lms[15]?.visibility || 0);
+      const r_vis = Math.min(lms[12]?.visibility || 0, lms[14]?.visibility || 0, lms[16]?.visibility || 0);
+
       const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
       const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
-      const elbowAngle = Math.round((l_elbow + r_elbow) / 2);
+
+      let elbowAngle: number;
+      if (l_vis > 0.45 && r_vis > 0.45) {
+        elbowAngle = Math.round((l_elbow + r_elbow) / 2);
+      } else if (l_vis >= r_vis) {
+        elbowAngle = l_elbow;
+      } else {
+        elbowAngle = r_elbow;
+      }
+
       const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_elbow - r_elbow))));
-      
       setPrimaryAngle(elbowAngle);
       setSymmetryRatio(symmetry);
 
       if (isRecordingRef.current) {
-        if ((sm.phase === 'RACK' || sm.phase === 'READY') && elbowAngle > 105) {
+        if ((sm.phase === 'RACK' || sm.phase === 'READY') && elbowAngle > 110) {
           if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
             sm.phase = 'PRESSING';
             sm.maxAngle = elbowAngle;
             sm.repStartTime = now;
-            setActiveCue('Press vertically overhead');
+            setCurrentPhaseKey('phase.pressing');
+            setActiveCueKey('cue.pressVertical');
           }
         } else if (sm.phase === 'PRESSING') {
           if (elbowAngle > sm.maxAngle) sm.maxAngle = elbowAngle;
-          if (elbowAngle >= 155) {
+          if (elbowAngle >= 145) {
             sm.phase = 'LOCKOUT';
-            setActiveCue('Full overhead lockout reached');
+            setCurrentPhaseKey('phase.lockout');
+            setActiveCueKey('cue.lockoutReached');
           }
         } else if (sm.phase === 'LOCKOUT') {
-          if (elbowAngle < 135) {
+          if (elbowAngle < 130) {
             sm.phase = 'LOWERING';
+            setCurrentPhaseKey('phase.lowering');
           }
-        } else if ((sm.phase === 'LOWERING' || sm.phase === 'PRESSING') && elbowAngle <= 90) {
+        } else if ((sm.phase === 'LOWERING' || sm.phase === 'PRESSING') && elbowAngle <= 95) {
           const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.8 && sm.maxAngle >= 150) {
+          if (repDuration >= 0.7 && sm.maxAngle >= 140) {
             sm.repCount += 1;
             sm.lastRepCompleteTime = now;
             setRepCount(sm.repCount);
-            playBeep(880, 150);
+            setRepPulse(true);
+            setTimeout(() => setRepPulse(false), 400);
+            playBeep(880, 180);
 
-            const romScore = sm.maxAngle >= 160 ? 98 : 88;
+            const romScore = sm.maxAngle >= 155 ? 98 : 88;
             const newRep: Repetition = {
               id: sm.repCount,
               rep_number: sm.repCount,
@@ -575,17 +657,17 @@ export const LiveCameraStudio: React.FC<Props> = ({
               is_valid: true
             };
             setSessionReps((prev) => [...prev, newRep]);
-            setActiveCue('Strong overhead press rep!');
+            setActiveCueKey('cue.repComplete');
           }
           sm.phase = 'RACK';
           sm.maxAngle = 0;
+          setCurrentPhaseKey('phase.rack');
         }
       }
-      setCurrentPhase(sm.phase);
     }
 
     ctx.restore();
-  }, [selectedSlug]);
+  }, []);
 
   const stopCamera = () => {
     if (animFrameIdRef.current) {
@@ -706,10 +788,10 @@ export const LiveCameraStudio: React.FC<Props> = ({
       console.warn('Camera initialization error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setCameraState('permission_denied');
-        setCameraError('Camera access was denied. Please allow camera permissions in your browser address bar.');
+        setCameraError(t('camera.permissionDesc'));
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         setCameraState('camera_in_use');
-        setCameraError('Camera is already in use by another application. Please close other camera tabs and retry.');
+        setCameraError('Camera is already in use by another application.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setCameraState('camera_unavailable');
         setCameraError('No camera hardware detected on your device.');
@@ -749,6 +831,9 @@ export const LiveCameraStudio: React.FC<Props> = ({
       lastRepCompleteTime: 0,
       issuesInRep: []
     };
+    setCurrentPhaseKey(
+      selectedSlug === 'push_up' ? 'phase.plank' : selectedSlug === 'shoulder_press' ? 'phase.rack' : 'phase.standing'
+    );
     playBeep(660, 250);
   };
 
@@ -774,7 +859,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
       tempo_score: 88,
       stability_score: 90,
       model_version: 'sportx-gb-v1.0',
-      feedback_summary: activeCue || `Completed ${repCount} repetitions with solid technique.`,
+      feedback_summary: t(activeCueKey) || `Completed ${repCount} repetitions with solid technique.`,
       repetitions: sessionReps,
       issues: sessionIssues
     };
@@ -792,7 +877,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
         if (ap) {
           const exObj = exercises.find((e) => e.slug === selectedSlug) || exercises[0];
           const newSession = await workoutService.createWorkoutSession({
-            athlete_id: ap.id,
+            athlete_id: (ap as any).id,
             exercise_id: exObj?.id || 1,
             session_type: 'LIVE_CAMERA',
             duration_seconds: duration,
@@ -805,7 +890,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
             tempo_score: 88,
             stability_score: 90,
             model_version: 'sportx-gb-v1.0',
-            feedback_summary: activeCue || `Completed ${repCount} repetitions with solid technique.`,
+            feedback_summary: t(activeCueKey) || `Completed ${repCount} repetitions with solid technique.`,
           });
 
           if (newSession && sessionReps.length > 0) {
@@ -853,22 +938,22 @@ export const LiveCameraStudio: React.FC<Props> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-6 animate-in fade-in">
+    <div className="max-w-6xl mx-auto px-2 sm:px-4 py-2 sm:py-4 animate-in fade-in flex flex-col h-[calc(100vh-80px)] min-h-[640px]">
       
       {/* Top Header Navigation */}
-      <div className="flex items-center justify-between mb-3 sm:mb-4">
+      <div className="flex items-center justify-between mb-2.5 sm:mb-3">
         <button
           onClick={() => {
             stopCamera();
             onBack();
           }}
-          className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all"
+          className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all shadow-xs"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Exit Studio</span>
+          <span>{t('camera.exitStudio')}</span>
         </button>
 
-        {/* Exercise Quick Selector */}
+        {/* Studio Controls: Exercise Selector + Language + Flip + Sound */}
         <div className="flex items-center gap-2">
           <select
             value={selectedSlug}
@@ -876,7 +961,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
               setSelectedSlug(e.target.value);
               setShowSetupGuide(true);
             }}
-            className="bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl px-3 py-1.5 focus:outline-none focus:border-brand-500"
+            className="bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-brand-500"
           >
             <option value="squat">Squat</option>
             <option value="pushup">Push-up</option>
@@ -884,11 +969,14 @@ export const LiveCameraStudio: React.FC<Props> = ({
             <option value="shoulder_press">Shoulder Press</option>
           </select>
 
+          {/* Central Language Switcher */}
+          <LanguageSelector compact={true} />
+
           {/* Camera Flip (Mobile Switch) */}
           <button
             onClick={handleToggleCameraFacing}
-            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all"
-            title="Flip Camera (Front/Back)"
+            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all shadow-xs"
+            title={t('camera.flipCamera')}
           >
             <SwitchCamera className="w-4 h-4" />
           </button>
@@ -896,18 +984,18 @@ export const LiveCameraStudio: React.FC<Props> = ({
           {/* Audio Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all"
-            title={soundEnabled ? 'Mute Audio Cues' : 'Unmute Audio Cues'}
+            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white transition-all shadow-xs"
+            title={soundEnabled ? t('camera.mute') : t('camera.unmute')}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4 text-brand-400" /> : <VolumeX className="w-4 h-4 text-zinc-500" />}
           </button>
         </div>
       </div>
 
-      {/* Main Viewport Container */}
-      <div className="relative rounded-3xl overflow-hidden bg-black border border-zinc-800 aspect-[4/3] sm:aspect-video shadow-2xl flex items-center justify-center">
+      {/* Enlarged Main Viewport Container */}
+      <div className="relative flex-1 w-full rounded-3xl overflow-hidden bg-black border border-zinc-800 shadow-2xl flex items-center justify-center min-h-[480px]">
         
-        {/* Hidden Raw HTML Video Element for MediaPipe */}
+        {/* Raw HTML Video Element for MediaPipe */}
         <video
           ref={videoRef}
           playsInline
@@ -930,16 +1018,16 @@ export const LiveCameraStudio: React.FC<Props> = ({
             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-white">Camera Permission Needed</h3>
+            <h3 className="text-base font-bold text-white">{t('camera.permissionNeeded')}</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Camera access is required for real-time form tracking. In mobile Safari or Chrome, tap the permissions icon in your address bar and enable Camera access.
+              {t('camera.permissionDesc')}
             </p>
             <button
               onClick={() => startCamera()}
               className="px-5 py-2.5 rounded-xl bg-brand-500 text-black text-xs font-bold active:scale-95 flex items-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
-              <span>Retry Permission</span>
+              <span>{t('camera.retryPermission')}</span>
             </button>
           </div>
         )}
@@ -982,7 +1070,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
         {cameraState === 'requesting_permission' && (
           <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center space-y-3">
             <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
-            <p className="text-xs text-zinc-300 font-mono">Connecting camera & AI pose tracker...</p>
+            <p className="text-xs text-zinc-300 font-mono">{t('camera.connecting')}</p>
           </div>
         )}
 
@@ -991,7 +1079,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           <div className="absolute inset-0 z-20 bg-black/75 p-5 flex flex-col items-center justify-between text-center backdrop-blur-xs">
             <div className="w-full flex items-center justify-between text-xs text-zinc-400">
               <span className="font-bold text-white flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-brand-400" /> Camera Setup
+                <Sparkles className="w-4 h-4 text-brand-400" /> {t('camera.setup')}
               </span>
               <span className="px-2 py-0.5 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20 font-mono text-[10px]">
                 {selectedExercise.default_camera_angle || 'Side View'}
@@ -1008,17 +1096,17 @@ export const LiveCameraStudio: React.FC<Props> = ({
 
               <div className="flex items-center justify-center gap-2 pt-2">
                 <span className="text-[11px] text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Full Body Tracking Ready
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {t('camera.trackingReady')}
                 </span>
               </div>
             </div>
 
             <button
               onClick={handleStartWorkout}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black text-sm font-black transition-all shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 active:scale-95"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black text-sm font-black transition-all shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 active:scale-95 uppercase tracking-wider"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>Start Workout</span>
+              <span>{t('camera.startWorkout')}</span>
             </button>
           </div>
         )}
@@ -1029,49 +1117,51 @@ export const LiveCameraStudio: React.FC<Props> = ({
             
             {/* Top Telemetry Bar */}
             <div className="flex items-center justify-between gap-2">
-              <div className="bg-black/75 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-white/10 flex items-center gap-2">
+              <div className="bg-black/80 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-white/15 flex items-center gap-2 shadow-lg">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-                <span className="text-xs font-mono font-bold text-white uppercase">{currentPhase}</span>
+                <span className="text-xs font-mono font-bold text-white uppercase">{t(currentPhaseKey)}</span>
               </div>
 
-              <div className="bg-black/75 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-white/10 flex items-center gap-3">
+              <div className="bg-black/80 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-white/15 flex items-center gap-3 shadow-lg">
                 <div className="text-right">
-                  <span className="text-[10px] font-mono text-zinc-400 uppercase block">Joint Angle</span>
-                  <span className="text-xs font-bold text-white font-mono">{primaryAngle}°</span>
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase block">{t('camera.jointAngle')}</span>
+                  <span className="text-xs sm:text-sm font-bold text-white font-mono">{primaryAngle}°</span>
                 </div>
-                <div className="w-[1px] h-6 bg-white/10" />
+                <div className="w-[1px] h-6 bg-white/15" />
                 <div className="text-right">
-                  <span className="text-[10px] font-mono text-zinc-400 uppercase block">Symmetry</span>
-                  <span className="text-xs font-bold text-brand-400 font-mono">{symmetryRatio}%</span>
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase block">{t('camera.symmetryScore')}</span>
+                  <span className="text-xs sm:text-sm font-bold text-brand-400 font-mono">{symmetryRatio}%</span>
                 </div>
               </div>
             </div>
 
             {/* Center Prioritized Real-Time Feedback Cue */}
-            <div className="flex justify-center">
-              <div className={`px-4 py-2.5 rounded-2xl backdrop-blur-md text-xs font-bold text-center max-w-sm shadow-xl flex items-center gap-2 ${
+            <div className="flex justify-center px-2">
+              <div className={`px-4 py-2.5 rounded-2xl backdrop-blur-md text-xs sm:text-sm font-bold text-center max-w-md shadow-2xl flex items-center gap-2 transition-all ${
                 activeSeverity === 'deviation'
                   ? 'bg-rose-500/90 text-white'
                   : activeSeverity === 'attention'
                   ? 'bg-amber-500/90 text-black'
-                  : 'bg-black/80 text-white border border-white/15'
+                  : 'bg-black/85 text-white border border-white/20'
               }`}>
                 {activeSeverity === 'deviation' ? (
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                 ) : (
                   <CheckCircle2 className="w-4 h-4 text-brand-400 shrink-0" />
                 )}
-                <span>{activeCue}</span>
+                <span>{t(activeCueKey)}</span>
               </div>
             </div>
 
-            {/* Bottom HUD: Rep Counter & Stop Control */}
+            {/* Bottom HUD: Big Rep Counter & Stop Control */}
             <div className="flex items-end justify-between gap-3">
-              {/* Repetition Counter Badge */}
-              <div className="bg-black/80 backdrop-blur-md p-3.5 rounded-2xl border border-white/15 flex items-center gap-3 shadow-2xl">
+              {/* Repetition Counter Large Badge */}
+              <div className={`bg-black/85 backdrop-blur-md p-3 sm:p-4 rounded-3xl border border-white/20 flex items-center gap-3.5 shadow-2xl transition-transform ${
+                repPulse ? 'scale-110 border-brand-400' : 'scale-100'
+              }`}>
                 <div>
-                  <span className="text-[10px] font-mono text-zinc-400 uppercase block">Reps</span>
-                  <span className="text-3xl sm:text-4xl font-black text-white font-mono leading-none">
+                  <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('camera.reps')}</span>
+                  <span className="text-3xl sm:text-5xl font-black text-white font-mono leading-none tracking-tight">
                     {repCount}
                   </span>
                 </div>
@@ -1080,10 +1170,10 @@ export const LiveCameraStudio: React.FC<Props> = ({
               {/* Stop Set Button */}
               <button
                 onClick={handleFinishWorkout}
-                className="pointer-events-auto px-6 py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-black transition-all shadow-lg shadow-rose-600/30 flex items-center gap-2 active:scale-95"
+                className="pointer-events-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-black transition-all shadow-xl shadow-rose-600/35 flex items-center gap-2 active:scale-95 uppercase tracking-wider"
               >
                 <Square className="w-4 h-4 fill-current" />
-                <span>Finish Set</span>
+                <span>{t('camera.finishSet')}</span>
               </button>
             </div>
 

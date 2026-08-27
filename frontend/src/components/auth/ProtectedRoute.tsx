@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../i18n/LanguageContext';
 import { AuthModal } from './AuthModal';
-import { ShieldAlert, Loader2, LogIn, UserPlus } from 'lucide-react';
+import { Loader2, LogIn } from 'lucide-react';
 
 interface Props {
   children: React.ReactNode;
@@ -10,6 +11,7 @@ interface Props {
 
 export const ProtectedRoute: React.FC<Props> = ({ children, fallback }) => {
   const { isAuthenticated, loading } = useAuth();
+  const { t } = useTranslation();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
@@ -17,7 +19,7 @@ export const ProtectedRoute: React.FC<Props> = ({ children, fallback }) => {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 space-y-3">
         <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
-        <p className="text-xs text-zinc-400 font-mono">Authenticating Supabase session...</p>
+        <p className="text-xs text-zinc-400 font-mono">Authenticating session...</p>
       </div>
     );
   }
@@ -31,9 +33,9 @@ export const ProtectedRoute: React.FC<Props> = ({ children, fallback }) => {
           <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-400 flex items-center justify-center mx-auto">
             <LogIn className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Authentication Required</h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">{t('auth.loginRequired')}</h2>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Please log in or create an account with Supabase to access your personalized training sessions, coach notes, and technique history.
+            {t('auth.loginRequiredDesc')}
           </p>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
@@ -44,7 +46,7 @@ export const ProtectedRoute: React.FC<Props> = ({ children, fallback }) => {
               }}
               className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold transition-all shadow-md active:scale-95"
             >
-              Log In
+              {t('nav.login')}
             </button>
             <button
               onClick={() => {
@@ -53,16 +55,16 @@ export const ProtectedRoute: React.FC<Props> = ({ children, fallback }) => {
               }}
               className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold border border-zinc-700 transition-all active:scale-95"
             >
-              Sign Up
+              {t('nav.signup')}
             </button>
           </div>
         </div>
 
         {showAuthModal && (
           <AuthModal
-            isOpen={showAuthModal}
             initialMode={authMode}
             onClose={() => setShowAuthModal(false)}
+            onSuccess={() => setShowAuthModal(false)}
           />
         )}
       </div>

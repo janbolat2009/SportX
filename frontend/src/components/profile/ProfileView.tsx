@@ -1,26 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../i18n/LanguageContext';
+import { LanguageSelector } from '../common/LanguageSelector';
 import { profileService } from '../../services/profileService';
 import { storageService } from '../../services/storageService';
 import { UserRole } from '../../types';
 import {
-  User as UserIcon, Shield, Key, LogOut, CheckCircle2,
-  Camera, Loader2, Dumbbell, Award, Flame, AlertCircle, RefreshCw
+  User as UserIcon, Shield, LogOut, CheckCircle2,
+  Camera, Loader2, Dumbbell, Award, Flame, AlertCircle, RefreshCw, Globe
 } from 'lucide-react';
 
 export const ProfileView: React.FC = () => {
   const {
     user,
-    profile,
     athleteProfile,
     coachProfile,
     logout,
-    isSupabaseEnabled,
     signIn,
     signUp,
     resetPassword,
     refreshProfile
   } = useAuth();
+  const { t } = useTranslation();
 
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [isResetMode, setIsResetMode] = useState(false);
@@ -81,7 +82,7 @@ export const ProfileView: React.FC = () => {
     try {
       if (isResetMode) {
         await resetPassword(email);
-        setAuthSuccess('Password reset link sent to your email address.');
+        setAuthSuccess(t('auth.submitReset'));
       } else if (isLoginMode) {
         await signIn(email, password);
         setAuthSuccess('Signed in successfully.');
@@ -104,88 +105,85 @@ export const ProfileView: React.FC = () => {
     }
   };
 
-  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
-
-    setAvatarUploading(true);
-    setSaveError(null);
-
-    try {
-      const publicUrl = await storageService.uploadAvatar(String(user.id), file);
-      if (isSupabaseEnabled && typeof user.id === 'string') {
-        await profileService.updateProfile(user.id, { avatar_url: publicUrl });
-        await refreshProfile();
-      }
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch (err: any) {
-      setSaveError(err.message || 'Avatar upload failed.');
-    } finally {
-      setAvatarUploading(false);
-    }
-  };
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveProfile = async () => {
     if (!user?.id) return;
-
     setSaveStatus('saving');
     setSaveError(null);
 
+    const userIdStr = String(user.id);
+
     try {
-      const userIdStr = String(user.id);
+      await profileService.updateProfile(userIdStr, {
+        full_name: editName,
+      });
 
-      if (isSupabaseEnabled && typeof user.id === 'string') {
-        await profileService.updateProfile(userIdStr, {
-          full_name: editName,
+      if (user.role === 'athlete') {
+        await profileService.updateAthleteProfile(userIdStr, {
+          sport: editSport,
+          training_level: editTrainingLevel,
+          fitness_goal: editFitnessGoal,
+          height_cm: editHeight ? Number(editHeight) : null,
+          weight_kg: editWeight ? Number(editWeight) : null,
         });
-
-        if (user.role === 'athlete') {
-          await profileService.updateAthleteProfile(userIdStr, {
-            sport: editSport,
-            training_level: editTrainingLevel,
-            fitness_goal: editFitnessGoal,
-            height_cm: editHeight ? Number(editHeight) : null,
-            weight_kg: editWeight ? Number(editWeight) : null,
-          });
-        } else if (user.role === 'coach') {
-          await profileService.updateCoachProfile(userIdStr, {
-            specialization: editSpecialization,
-            experience_years: editExperienceYears ? Number(editExperienceYears) : 1,
-            bio: editBio,
-          });
-        }
+      } else if (user.role === 'coach') {
+        await profileService.updateCoachProfile(userIdStr, {
+          specialization: editSpecialization,
+          experience_years: editExperienceYears ? Number(editExperienceYears) : 1,
+          bio: editBio,
+        });
       }
 
       await refreshProfile();
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (err: any) {
-      setSaveError(err.message || 'Failed to update profile.');
       setSaveStatus('error');
+      setSaveError(err.message || 'Failed to save changes.');
     }
   };
 
-  // If user is not authenticated, show Supabase Auth Form
-  if (!user) {
-    return (
-      <div className="max-w-md mx-auto px-4 py-8 space-y-6 animate-in fade-in">
-        <div className="p-6 sm:p-8 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-5 shadow-xl">
-          <div className="text-center space-y-1">
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    const userIdStr = String(user.id);
+
+    setAvatarUploading(true);
+    try {
+      const publicUrl = await storageService.uploadAvatar(userIdStr, file);
+      if (publicUrl) {
+        await profileService.updateProfile(userIdStr, { avatar_url: publicUrl });
+        await refreshProfile();
+      }
+    } catch (err) {
+      console.error('Avatar upload failed:', err);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6 pb-24 space-y-6 animate-in fade-in">
+      
+      {/* 1. Unauthenticated Visitor Flow */}
+      {!user ? (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-800 border border-zinc-700 mx-auto flex items-center justify-center text-brand-400">
+              <UserIcon className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white">
               {isResetMode
-                ? 'Reset Password'
+                ? t('auth.resetPassword')
                 : isLoginMode
-                ? 'Sign In to SportX'
-                : 'Create Account'}
+                ? t('auth.welcomeBack')
+                : t('auth.createAccount')}
             </h2>
             <p className="text-xs text-zinc-400">
               {isResetMode
-                ? 'Enter your email to receive recovery instructions'
+                ? t('auth.resetSubtitle')
                 : isLoginMode
-                ? 'Sign in to access your workouts and AI analysis reports'
-                : 'Join the platform to track your technique'}
+                ? t('auth.loginSubtitle')
+                : t('auth.signupSubtitle')}
             </p>
           </div>
 
@@ -202,7 +200,7 @@ export const ProfileView: React.FC = () => {
                   isLoginMode ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                Log In
+                {t('nav.login')}
               </button>
               <button
                 type="button"
@@ -214,7 +212,7 @@ export const ProfileView: React.FC = () => {
                   !isLoginMode ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                Sign Up
+                {t('nav.signup')}
               </button>
             </div>
           )}
@@ -237,7 +235,9 @@ export const ProfileView: React.FC = () => {
             {!isLoginMode && !isResetMode && (
               <>
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">Role</label>
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    {t('auth.role')}
+                  </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -248,7 +248,7 @@ export const ProfileView: React.FC = () => {
                           : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Athlete
+                      {t('auth.athlete')}
                     </button>
                     <button
                       type="button"
@@ -259,19 +259,21 @@ export const ProfileView: React.FC = () => {
                           : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Coach
+                      {t('auth.coach')}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">Full Name</label>
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    {t('auth.fullName')}
+                  </label>
                   <input
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Alex Rivera"
+                    placeholder={t('auth.fullNamePlaceholder')}
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
                   />
                 </div>
@@ -279,13 +281,15 @@ export const ProfileView: React.FC = () => {
             )}
 
             <div>
-              <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">Email Address</label>
+              <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                {t('auth.email')}
+              </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="athlete@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
               />
             </div>
@@ -293,14 +297,16 @@ export const ProfileView: React.FC = () => {
             {!isResetMode && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider">Password</label>
+                  <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
+                    {t('auth.password')}
+                  </label>
                   {isLoginMode && (
                     <button
                       type="button"
                       onClick={() => setIsResetMode(true)}
-                      className="text-[11px] text-brand-400 hover:underline"
+                      className="text-[11px] text-brand-400 hover:underline font-medium"
                     >
-                      Forgot?
+                      {t('auth.forgotPassword')}
                     </button>
                   )}
                 </div>
@@ -318,16 +324,16 @@ export const ProfileView: React.FC = () => {
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full py-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold transition-all shadow-md shadow-brand-500/20 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3 px-4 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-black transition-all shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 uppercase tracking-wider"
             >
               {authLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-black" />
               ) : isResetMode ? (
-                <span>Send Reset Link</span>
+                t('auth.submitReset')
               ) : isLoginMode ? (
-                <span>Sign In</span>
+                t('auth.submitLogin')
               ) : (
-                <span>Register Account</span>
+                t('auth.submitSignup')
               )}
             </button>
           </form>
@@ -337,207 +343,221 @@ export const ProfileView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsResetMode(false)}
-                className="text-xs text-brand-400 font-bold hover:underline"
+                className="text-xs text-brand-400 hover:underline font-semibold"
               >
-                Back to Sign In
+                {t('auth.backToLogin')}
               </button>
             </div>
           )}
         </div>
-      </div>
-    );
-  }
+      ) : (
+        /* 2. Authenticated Profile View */
+        <div className="space-y-6">
+          
+          {/* Profile Header Card */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+              
+              <div className="flex items-center gap-4">
+                <div className="relative group">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden font-bold text-2xl text-brand-400 shadow-md">
+                    {user.avatar_url ? (
+                      <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      user.full_name?.charAt(0).toUpperCase() || 'U'
+                    )}
+                  </div>
 
-  // If user is authenticated, render Profile Page
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-6 pb-24 space-y-6 animate-in fade-in">
-      
-      {/* 1. Profile Header Card */}
-      <div className="p-5 sm:p-7 rounded-3xl bg-zinc-900 border border-zinc-800 flex flex-wrap items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            {user?.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt={user.full_name}
-                className="w-16 h-16 rounded-2xl object-cover border border-zinc-700"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center font-extrabold text-xl text-brand-400">
-                {user.full_name.charAt(0).toUpperCase()}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarUploading}
+                    className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    {avatarUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleAvatarUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-black text-white">{user.full_name}</h1>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20 font-bold">
+                      {user.role}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 font-mono">{user.email}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={logout}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-rose-500/10 hover:text-rose-400 text-xs font-semibold text-zinc-300 transition-all border border-zinc-700 flex items-center gap-2"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{t('nav.logout')}</span>
+              </button>
+
+            </div>
+          </div>
+
+          {/* Language & Preferences Card */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-3 shadow-md">
+            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+              <Globe className="w-3.5 h-3.5 text-brand-400" />
+              <span>{t('profile.language')}</span>
+            </h3>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-zinc-300">English / Русский / Қазақша</p>
+              <LanguageSelector />
+            </div>
+          </div>
+
+          {/* Edit Profile Form */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xl">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Shield className="w-4 h-4 text-brand-400" />
+              <span>{t('profile.title')}</span>
+            </h2>
+
+            {saveStatus === 'saved' && (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{t('profile.saved')}</span>
               </div>
             )}
 
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={avatarUploading}
-              className="absolute -bottom-1 -right-1 p-1.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white transition-all shadow"
-              title="Upload Avatar"
-            >
-              {avatarUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarFileChange}
-            />
-          </div>
-
-          <div>
-            <h3 className="text-lg font-black text-white leading-tight">
-              {user.full_name}
-            </h3>
-            <p className="text-xs text-zinc-400 font-mono mt-0.5">{user.email}</p>
-            
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-800 text-brand-400 border border-zinc-700">
-                {user.role}
-              </span>
-              <span className="text-[10px] text-zinc-400 flex items-center gap-1 font-mono">
-                <Shield className="w-3 h-3 text-brand-400" /> Supabase Synced
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={logout}
-          className="px-4 py-2 rounded-xl bg-zinc-950 border border-zinc-800 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-all"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
-        </button>
-      </div>
-
-      {/* 2. Edit Profile Form */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-          <div className="flex items-center gap-2">
-            <UserIcon className="w-4 h-4 text-brand-400" />
-            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
-              Edit {user.role === 'coach' ? 'Coach' : 'Athlete'} Profile
-            </h3>
-          </div>
-
-          {saveStatus === 'saved' && (
-            <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Saved to Supabase
-            </span>
-          )}
-        </div>
-
-        {saveError && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
-            {saveError}
-          </div>
-        )}
-
-        <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-zinc-400 font-bold mb-1">Full Name</label>
-            <input
-              type="text"
-              required
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-brand-500"
-            />
-          </div>
-
-          {user.role === 'athlete' && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-zinc-400 font-bold mb-1">Primary Sport</label>
-                  <input
-                    type="text"
-                    value={editSport}
-                    onChange={(e) => setEditSport(e.target.value)}
-                    placeholder="e.g. Track & Field, Swimming, Football"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 font-bold mb-1">Training Level</label>
-                  <select
-                    value={editTrainingLevel}
-                    onChange={(e) => setEditTrainingLevel(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-brand-500"
-                  >
-                    <option value="Beginner">Beginner (0-1 yrs)</option>
-                    <option value="Intermediate">Intermediate (1-3 yrs)</option>
-                    <option value="Advanced">Advanced (3-5 yrs)</option>
-                    <option value="Elite">Elite Junior / Pro</option>
-                  </select>
-                </div>
+            {saveStatus === 'error' && (
+              <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{saveError}</span>
               </div>
+            )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-zinc-400 font-bold mb-1">Height (cm)</label>
-                  <input
-                    type="number"
-                    value={editHeight}
-                    onChange={(e) => setEditHeight(e.target.value)}
-                    placeholder="175"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 font-bold mb-1">Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={editWeight}
-                    onChange={(e) => setEditWeight(e.target.value)}
-                    placeholder="68"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {user.role === 'coach' && (
-            <>
-              <div>
-                <label className="block text-zinc-400 font-bold mb-1">Specialization</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Full Name */}
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  {t('auth.fullName')}
+                </label>
                 <input
                   type="text"
-                  value={editSpecialization}
-                  onChange={(e) => setEditSpecialization(e.target.value)}
-                  placeholder="e.g. Sprint Mechanics, Strength & Conditioning"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-brand-500"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-zinc-400 font-bold mb-1">Coaching Bio</label>
-                <textarea
-                  rows={3}
-                  value={editBio}
-                  onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="Share your coaching philosophy and background..."
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-brand-500"
-                />
-              </div>
-            </>
-          )}
+              {user.role === 'athlete' ? (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                      {t('auth.sport')}
+                    </label>
+                    <input
+                      type="text"
+                      value={editSport}
+                      onChange={(e) => setEditSport(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                    />
+                  </div>
 
-          <div className="pt-2 flex justify-end">
-            <button
-              type="submit"
-              disabled={saveStatus === 'saving'}
-              className="px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-black font-bold transition-all shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {saveStatus === 'saving' ? 'Saving...' : 'Save Profile Changes'}
-            </button>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                      {t('profile.trainingLevel')}
+                    </label>
+                    <select
+                      value={editTrainingLevel}
+                      onChange={(e) => setEditTrainingLevel(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                    >
+                      <option value="Beginner">Beginner</option>
+                      <option value="Intermediate">Intermediate</option>
+                      <option value="Advanced">Advanced</option>
+                      <option value="Elite">Elite</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                      {t('profile.height')}
+                    </label>
+                    <input
+                      type="number"
+                      value={editHeight}
+                      onChange={(e) => setEditHeight(e.target.value)}
+                      placeholder="180"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                      {t('profile.weight')}
+                    </label>
+                    <input
+                      type="number"
+                      value={editWeight}
+                      onChange={(e) => setEditWeight(e.target.value)}
+                      placeholder="75"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                      {t('auth.specialization')}
+                    </label>
+                    <input
+                      type="text"
+                      value={editSpecialization}
+                      onChange={(e) => setEditSpecialization(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                      Biography / Coaching Philosophy
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 resize-none"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={handleSaveProfile}
+                disabled={saveStatus === 'saving'}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-black transition-all shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 uppercase tracking-wider"
+              >
+                {saveStatus === 'saving' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    <span>{t('profile.saving')}</span>
+                  </>
+                ) : (
+                  <span>{t('profile.saveChanges')}</span>
+                )}
+              </button>
+            </div>
           </div>
-        </form>
-      </div>
+
+        </div>
+      )}
 
     </div>
   );

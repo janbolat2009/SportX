@@ -1,6 +1,7 @@
 import React from 'react';
 import { Exercise } from '../../types';
 import { getMuscleIcon } from '../common/MuscleIcons';
+import { useTranslation } from '../../i18n/LanguageContext';
 import {
   X, Play, CheckCircle2, AlertTriangle, Video, Sparkles, Activity, ShieldCheck, Dumbbell
 } from 'lucide-react';
@@ -12,6 +13,8 @@ interface Props {
 }
 
 export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStartAnalysis }) => {
+  const { t } = useTranslation();
+
   const getDifficultyBadge = (difficulty?: string) => {
     switch (difficulty?.toLowerCase()) {
       case 'beginner':
@@ -58,9 +61,9 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
               {exercise.name}
             </h2>
             <p className="text-xs text-zinc-400">
-              Target: <span className="text-brand-400 font-semibold">{exercise.target_muscles}</span>
+              {t('detail.target')}: <span className="text-brand-400 font-semibold">{exercise.target_muscles}</span>
               {exercise.secondary_muscles && (
-                <span className="text-zinc-500 ml-1.5">• Secondary: {exercise.secondary_muscles}</span>
+                <span className="text-zinc-500 ml-1.5">• {t('detail.secondary')}: {exercise.secondary_muscles}</span>
               )}
             </p>
           </div>
@@ -81,7 +84,7 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
               <Video className="w-3.5 h-3.5 text-brand-400" />
-              <span>Technique Demonstration</span>
+              <span>{t('detail.demonstration')}</span>
             </h3>
 
             {exercise.video_url ? (
@@ -100,9 +103,9 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
                   {getMuscleIcon(exercise.slug || 'squat', 28)}
                 </div>
                 <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-zinc-300">Demonstration video coming soon.</p>
+                  <p className="text-xs font-bold text-zinc-300">{t('detail.videoComingSoon')}</p>
                   <p className="text-[11px] text-zinc-500">
-                    Follow the verified biomechanical steps below or launch the AI camera to check your form.
+                    {t('detail.videoComingSoonDesc')}
                   </p>
                 </div>
               </div>
@@ -120,7 +123,7 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-brand-400" />
-              <span>How to Perform</span>
+              <span>{t('detail.howToPerform')}</span>
             </h3>
             <div className="space-y-2 bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
               {parsedInstructions.map((step, idx) => (
@@ -140,7 +143,7 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              <span>Common Mistakes to Avoid</span>
+              <span>{t('detail.commonMistakes')}</span>
             </h3>
             <div className="space-y-1.5">
               {parsedMistakes.map((mistake, idx) => (
@@ -160,7 +163,7 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-brand-400" />
-                <span>AI Technique Metrics</span>
+                <span>{t('detail.aiMetrics')}</span>
               </span>
               <span className="text-[10px] font-mono text-brand-400 uppercase bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20">
                 {exercise.default_camera_angle || 'Side View'}
@@ -169,11 +172,11 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
             <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-zinc-400">
               <div className="flex items-center gap-1.5">
                 <Activity className="w-3 h-3 text-brand-400" />
-                <span>Target ROM: <b className="text-zinc-200">{exercise.ideal_rom_degrees || 90}°</b></span>
+                <span>{t('detail.targetRom')}: <b className="text-zinc-200">{exercise.ideal_rom_degrees || 90}°</b></span>
               </div>
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="w-3 h-3 text-brand-400" />
-                <span>Bilateral Symmetry</span>
+                <span>{t('detail.symmetry')}</span>
               </div>
             </div>
           </div>
@@ -190,7 +193,7 @@ export const ExerciseDetailModal: React.FC<Props> = ({ exercise, onClose, onStar
             className="w-full py-4 px-6 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black text-sm font-black transition-all shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 active:scale-95 uppercase tracking-wider"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>CHECK MY TECHNIQUE</span>
+            <span>{t('detail.checkMyTechnique')}</span>
           </button>
         </div>
 

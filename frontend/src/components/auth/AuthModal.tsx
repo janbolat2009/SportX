@@ -1,40 +1,41 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { UserRole } from '../../types';
+import { useTranslation } from '../../i18n/LanguageContext';
 import { Logo } from '../common/Logo';
+import { LanguageSelector } from '../common/LanguageSelector';
+import { UserRole } from '../../types';
 import {
-  X, Lock, Mail, User, Shield, ArrowRight, Loader2,
-  CheckCircle2, AlertCircle, Sparkles
+  X, Mail, Lock, User as UserIcon, Activity,
+  Dumbbell, AlertCircle, CheckCircle2, Loader2, ArrowRight
 } from 'lucide-react';
 
 interface Props {
-  isOpen: boolean;
+  initialMode?: 'login' | 'signup' | 'forgot';
   onClose?: () => void;
-  initialMode?: 'login' | 'signup';
   onSuccess?: () => void;
 }
 
 export const AuthModal: React.FC<Props> = ({
-  isOpen,
-  onClose,
   initialMode = 'login',
-  onSuccess
+  onClose,
+  onSuccess,
 }) => {
   const { signIn, signUp, resetPassword } = useAuth();
-
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
+  const [role, setRole] = useState<UserRole>('athlete');
+
+  // Fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<UserRole>('athlete');
   const [sport, setSport] = useState('General Fitness');
   const [specialization, setSpecialization] = useState('Youth Biomechanics');
 
+  // Status
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +46,7 @@ export const AuthModal: React.FC<Props> = ({
     try {
       if (mode === 'forgot') {
         await resetPassword(email);
-        setSuccessMsg('Password reset instructions sent to your email.');
+        setSuccessMsg(t('auth.submitReset'));
       } else if (mode === 'login') {
         await signIn(email, password);
         if (onSuccess) onSuccess();
@@ -71,34 +72,37 @@ export const AuthModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden max-h-[95vh] overflow-y-auto">
         
-        {/* Close Button if dismissible */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="absolute top-5 right-5 p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+        {/* Top bar with Language Selector and Close */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <LanguageSelector compact={true} />
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
 
         {/* Brand Header */}
-        <div className="text-center space-y-2 mb-6">
+        <div className="text-center space-y-2 mb-6 mt-2">
           <div className="flex justify-center mb-1">
             <Logo size="lg" />
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            {mode === 'login' && 'Welcome Back'}
-            {mode === 'signup' && 'Create Your Account'}
-            {mode === 'forgot' && 'Reset Password'}
+            {mode === 'login' && t('auth.welcomeBack')}
+            {mode === 'signup' && t('auth.createAccount')}
+            {mode === 'forgot' && t('auth.resetPassword')}
           </h2>
           <p className="text-xs text-zinc-400">
-            {mode === 'login' && 'Log in to track workouts and evaluate real-time kinematics'}
-            {mode === 'signup' && 'Join the scientific AI fitness platform'}
-            {mode === 'forgot' && 'Enter your email to receive recovery instructions'}
+            {mode === 'login' && t('auth.loginSubtitle')}
+            {mode === 'signup' && t('auth.signupSubtitle')}
+            {mode === 'forgot' && t('auth.resetSubtitle')}
           </p>
         </div>
 
@@ -117,7 +121,7 @@ export const AuthModal: React.FC<Props> = ({
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Log In
+              {t('nav.login')}
             </button>
             <button
               type="button"
@@ -131,7 +135,7 @@ export const AuthModal: React.FC<Props> = ({
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Sign Up
+              {t('nav.signup')}
             </button>
           </div>
         )}
@@ -158,99 +162,134 @@ export const AuthModal: React.FC<Props> = ({
               {/* Full Name */}
               <div>
                 <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                  Full Name
+                  {t('auth.fullName')}
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <UserIcon className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Jordan Smith"
+                    placeholder={t('auth.fullNamePlaceholder')}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
                   />
                 </div>
               </div>
 
-              {/* Role Toggle */}
+              {/* Role Selection */}
               <div>
-                <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                  I am registering as:
+                <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
+                  {t('auth.role')}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setRole('athlete')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                    className={`p-3 rounded-xl border flex items-center gap-2 text-left transition-all ${
                       role === 'athlete'
-                        ? 'bg-brand-500/15 border-brand-500 text-brand-400'
+                        ? 'bg-zinc-800 border-brand-500 text-white'
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    Athlete
+                    <Activity className="w-4 h-4 text-brand-400 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold">{t('auth.athlete')}</p>
+                    </div>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setRole('coach')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                    className={`p-3 rounded-xl border flex items-center gap-2 text-left transition-all ${
                       role === 'coach'
-                        ? 'bg-brand-500/15 border-brand-500 text-brand-400'
+                        ? 'bg-zinc-800 border-brand-500 text-white'
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    Coach
+                    <Dumbbell className="w-4 h-4 text-brand-400 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold">{t('auth.coach')}</p>
+                    </div>
                   </button>
                 </div>
               </div>
+
+              {/* Role Specific Extra */}
+              {role === 'athlete' ? (
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    {t('auth.sport')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={t('auth.sportPlaceholder')}
+                    value={sport}
+                    onChange={(e) => setSport(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    {t('auth.specialization')}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={t('auth.specializationPlaceholder')}
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
+                  />
+                </div>
+              )}
             </>
           )}
 
-          {/* Email */}
+          {/* Email Address */}
           <div>
             <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-              Email Address
+              {t('auth.email')}
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+              <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
               <input
                 type="email"
                 required
-                placeholder="athlete@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
               />
             </div>
           </div>
 
-          {/* Password (for login and signup) */}
+          {/* Password (if not forgot) */}
           {mode !== 'forgot' && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
-                  Password
+                <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
+                  {t('auth.password')}
                 </label>
                 {mode === 'login' && (
                   <button
                     type="button"
                     onClick={() => setMode('forgot')}
-                    className="text-[11px] text-brand-400 hover:underline"
+                    className="text-[11px] text-brand-400 hover:underline font-medium"
                   >
-                    Forgot?
+                    {t('auth.forgotPassword')}
                   </button>
                 )}
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
                 <input
                   type="password"
                   required
                   placeholder="••••••••"
-                  minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
                 />
               </div>
             </div>
@@ -260,16 +299,16 @@ export const AuthModal: React.FC<Props> = ({
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-black transition-all shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-black transition-all shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 uppercase tracking-wider mt-2"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin text-black" />
             ) : (
               <>
                 <span>
-                  {mode === 'login' && 'Log In to SportX'}
-                  {mode === 'signup' && 'Create Free Account'}
-                  {mode === 'forgot' && 'Send Reset Link'}
+                  {mode === 'login' && t('auth.submitLogin')}
+                  {mode === 'signup' && t('auth.submitSignup')}
+                  {mode === 'forgot' && t('auth.submitReset')}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </>
@@ -277,35 +316,42 @@ export const AuthModal: React.FC<Props> = ({
           </button>
         </form>
 
-        {/* Mode Footer Switcher */}
-        <div className="mt-5 text-center text-xs text-zinc-400">
-          {mode === 'forgot' ? (
-            <button
-              onClick={() => setMode('login')}
-              className="text-brand-400 font-bold hover:underline"
-            >
-              Back to Log In
-            </button>
-          ) : mode === 'login' ? (
+        {/* Footer Switcher */}
+        <div className="mt-5 text-center text-xs text-zinc-400 border-t border-zinc-800 pt-4">
+          {mode === 'login' && (
             <p>
-              Don't have an account?{' '}
+              {t('auth.noAccount')}{' '}
               <button
+                type="button"
                 onClick={() => setMode('signup')}
                 className="text-brand-400 font-bold hover:underline"
               >
-                Sign up free
+                {t('auth.signUpLink')}
               </button>
             </p>
-          ) : (
+          )}
+
+          {mode === 'signup' && (
             <p>
-              Already have an account?{' '}
+              {t('auth.haveAccount')}{' '}
               <button
+                type="button"
                 onClick={() => setMode('login')}
                 className="text-brand-400 font-bold hover:underline"
               >
-                Log in
+                {t('auth.signInLink')}
               </button>
             </p>
+          )}
+
+          {mode === 'forgot' && (
+            <button
+              type="button"
+              onClick={() => setMode('login')}
+              className="text-brand-400 font-bold hover:underline"
+            >
+              {t('auth.backToLogin')}
+            </button>
           )}
         </div>
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider, useTranslation } from './i18n/LanguageContext';
 import { Navbar } from './components/layout/Navbar';
 import { MobileNav } from './components/layout/MobileNav';
 import { AthleteDashboard } from './components/athlete/AthleteDashboard';
@@ -14,7 +15,8 @@ import { AthleteRoute } from './components/auth/AthleteRoute';
 import { CoachRoute } from './components/auth/CoachRoute';
 
 const MainAppContent: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const { t } = useTranslation();
   // Default to train tab for new unauthenticated visitors so they see what they can train immediately
   const [currentTab, setCurrentTab] = useState<string>('train');
   const [activeExerciseSlug, setActiveExerciseSlug] = useState<string>('squat');
@@ -119,9 +121,9 @@ const MainAppContent: React.FC = () => {
       {!isCameraStudioActive && (
         <footer className="hidden md:block border-t border-zinc-800 bg-zinc-950 py-5 px-4">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
-            <p>© 2026 SportX AI Biomechanical Platform. Engineered for young athletes & coaches.</p>
+            <p>{t('brand.footer')}</p>
             <p className="text-[11px] text-zinc-500">
-              <span className="text-brand-400 font-semibold">Principle:</span> Objective kinematic technique analysis without medical injury diagnoses.
+              <span className="text-brand-400 font-semibold">{t('brand.principle')}</span>
             </p>
           </div>
         </footer>
@@ -133,9 +135,11 @@ const MainAppContent: React.FC = () => {
 
 export function App() {
   return (
-    <AuthProvider>
-      <MainAppContent />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <MainAppContent />
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

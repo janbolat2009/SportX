@@ -3,6 +3,7 @@ import { exerciseService } from '../../services/exerciseService';
 import { Exercise, ExerciseCategory } from '../../types';
 import { ExerciseDetailModal } from './ExerciseDetailModal';
 import { getMuscleIcon } from '../common/MuscleIcons';
+import { useTranslation } from '../../i18n/LanguageContext';
 import {
   Search, Play, Sparkles, ChevronRight, X, Loader2
 } from 'lucide-react';
@@ -13,11 +14,12 @@ interface Props {
 }
 
 export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
+  const { t } = useTranslation();
   const [categories, setCategories] = useState<ExerciseCategory[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Active Selected Category (defaults to all or first)
+  // Active Selected Category
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
@@ -56,7 +58,6 @@ export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
     if (selectedCategorySlug !== 'all') {
       const cat = categories.find((c) => c.slug === selectedCategorySlug);
       if (cat && ex.category_id !== cat.id) {
-        // Also check if category slug is in target muscles or slug
         const matchCategoryText =
           ex.category_name?.toLowerCase() === cat.name.toLowerCase() ||
           ex.target_muscles.toLowerCase().includes(cat.name.toLowerCase());
@@ -85,10 +86,10 @@ export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
       {/* 1. Simple Title Header */}
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-          What do you want to train today?
+          {t('train.title')}
         </h1>
         <p className="text-xs sm:text-sm text-zinc-400">
-          Pick a target muscle group to see exercises and check your technique in real time.
+          {t('train.subtitle')}
         </p>
       </div>
 
@@ -97,7 +98,7 @@ export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
         <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
         <input
           type="text"
-          placeholder="Search by exercise name or equipment..."
+          placeholder={t('train.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-10 pr-10 py-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
@@ -116,14 +117,14 @@ export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-            Muscle Groups
+            {t('train.allCategories')}
           </span>
           {selectedCategorySlug !== 'all' && (
             <button
               onClick={() => setSelectedCategorySlug('all')}
               className="text-xs text-brand-400 hover:underline font-medium"
             >
-              Show All
+              {t('train.allCategories')}
             </button>
           )}
         </div>
@@ -138,13 +139,16 @@ export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
             }`}
           >
             <div className="w-8 h-8 rounded-xl bg-zinc-950 flex items-center justify-center">
-              {getMuscleIcon('full_body', 20)}
+              <Sparkles className="w-4 h-4 text-brand-400" />
             </div>
-            <span className="text-xs font-bold truncate max-w-full">All Muscles</span>
+            <span className="text-[11px] font-bold truncate max-w-full">
+              {t('train.allCategories')}
+            </span>
           </button>
 
           {categories.map((cat) => {
             const isSelected = selectedCategorySlug === cat.slug;
+            const translatedName = t(`muscle.${cat.slug}`, cat.name);
             return (
               <button
                 key={cat.id}
@@ -158,98 +162,116 @@ export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
                 <div className="w-8 h-8 rounded-xl bg-zinc-950 flex items-center justify-center">
                   {getMuscleIcon(cat.slug, 20)}
                 </div>
-                <span className="text-xs font-bold truncate max-w-full">{cat.name}</span>
+                <span className="text-[11px] font-bold truncate max-w-full">
+                  {translatedName}
+                </span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* 4. Exercises List */}
+      {/* 4. Exercise List */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-            Available Exercises ({filteredExercises.length})
-          </span>
+          <h2 className="text-sm font-bold text-zinc-200">
+            {t('train.availableExercises')} ({filteredExercises.length})
+          </h2>
+          {selectedCategorySlug !== 'all' && (
+            <span className="text-xs text-brand-400 font-mono">
+              {t(`muscle.${selectedCategorySlug}`, selectedCategorySlug)}
+            </span>
+          )}
         </div>
 
         {loading ? (
-          <div className="py-12 flex flex-col items-center justify-center space-y-2">
-            <Loader2 className="w-6 h-6 text-brand-400 animate-spin" />
-            <p className="text-xs text-zinc-500">Loading exercise library...</p>
+          <div className="p-12 flex flex-col items-center justify-center text-zinc-500 space-y-2">
+            <Loader2 className="w-6 h-6 animate-spin text-brand-400" />
+            <p className="text-xs">Loading exercises...</p>
           </div>
         ) : filteredExercises.length === 0 ? (
-          <div className="p-8 rounded-3xl bg-zinc-900 border border-zinc-800 text-center space-y-2">
-            <p className="text-xs text-zinc-400">No exercises found for this category or search.</p>
+          <div className="p-8 rounded-3xl bg-zinc-900 border border-zinc-800 text-center space-y-3">
+            <p className="text-xs text-zinc-400">{t('train.noExercises')}</p>
             <button
               onClick={() => {
                 setSelectedCategorySlug('all');
                 setSearchQuery('');
               }}
-              className="text-xs text-brand-400 font-bold hover:underline"
+              className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white"
             >
-              Reset filters
+              {t('train.resetFilters')}
             </button>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {filteredExercises.map((exercise) => (
-              <div
-                key={exercise.id}
-                onClick={() => setSelectedExercise(exercise)}
-                className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 cursor-pointer transition-all active:scale-[0.99] flex items-center justify-between gap-3 group"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-11 h-11 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
-                    {getMuscleIcon(exercise.slug, 24)}
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {filteredExercises.map((exercise) => {
+              return (
+                <div
+                  key={exercise.id}
+                  onClick={() => setSelectedExercise(exercise)}
+                  className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 cursor-pointer transition-all hover:bg-zinc-850 group flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
+                          {getMuscleIcon(exercise.slug || 'squat', 20)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-brand-400 transition-colors truncate">
+                            {exercise.name}
+                          </h3>
+                          <p className="text-[11px] text-zinc-400 truncate">
+                            {exercise.target_muscles}
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors truncate">
-                        {exercise.name}
-                      </h3>
+                      <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-white transition-transform group-hover:translate-x-0.5 shrink-0" />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${getDifficultyColor(exercise.difficulty)}`}>
+                        {exercise.difficulty || 'Intermediate'}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 px-2 py-0.5 rounded-md bg-zinc-950 border border-zinc-800">
+                        {exercise.equipment || 'Bodyweight'}
+                      </span>
                       {exercise.analysis_supported && (
-                        <span className="text-[10px] font-bold text-brand-400 flex items-center gap-0.5 shrink-0">
-                          <Sparkles className="w-3 h-3" /> AI
+                        <span className="text-[10px] text-brand-400 font-semibold px-2 py-0.5 rounded-md bg-brand-500/10 border border-brand-500/20 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          <span>{t('train.aiReady')}</span>
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-zinc-400 truncate mt-0.5">
-                      {exercise.target_muscles} • {exercise.equipment || 'Bodyweight'}
-                    </p>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <span className={`hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${getDifficultyColor(exercise.difficulty)}`}>
-                    {exercise.difficulty || 'Intermediate'}
-                  </span>
 
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onStartLiveCamera(exercise.slug);
                     }}
-                    className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-black transition-all flex items-center gap-1.5 active:scale-95"
-                    title="Check My Technique"
+                    className="w-full py-2 px-3 rounded-xl bg-zinc-800 hover:bg-brand-500 hover:text-black text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
-                    <span className="hidden sm:inline">Check Technique</span>
+                    <span>{t('train.checkTechnique')}</span>
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* 5. Exercise Detail Modal */}
+      {/* Exercise Detail Modal */}
       {selectedExercise && (
         <ExerciseDetailModal
           exercise={selectedExercise}
           onClose={() => setSelectedExercise(null)}
-          onStartAnalysis={(slug) => onStartLiveCamera(slug)}
+          onStartAnalysis={(slug) => {
+            setSelectedExercise(null);
+            onStartLiveCamera(slug);
+          }}
         />
       )}
 
