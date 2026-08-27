@@ -156,9 +156,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Supabase auth state change subscriber
     if (isSupabaseEnabled) {
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event: string, newSession: any) => {
         if (!mounted) return;
-        setSession(newSession);
+        setSession(newSession as Session);
 
         if (newSession?.user) {
           await loadUserProfiles(newSession.user.id, newSession.user);
