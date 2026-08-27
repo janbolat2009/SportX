@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/layout/Navbar';
 import { MobileNav } from './components/layout/MobileNav';
 import { AthleteDashboard } from './components/athlete/AthleteDashboard';
+import { TrainLibraryView } from './components/exercise/TrainLibraryView';
 import { ProgressView } from './components/athlete/ProgressView';
 import { LiveCameraStudio } from './components/camera/LiveCameraStudio';
 import { VideoUploadStudio } from './components/video/VideoUploadStudio';
@@ -53,10 +54,10 @@ const MainAppContent: React.FC = () => {
           </ProtectedRoute>
         )}
 
-        {/* Train Tab (Direct Exercise Studio Selector) */}
+        {/* Train Tab (Comprehensive Exercise Library & Technique Studio) */}
         {currentTab === 'train' && (
           <ProtectedRoute>
-            <AthleteDashboard
+            <TrainLibraryView
               onStartLiveCamera={handleStartLiveCamera}
               onStartVideoUpload={handleStartVideoUpload}
             />

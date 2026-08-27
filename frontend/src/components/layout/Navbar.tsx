@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
+import { Logo } from '../common/Logo';
 import {
   Activity, Dumbbell, Users, Bell, User as UserIcon, LogOut,
   ChevronDown, Flame, CheckCircle, TrendingUp, FlaskConical
@@ -32,19 +33,9 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
         {/* Brand Logo */}
         <div
           onClick={() => onSelectTab('home')}
-          className="flex items-center gap-2.5 cursor-pointer select-none"
+          className="cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center text-black font-extrabold text-lg">
-            S
-          </div>
-          <div className="flex flex-col">
-            <span className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
-              SportX
-              <span className="text-[10px] font-medium bg-surface-subtle text-brand-400 px-1.5 py-0.5 rounded border border-surface-border">
-                AI
-              </span>
-            </span>
-          </div>
+          <Logo size="md" />
         </div>
 
         {/* Desktop Navigation Links */}

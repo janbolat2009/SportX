@@ -1,23 +1,12 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { api } from './api';
+import { exerciseService } from './exerciseService';
 import type { Tables, InsertTables } from '../types/database';
 import { Exercise, WorkoutSession, Repetition, AssignedWorkout } from '../types';
 
 export const workoutService = {
   async getExercises(): Promise<Exercise[]> {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .order('id', { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        return data as unknown as Exercise[];
-      }
-    }
-
-    // Fallback to API / local seed
-    return api.getExercises();
+    return exerciseService.getExercises();
   },
 
   async getWorkoutSessions(athleteUserId?: string): Promise<WorkoutSession[]> {

@@ -5,7 +5,7 @@ import { recoveryService } from '../../services/recoveryService';
 import { WorkoutSession, Repetition } from '../../types';
 import {
   TrendingUp, Activity, Calendar, Moon, Utensils, Award,
-  ChevronRight, ArrowUpRight, BarChart2, ShieldCheck, Flame, Loader2
+  ChevronRight, ArrowUpRight, BarChart2, ShieldCheck, Flame, Loader2, CheckCircle2
 } from 'lucide-react';
 import { HolisticTrackingModal } from './HolisticTrackingModal';
 import { PostWorkoutReport } from './PostWorkoutReport';
@@ -103,7 +103,7 @@ export const ProgressView: React.FC = () => {
           <span className="text-[11px] font-semibold text-zinc-400">Avg Symmetry</span>
           <p className="text-2xl sm:text-3xl font-black text-white mt-1 font-mono">94%</p>
           <span className="text-[10px] text-brand-400 font-medium flex items-center gap-0.5 mt-1">
-            <CheckCircle2Icon className="w-3 h-3" /> Optimal Balance
+            <CheckCircle2 className="w-3 h-3" /> Optimal Balance
           </span>
         </div>
 

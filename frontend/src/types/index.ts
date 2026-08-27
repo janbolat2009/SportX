@@ -16,16 +16,35 @@ export interface AuthState {
   isLoading: boolean;
 }
 
-export interface Exercise {
+export interface ExerciseCategory {
   id: number;
   name: string;
   slug: string;
+  description?: string;
+  icon_name?: string;
+  display_order?: number;
+}
+
+export interface Exercise {
+  id: number;
+  category_id?: number;
+  category_name?: string;
+  name: string;
+  slug: string;
   target_muscles: string;
+  secondary_muscles?: string;
   description: string;
-  default_camera_angle: string;
-  camera_setup_instructions: string;
-  ideal_rom_degrees: number;
-  normative_cadence_seconds: number;
+  instructions?: string;
+  common_mistakes?: string;
+  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced' | 'Elite' | string;
+  equipment?: string;
+  default_camera_angle?: string;
+  camera_setup_instructions?: string;
+  ideal_rom_degrees?: number;
+  normative_cadence_seconds?: number;
+  analysis_supported?: boolean;
+  video_url?: string | null;
+  thumbnail_url?: string | null;
 }
 
 export interface TechniqueIssue {
