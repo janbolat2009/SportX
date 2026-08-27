@@ -17,8 +17,8 @@ interface AuthContextType {
   isSupabaseEnabled: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  signUp: (params: SignUpParams) => Promise<void>;
-  register: (userData: any) => Promise<void>;
+  signUp: (params: SignUpParams) => Promise<{ needsEmailConfirmation?: boolean }>;
+  register: (userData: any) => Promise<{ needsEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -115,11 +115,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
         } catch (err) {
-          console.warn('Supabase session retrieval:', err);
+          console.warn('Supabase session retrieval warning:', err);
         }
       }
 
-      // If no valid session from Supabase, state remains unauthenticated
+      // If no valid session from Supabase, visitor state is unauthenticated
       if (mounted) {
         setUser(null);
         setProfile(null);
@@ -132,9 +132,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    // Supabase auth state change subscriber
+    // Supabase auth state change listener
     if (isSupabaseEnabled) {
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (event: string, newSession: any) => {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (_event: string, newSession: any) => {
         if (!mounted) return;
         setSession(newSession as Session);
 
@@ -163,15 +163,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      if (isSupabaseEnabled) {
-        const { session: newSession, user: authUser } = await authService.signIn({ email, password });
-        if (newSession && authUser) {
-          setSession(newSession as Session);
-          await loadUserProfiles(authUser.id, authUser as any);
-          return;
-        }
+      const { session: newSession, user: authUser } = await authService.signIn({ email, password });
+      if (newSession && authUser) {
+        setSession(newSession as Session);
+        await loadUserProfiles(authUser.id, authUser as any);
+        return;
       }
-      throw new Error('Supabase authentication is required. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -180,14 +177,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (params: SignUpParams) => {
     setLoading(true);
     try {
-      if (isSupabaseEnabled) {
-        const { session: newSession, user: authUser } = await authService.signUp(params);
-        if (newSession && authUser) {
-          setSession(newSession as Session);
-          await loadUserProfiles(authUser.id, authUser as any);
-          return;
-        }
+      const { session: newSession, user: authUser } = await authService.signUp(params);
+      if (newSession && authUser) {
+        setSession(newSession as Session);
+        await loadUserProfiles(authUser.id, authUser as any);
+        return { needsEmailConfirmation: false };
       }
+      return { needsEmailConfirmation: true };
     } finally {
       setLoading(false);
     }

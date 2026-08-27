@@ -44,7 +44,7 @@ export const AssignWorkoutModal: React.FC<Props> = ({ athlete, athleteId, athlet
         const selectedEx = exercises.find((ex) => ex.id === selectedExId);
 
         await workoutService.assignWorkout({
-          coach_id: cp?.id || null,
+          coach_id: (cp as any)?.id || null,
           athlete_id: String(targetAthleteId),
           exercise_id: selectedExId,
           title: selectedEx?.name || 'Assigned Exercise',

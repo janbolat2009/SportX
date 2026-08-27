@@ -470,7 +470,7 @@ export const exerciseService = {
 
       if (!error && data) {
         return {
-          ...data,
+          ...(data as any),
           category_name: (data as any).exercise_categories?.name || 'General'
         } as Exercise;
       }
@@ -493,7 +493,7 @@ export const exerciseService = {
 
       if (!error && data) {
         return {
-          ...data,
+          ...(data as any),
           category_name: (data as any).exercise_categories?.name || 'General'
         } as Exercise;
       }

@@ -19,17 +19,7 @@ export interface SignInParams {
 export const authService = {
   async signUp(params: SignUpParams) {
     if (!isSupabaseConfigured()) {
-      return {
-        user: {
-          id: 'local-user-' + Date.now(),
-          email: params.email,
-          user_metadata: {
-            full_name: params.full_name,
-            role: params.role,
-          },
-        },
-        session: { access_token: 'local-demo-token-' + params.role },
-      };
+      throw new Error('Supabase client is not configured. Please verify your Supabase URL and Anon Key.');
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -52,14 +42,7 @@ export const authService = {
 
   async signIn({ email, password }: SignInParams) {
     if (!isSupabaseConfigured()) {
-      return {
-        user: {
-          id: 'local-user-1',
-          email,
-          user_metadata: { full_name: 'Demo Athlete', role: 'athlete' },
-        },
-        session: { access_token: 'local-demo-token' },
-      };
+      throw new Error('Supabase client is not configured. Please verify your Supabase URL and Anon Key.');
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -74,12 +57,17 @@ export const authService = {
   async signOut() {
     if (isSupabaseConfigured()) {
       const { error } = await supabase.auth.signOut();
-      if (error) console.warn('Supabase sign out warning:', error.message);
+      if (error) {
+        console.warn('Supabase sign out warning:', error.message);
+        throw error;
+      }
     }
   },
 
   async resetPassword(email: string) {
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined,
     });

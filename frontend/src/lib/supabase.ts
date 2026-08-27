@@ -1,14 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../types/database';
 
-const env = (import.meta as any).env || {};
+const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) ? (import.meta as any).env : {};
 
-const supabaseUrl: string = env.VITE_SUPABASE_URL || '';
+const supabaseUrl: string =
+  env.VITE_SUPABASE_URL ||
+  'https://uzhdqldeqfnrwggbsrau.supabase.co';
+
 const supabaseAnonKey: string =
   env.VITE_SUPABASE_ANON_KEY ||
   env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   env.VITE_SUPABASE_KEY ||
-  '';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6aGRxbGRlcWZucndnZ2JzcmF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MTU3ODIsImV4cCI6MjEwMzM5MTc4Mn0.hQ5RSq6xKa-K-qHQ-K86oRZebePt3x0V8EMFSM--y6Y';
 
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(
@@ -20,17 +22,15 @@ export const isSupabaseConfigured = (): boolean => {
 };
 
 if (!isSupabaseConfigured() && typeof window !== 'undefined') {
-  console.info(
-    '%c[SportX Supabase]%c Running with local session fallback. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in frontend/.env to enable live Supabase cloud sync.',
-    'background: #10b981; color: #000; font-weight: bold; padding: 2px 6px; border-radius: 4px;',
-    'color: #94a3b8; margin-left: 6px;'
+  console.warn(
+    '[SportX Supabase] Supabase credentials missing or invalid. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment.'
   );
 }
 
 // Single centralized Supabase client instance
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key',
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,
