@@ -36,65 +36,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
   const isSupabaseEnabled = isSupabaseConfigured();
 
-  // Helper to load profiles for a given user ID and role
+  // Helper to load profiles for a given user ID and role with resilient fallback
   const loadUserProfiles = useCallback(async (userId: string, authUser?: SupabaseAuthUser | null) => {
-    try {
-      let baseProfile = await profileService.getProfile(userId);
+    // 1. Immediately establish authenticated user state so routes NEVER get locked out
+    const userRole = (authUser?.user_metadata?.role as UserRole) || 'athlete';
+    const userName = authUser?.user_metadata?.full_name || 'Athlete';
+    const userEmail = authUser?.email || '';
 
-      // If base profile does not exist yet, write it directly to public.profiles
-      if (!baseProfile && authUser) {
-        const role = (authUser.user_metadata?.role as UserRole) || 'athlete';
-        const fullName = authUser.user_metadata?.full_name || 'Athlete';
-        baseProfile = await profileService.updateProfile(userId, {
+    setUser({
+      id: userId,
+      email: userEmail,
+      full_name: userName,
+      role: userRole,
+      avatar_url: null,
+      is_active: true,
+    });
+
+    try {
+      let baseProfile: Profile | null = null;
+      try {
+        baseProfile = await profileService.getProfile(userId);
+
+        // If base profile does not exist yet, try writing to public.profiles
+        if (!baseProfile && authUser) {
+          baseProfile = await profileService.updateProfile(userId, {
+            id: userId,
+            email: userEmail,
+            full_name: userName,
+            role: userRole,
+          });
+        }
+      } catch (profErr) {
+        console.warn('Profile sync notice (table may be initializing):', profErr);
+      }
+
+      if (baseProfile) {
+        setProfile(baseProfile);
+        setUser({
           id: userId,
-          email: authUser.email,
-          full_name: fullName,
-          role: role,
+          email: baseProfile.email || userEmail,
+          full_name: baseProfile.full_name || userName,
+          role: (baseProfile.role as UserRole) || userRole,
+          avatar_url: baseProfile.avatar_url || null,
+          is_active: true,
         });
       }
 
-      setProfile(baseProfile);
-
       const effectiveRole: UserRole =
         (baseProfile?.role as UserRole) ||
-        (authUser?.user_metadata?.role as UserRole) ||
-        'athlete';
-
-      let ap: AthleteProfileRow | null = null;
-      let cp: CoachProfileRow | null = null;
+        userRole;
 
       if (effectiveRole === 'athlete') {
-        ap = await profileService.getAthleteProfile(userId);
-        if (!ap) {
-          ap = await profileService.createAthleteProfile({
-            user_id: userId,
-            sport: authUser?.user_metadata?.sport || 'General Fitness',
-            training_level: authUser?.user_metadata?.training_level || 'Intermediate',
-          });
+        try {
+          let ap = await profileService.getAthleteProfile(userId);
+          if (!ap) {
+            ap = await profileService.createAthleteProfile({
+              user_id: userId,
+              sport: authUser?.user_metadata?.sport || 'General Fitness',
+              training_level: authUser?.user_metadata?.training_level || 'Intermediate',
+            });
+          }
+          setAthleteProfile(ap);
+        } catch (apErr) {
+          console.warn('Athlete profile sync notice:', apErr);
         }
-        setAthleteProfile(ap);
         setCoachProfile(null);
       } else if (effectiveRole === 'coach') {
-        cp = await profileService.getCoachProfile(userId);
-        if (!cp) {
-          cp = await profileService.createCoachProfile({
-            user_id: userId,
-            specialization: authUser?.user_metadata?.specialization || 'Youth Biomechanics',
-            experience_years: 1,
-          });
+        try {
+          let cp = await profileService.getCoachProfile(userId);
+          if (!cp) {
+            cp = await profileService.createCoachProfile({
+              user_id: userId,
+              specialization: authUser?.user_metadata?.specialization || 'Youth Biomechanics',
+              experience_years: 1,
+            });
+          }
+          setCoachProfile(cp);
+        } catch (cpErr) {
+          console.warn('Coach profile sync notice:', cpErr);
         }
-        setCoachProfile(cp);
         setAthleteProfile(null);
       }
-
-      setUser({
-        id: userId,
-        email: baseProfile?.email || authUser?.email || '',
-        full_name: baseProfile?.full_name || authUser?.user_metadata?.full_name || 'Athlete',
-        role: effectiveRole,
-        avatar_url: baseProfile?.avatar_url || null,
-        is_active: true,
-      });
     } catch (err) {
       console.error('Error loading user profile details:', err);
     }
@@ -174,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Direct Registration: sends all data to DB and logs in directly without email confirmation gate
+  // Direct Registration: sends all data to DB and logs in directly
   const signUp = async (params: SignUpParams) => {
     setLoading(true);
     try {
@@ -186,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true };
       }
 
-      // If Supabase created the user but no direct session, attempt instant sign in
+      // If Supabase created the user, attempt instant sign-in or establish local user session
       if (authUser) {
         try {
           const { session: directSession, user: directUser } = await authService.signIn({
@@ -199,7 +221,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return { success: true };
           }
         } catch {
-          // If auto sign-in is blocked by pending confirm, populate profile in database anyway
           await loadUserProfiles(authUser.id, authUser as any);
         }
 
