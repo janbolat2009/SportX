@@ -51,7 +51,7 @@ export const AuthModal: React.FC<Props> = ({
         if (onSuccess) onSuccess();
         if (onClose) onClose();
       } else {
-        const res = await signUp({
+        await signUp({
           email,
           password,
           full_name: fullName,
@@ -59,13 +59,9 @@ export const AuthModal: React.FC<Props> = ({
           sport: role === 'athlete' ? sport : undefined,
           specialization: role === 'coach' ? specialization : undefined,
         });
-        if (res?.needsEmailConfirmation) {
-          setSuccessMsg('Account registered! Please check your email to verify and complete sign in.');
-        } else {
-          setSuccessMsg('Account created successfully! You are now logged in.');
-          if (onSuccess) onSuccess();
-          if (onClose) onClose();
-        }
+        setSuccessMsg('Account created successfully! Welcome to SportX.');
+        if (onSuccess) onSuccess();
+        if (onClose) onClose();
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your details.');

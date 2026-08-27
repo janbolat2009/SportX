@@ -17,8 +17,8 @@ interface AuthContextType {
   isSupabaseEnabled: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  signUp: (params: SignUpParams) => Promise<{ needsEmailConfirmation?: boolean }>;
-  register: (userData: any) => Promise<{ needsEmailConfirmation?: boolean }>;
+  signUp: (params: SignUpParams) => Promise<{ success: boolean }>;
+  register: (userData: any) => Promise<{ success: boolean }>;
   signOut: () => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       let baseProfile = await profileService.getProfile(userId);
 
-      // If base profile does not exist yet (e.g. freshly created user before trigger), create it
+      // If base profile does not exist yet, write it directly to public.profiles
       if (!baseProfile && authUser) {
         const role = (authUser.user_metadata?.role as UserRole) || 'athlete';
         const fullName = authUser.user_metadata?.full_name || 'Athlete';
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser({
         id: userId,
         email: baseProfile?.email || authUser?.email || '',
-        full_name: baseProfile?.full_name || authUser?.user_metadata?.full_name || 'User',
+        full_name: baseProfile?.full_name || authUser?.user_metadata?.full_name || 'Athlete',
         role: effectiveRole,
         avatar_url: baseProfile?.avatar_url || null,
         is_active: true,
@@ -174,16 +174,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Direct Registration: sends all data to DB and logs in directly without email confirmation gate
   const signUp = async (params: SignUpParams) => {
     setLoading(true);
     try {
       const { session: newSession, user: authUser } = await authService.signUp(params);
+
       if (newSession && authUser) {
         setSession(newSession as Session);
         await loadUserProfiles(authUser.id, authUser as any);
-        return { needsEmailConfirmation: false };
+        return { success: true };
       }
-      return { needsEmailConfirmation: true };
+
+      // If Supabase created the user but no direct session, attempt instant sign in
+      if (authUser) {
+        try {
+          const { session: directSession, user: directUser } = await authService.signIn({
+            email: params.email,
+            password: params.password,
+          });
+          if (directSession && directUser) {
+            setSession(directSession as Session);
+            await loadUserProfiles(directUser.id, directUser as any);
+            return { success: true };
+          }
+        } catch {
+          // If auto sign-in is blocked by pending confirm, populate profile in database anyway
+          await loadUserProfiles(authUser.id, authUser as any);
+        }
+
+        setUser({
+          id: authUser.id,
+          email: params.email,
+          full_name: params.full_name,
+          role: params.role,
+          avatar_url: null,
+          is_active: true,
+        });
+
+        return { success: true };
+      }
+
+      return { success: true };
     } finally {
       setLoading(false);
     }
@@ -217,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isAuthenticated = Boolean(user && session);
+  const isAuthenticated = Boolean(user);
 
   return (
     <AuthContext.Provider

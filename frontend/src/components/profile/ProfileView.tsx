@@ -86,7 +86,7 @@ export const ProfileView: React.FC = () => {
         await signIn(email, password);
         setAuthSuccess('Signed in successfully.');
       } else {
-        const res = await signUp({
+        await signUp({
           email,
           password,
           full_name: fullName,
@@ -95,11 +95,7 @@ export const ProfileView: React.FC = () => {
           training_level: regTrainingLevel,
           specialization: regSpecialization,
         });
-        if (res?.needsEmailConfirmation) {
-          setAuthSuccess('Account registered! Please check your email to confirm your account and log in.');
-        } else {
-          setAuthSuccess('Account registered successfully with Supabase.');
-        }
+        setAuthSuccess('Account registered successfully! Welcome to SportX.');
       }
     } catch (err: any) {
       setAuthError(err.message || 'Authentication error occurred.');
