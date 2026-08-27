@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 interface Props {
-  athleteId: number;
+  athleteId: number | string;
   onClose: () => void;
 }
 
@@ -20,7 +20,7 @@ export const AthleteDetailModal: React.FC<Props> = ({ athleteId, onClose }) => {
   useEffect(() => {
     async function loadDetail() {
       try {
-        const data = await api.getAthleteDetailForCoach(athleteId);
+        const data = await api.getAthleteDetailForCoach(Number(athleteId) || 1);
         setAthleteData(data);
         if (data.sessions && data.sessions.length > 0) {
           setSelectedSessionId(data.sessions[0].id);

@@ -9,6 +9,9 @@ import { VideoUploadStudio } from './components/video/VideoUploadStudio';
 import { CoachDashboard } from './components/coach/CoachDashboard';
 import { ResearchLaboratory } from './components/research/ResearchLaboratory';
 import { ProfileView } from './components/profile/ProfileView';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AthleteRoute } from './components/auth/AthleteRoute';
+import { CoachRoute } from './components/auth/CoachRoute';
 
 const MainAppContent: React.FC = () => {
   const { user } = useAuth();
@@ -42,49 +45,63 @@ const MainAppContent: React.FC = () => {
         
         {/* Home Tab */}
         {currentTab === 'home' && (
-          <AthleteDashboard
-            onStartLiveCamera={handleStartLiveCamera}
-            onStartVideoUpload={handleStartVideoUpload}
-          />
+          <ProtectedRoute>
+            <AthleteDashboard
+              onStartLiveCamera={handleStartLiveCamera}
+              onStartVideoUpload={handleStartVideoUpload}
+            />
+          </ProtectedRoute>
         )}
 
         {/* Train Tab (Direct Exercise Studio Selector) */}
         {currentTab === 'train' && (
-          <AthleteDashboard
-            onStartLiveCamera={handleStartLiveCamera}
-            onStartVideoUpload={handleStartVideoUpload}
-          />
+          <ProtectedRoute>
+            <AthleteDashboard
+              onStartLiveCamera={handleStartLiveCamera}
+              onStartVideoUpload={handleStartVideoUpload}
+            />
+          </ProtectedRoute>
         )}
 
         {/* Live Camera Studio */}
         {currentTab === 'live-camera' && (
-          <LiveCameraStudio
-            initialExerciseSlug={activeExerciseSlug}
-            onBack={() => setCurrentTab('home')}
-            onSessionComplete={() => setCurrentTab('progress')}
-          />
+          <ProtectedRoute>
+            <LiveCameraStudio
+              initialExerciseSlug={activeExerciseSlug}
+              onBack={() => setCurrentTab('home')}
+              onSessionComplete={() => setCurrentTab('progress')}
+            />
+          </ProtectedRoute>
         )}
 
         {/* Video Upload Studio */}
         {currentTab === 'video-upload' && (
-          <VideoUploadStudio
-            onBack={() => setCurrentTab('home')}
-          />
+          <ProtectedRoute>
+            <VideoUploadStudio
+              onBack={() => setCurrentTab('home')}
+            />
+          </ProtectedRoute>
         )}
 
         {/* Progress & History Tab */}
         {currentTab === 'progress' && (
-          <ProgressView />
+          <AthleteRoute>
+            <ProgressView />
+          </AthleteRoute>
         )}
 
         {/* Coach Hub */}
         {currentTab === 'coach' && (
-          <CoachDashboard />
+          <CoachRoute>
+            <CoachDashboard />
+          </CoachRoute>
         )}
 
         {/* Research Laboratory Tab */}
         {currentTab === 'research' && (
-          <ResearchLaboratory />
+          <ProtectedRoute>
+            <ResearchLaboratory />
+          </ProtectedRoute>
         )}
 
         {/* Profile & Settings Tab */}

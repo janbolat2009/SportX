@@ -43,6 +43,7 @@ frontend/dist/
 # Environment & IDE
 .env
 .env.local
+.env.*.local
 .venv
 venv/
 ENV/

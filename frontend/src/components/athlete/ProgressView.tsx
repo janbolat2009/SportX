@@ -1,35 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
+import { workoutService } from '../../services/workoutService';
+import { recoveryService } from '../../services/recoveryService';
 import { WorkoutSession, Repetition } from '../../types';
 import {
   TrendingUp, Activity, Calendar, Moon, Utensils, Award,
-  ChevronRight, ArrowUpRight, BarChart2, ShieldCheck, Flame
+  ChevronRight, ArrowUpRight, BarChart2, ShieldCheck, Flame, Loader2
 } from 'lucide-react';
 import { HolisticTrackingModal } from './HolisticTrackingModal';
 import { PostWorkoutReport } from './PostWorkoutReport';
 
 export const ProgressView: React.FC = () => {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [readiness, setReadiness] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
   const [showHolisticModal, setShowHolisticModal] = useState(false);
   const [holisticType, setHolisticType] = useState<'sleep' | 'nutrition' | 'recovery'>('sleep');
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [sessData, readData] = await Promise.all([
-          api.getAthleteSessions(1),
-          api.getRecoveryReadiness()
-        ]);
-        setSessions(sessData);
-        setReadiness(readData);
-      } catch (e) {
-        console.error('Failed to load progress data:', e);
-      }
+  const loadData = async () => {
+    try {
+      const userIdStr = user?.id ? String(user.id) : undefined;
+      const [sessData, readData] = await Promise.all([
+        workoutService.getWorkoutSessions(userIdStr),
+        recoveryService.getReadinessScore(userIdStr)
+      ]);
+      setSessions(sessData);
+      setReadiness(readData);
+    } catch (e) {
+      console.error('Failed to load progress data:', e);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadData();
-  }, []);
+  }, [user]);
 
   const avgScore = sessions.length > 0
     ? Math.round(sessions.reduce((acc, s) => acc + s.overall_score, 0) / sessions.length)

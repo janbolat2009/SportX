@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
+import { coachService } from '../../services/coachService';
+import { workoutService } from '../../services/workoutService';
 import { CoachRosterAthlete, NotificationItem, Exercise } from '../../types';
 import {
   Users, AlertTriangle, Dumbbell, Calendar,
-  MessageSquare, Plus, ChevronRight, CheckCircle2, User, Search, ShieldCheck
+  MessageSquare, Plus, ChevronRight, CheckCircle2, User, Search, ShieldCheck, Loader2
 } from 'lucide-react';
 import { AssignWorkoutModal } from './AssignWorkoutModal';
 import { AthleteDetailModal } from './AthleteDetailModal';
 
 export const CoachDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [roster, setRoster] = useState<CoachRosterAthlete[]>([]);
   const [alerts, setAlerts] = useState<NotificationItem[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -16,34 +19,45 @@ export const CoachDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   
   // Modals
-  const [selectedAthleteId, setSelectedAthleteId] = useState<number | null>(null);
+  const [selectedAthleteId, setSelectedAthleteId] = useState<number | string | null>(null);
   const [assigningAthlete, setAssigningAthlete] = useState<CoachRosterAthlete | null>(null);
 
-  useEffect(() => {
-    async function loadCoachData() {
-      try {
-        const [rosterData, alertsData, exercisesData] = await Promise.all([
-          api.getCoachRoster(),
-          api.getCoachAlerts(),
-          api.getExercises()
-        ]);
-        setRoster(rosterData);
-        setAlerts(alertsData);
-        setExercises(exercisesData);
-      } catch (e) {
-        console.error('Failed to load coach data:', e);
-      } finally {
-        setLoading(false);
-      }
+  const loadCoachData = async () => {
+    try {
+      const coachUserIdStr = user?.id ? String(user.id) : undefined;
+      const [rosterData, alertsData, exercisesData] = await Promise.all([
+        coachService.getSupervisedAthletes(coachUserIdStr || ''),
+        coachService.getCoachAlerts(coachUserIdStr || ''),
+        workoutService.getExercises()
+      ]);
+      setRoster(rosterData);
+      setAlerts(alertsData);
+      setExercises(exercisesData);
+    } catch (e) {
+      console.error('Failed to load coach data:', e);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadCoachData();
-  }, []);
+  }, [user]);
 
   const filteredRoster = roster.filter(
     (a) =>
       a.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.sport.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 space-y-3">
+        <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+        <p className="text-xs text-zinc-400 font-mono">Loading supervised athlete roster & technique telemetry...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6 pb-24 space-y-6 animate-in fade-in">
@@ -102,57 +116,66 @@ export const CoachDashboard: React.FC = () => {
             </div>
 
             {/* Roster Cards List */}
-            <div className="space-y-3">
-              {filteredRoster.map((athlete) => (
-                <div
-                  key={athlete.athlete_id}
-                  className="p-4 rounded-2xl bg-surface-subtle border border-surface-border hover:border-surface-borderLight transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
+            {filteredRoster.length === 0 ? (
+              <div className="p-8 rounded-2xl bg-surface-subtle border border-surface-border text-center space-y-2">
+                <p className="text-xs text-zinc-400">No athletes connected to your coach profile in Supabase.</p>
+                <p className="text-[11px] text-zinc-500">
+                  When athletes connect via their athlete profile, their technique reports and sessions will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredRoster.map((athlete) => (
                   <div
-                    onClick={() => setSelectedAthleteId(athlete.athlete_id)}
-                    className="flex items-center gap-3 cursor-pointer flex-1"
+                    key={String(athlete.athlete_id)}
+                    className="p-4 rounded-2xl bg-surface-subtle border border-surface-border hover:border-surface-borderLight transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center font-bold text-xs text-brand-400 shrink-0">
-                      {athlete.full_name.charAt(0)}
+                    <div
+                      onClick={() => setSelectedAthleteId(athlete.athlete_id)}
+                      className="flex items-center gap-3 cursor-pointer flex-1"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center font-bold text-xs text-brand-400 shrink-0">
+                        {athlete.full_name.charAt(0)}
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-white hover:text-brand-400 transition-colors">
+                          {athlete.full_name}
+                        </h4>
+                        <p className="text-[11px] text-zinc-400">
+                          {athlete.sport} • Level: {athlete.training_level}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-white hover:text-brand-400 transition-colors">
-                        {athlete.full_name}
-                      </h4>
-                      <p className="text-[11px] text-zinc-400">
-                        {athlete.sport} • Level: {athlete.training_level}
-                      </p>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-surface-border">
+                      <div className="text-left sm:text-right">
+                        <span className="text-[10px] text-zinc-500 uppercase font-mono block">Avg Score</span>
+                        <span className="text-sm font-bold text-white font-mono">
+                          {Math.round(athlete.average_technique_score ?? athlete.recent_average_score ?? 85)}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setAssigningAthlete(athlete)}
+                          className="px-3 py-1.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold transition-all"
+                        >
+                          Assign
+                        </button>
+
+                        <button
+                          onClick={() => setSelectedAthleteId(athlete.athlete_id)}
+                          className="p-2 rounded-xl bg-zinc-800 text-zinc-300 hover:text-white"
+                          title="View Details"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-surface-border">
-                    <div className="text-left sm:text-right">
-                      <span className="text-[10px] text-zinc-500 uppercase font-mono block">Avg Score</span>
-                      <span className="text-sm font-bold text-white font-mono">
-                        {Math.round(athlete.average_technique_score ?? athlete.recent_average_score ?? 85)}%
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setAssigningAthlete(athlete)}
-                        className="px-3 py-1.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold transition-all"
-                      >
-                        Assign
-                      </button>
-
-                      <button
-                        onClick={() => setSelectedAthleteId(athlete.athlete_id)}
-                        className="p-2 rounded-xl bg-zinc-800 text-zinc-300 hover:text-white"
-                        title="View Details"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
@@ -170,7 +193,7 @@ export const CoachDashboard: React.FC = () => {
 
             <div className="space-y-2.5">
               {alerts.length === 0 ? (
-                <p className="text-xs text-zinc-500 py-4 text-center">No active technique warnings.</p>
+                <p className="text-xs text-zinc-500 py-6 text-center">No active technique warnings from Supabase.</p>
               ) : (
                 alerts.map((alt) => (
                   <div
@@ -199,18 +222,22 @@ export const CoachDashboard: React.FC = () => {
       {/* Assign Workout Modal */}
       {assigningAthlete && (
         <AssignWorkoutModal
-          athleteId={assigningAthlete.athlete_id}
+          athlete={assigningAthlete}
+          athleteId={assigningAthlete.athlete_id as any}
           athleteName={assigningAthlete.full_name}
           exercises={exercises}
           onClose={() => setAssigningAthlete(null)}
-          onSuccess={() => setAssigningAthlete(null)}
+          onSuccess={() => {
+            setAssigningAthlete(null);
+            loadCoachData();
+          }}
         />
       )}
 
       {/* Athlete Detail Modal */}
       {selectedAthleteId && (
         <AthleteDetailModal
-          athleteId={selectedAthleteId}
+          athleteId={selectedAthleteId as any}
           onClose={() => setSelectedAthleteId(null)}
         />
       )}

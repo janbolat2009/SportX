@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
+import { workoutService } from '../../services/workoutService';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { CoachRosterAthlete, Exercise } from '../../types';
-import { Dumbbell, X, Check } from 'lucide-react';
+import { Dumbbell, X, Check, Loader2 } from 'lucide-react';
 
 interface Props {
   athlete?: CoachRosterAthlete;
-  athleteId?: number;
+  athleteId?: number | string;
   athleteName?: string;
   exercises: Exercise[];
   onClose: () => void;
@@ -13,6 +16,7 @@ interface Props {
 }
 
 export const AssignWorkoutModal: React.FC<Props> = ({ athlete, athleteId, athleteName, exercises, onClose, onSuccess }) => {
+  const { user } = useAuth();
   const targetAthleteId = athlete?.athlete_id || athleteId || 1;
   const targetAthleteName = athlete?.full_name || athleteName || 'Athlete';
   const [selectedExId, setSelectedExId] = useState<number>(exercises[0]?.id || 1);
@@ -29,15 +33,39 @@ export const AssignWorkoutModal: React.FC<Props> = ({ athlete, athleteId, athlet
     setLoading(true);
     setError(null);
     try {
-      await api.assignExercise({
-        athlete_id: targetAthleteId,
-        exercise_id: selectedExId,
-        target_sets: sets,
-        target_reps: reps,
-        target_tempo: tempo,
-        target_rom: rom,
-        notes
-      });
+      if (isSupabaseConfigured() && user?.id) {
+        // Get coach profile ID
+        const { data: cp } = await supabase
+          .from('coach_profiles')
+          .select('id')
+          .eq('user_id', String(user.id))
+          .maybeSingle();
+
+        const selectedEx = exercises.find((ex) => ex.id === selectedExId);
+
+        await workoutService.assignWorkout({
+          coach_id: cp?.id || null,
+          athlete_id: String(targetAthleteId),
+          exercise_id: selectedExId,
+          title: selectedEx?.name || 'Assigned Exercise',
+          target_sets: sets,
+          target_reps: reps,
+          target_tempo: tempo,
+          target_rom: rom,
+          notes,
+          is_completed: false
+        });
+      } else {
+        await api.assignExercise({
+          athlete_id: targetAthleteId as any,
+          exercise_id: selectedExId,
+          target_sets: sets,
+          target_reps: reps,
+          target_tempo: tempo,
+          target_rom: rom,
+          notes
+        });
+      }
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'Failed to assign workout');

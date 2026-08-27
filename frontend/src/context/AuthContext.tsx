@@ -1,244 +1,322 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { Session, User as SupabaseAuthUser } from '@supabase/supabase-js';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { authService, SignUpParams } from '../services/authService';
+import { profileService, Profile, AthleteProfileRow, CoachProfileRow } from '../services/profileService';
 import { User, UserRole } from '../types';
-import { api } from '../services/api';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
+  session: Session | null;
+  profile: Profile | null;
+  athleteProfile: AthleteProfileRow | null;
+  coachProfile: CoachProfileRow | null;
+  loading: boolean;
+  isLoading: boolean; // Alias for backward compatibility
   isAuthenticated: boolean;
-  isLoading: boolean;
   isSupabaseEnabled: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>; // Alias
+  signUp: (params: SignUpParams) => Promise<void>;
+  register: (userData: any) => Promise<void>; // Alias
+  signOut: () => Promise<void>;
+  logout: () => Promise<void>; // Alias
+  refreshProfile: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   quickLogin: (role: UserRole) => Promise<void>;
-  register: (userData: any) => Promise<void>;
-  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('sportx_token'));
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [athleteProfile, setAthleteProfile] = useState<AthleteProfileRow | null>(null);
+  const [coachProfile, setCoachProfile] = useState<CoachProfileRow | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const isSupabaseEnabled = isSupabaseConfigured();
 
+  // Helper to load profiles for a given user ID and role
+  const loadUserProfiles = useCallback(async (userId: string, authUser?: SupabaseAuthUser | null) => {
+    try {
+      let baseProfile = await profileService.getProfile(userId);
+
+      // If base profile does not exist yet (e.g. freshly created user before trigger), create it
+      if (!baseProfile && authUser) {
+        const role = (authUser.user_metadata?.role as UserRole) || 'athlete';
+        const fullName = authUser.user_metadata?.full_name || 'Athlete';
+        baseProfile = await profileService.updateProfile(userId, {
+          id: userId,
+          email: authUser.email,
+          full_name: fullName,
+          role: role,
+        });
+      }
+
+      setProfile(baseProfile);
+
+      const effectiveRole: UserRole =
+        (baseProfile?.role as UserRole) ||
+        (authUser?.user_metadata?.role as UserRole) ||
+        'athlete';
+
+      let ap: AthleteProfileRow | null = null;
+      let cp: CoachProfileRow | null = null;
+
+      if (effectiveRole === 'athlete') {
+        ap = await profileService.getAthleteProfile(userId);
+        if (!ap) {
+          // Auto-initialize athlete profile row if missing
+          ap = await profileService.createAthleteProfile({
+            user_id: userId,
+            sport: authUser?.user_metadata?.sport || 'General Fitness',
+            training_level: authUser?.user_metadata?.training_level || 'Intermediate',
+          });
+        }
+        setAthleteProfile(ap);
+        setCoachProfile(null);
+      } else if (effectiveRole === 'coach') {
+        cp = await profileService.getCoachProfile(userId);
+        if (!cp) {
+          // Auto-initialize coach profile row if missing
+          cp = await profileService.createCoachProfile({
+            user_id: userId,
+            specialization: authUser?.user_metadata?.specialization || 'Youth Athletic Development',
+            experience_years: 1,
+          });
+        }
+        setCoachProfile(cp);
+        setAthleteProfile(null);
+      }
+
+      setUser({
+        id: userId,
+        email: baseProfile?.email || authUser?.email || '',
+        full_name: baseProfile?.full_name || authUser?.user_metadata?.full_name || 'User',
+        role: effectiveRole,
+        avatar_url: baseProfile?.avatar_url || null,
+        is_active: true,
+      });
+    } catch (err) {
+      console.error('Error loading user profile details:', err);
+    }
+  }, []);
+
+  // Initialize Auth State on Mount
   useEffect(() => {
+    let mounted = true;
+
     async function initAuth() {
-      // 1. If Supabase is configured, listen to Supabase auth state
       if (isSupabaseEnabled) {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            setUser({
-              id: session.user.id as any,
-              email: session.user.email || '',
-              full_name: profile?.full_name || session.user.user_metadata?.full_name || 'Athlete',
-              role: (profile?.role || session.user.user_metadata?.role || 'athlete') as UserRole,
-              is_active: true
-            });
-            setToken(session.access_token);
-            setIsLoading(false);
+          const { session: currentSession } = await authService.getSession();
+          if (mounted && currentSession?.user) {
+            setSession(currentSession);
+            await loadUserProfiles(currentSession.user.id, currentSession.user);
+            setLoading(false);
             return;
           }
         } catch (err) {
-          console.warn('Supabase auth initialization error, falling back to local:', err);
+          console.warn('Supabase session retrieval warning:', err);
         }
       }
 
-      // 2. Local session fallback
-      if (token) {
-        try {
-          const userData = await api.getMe();
-          setUser(userData);
-        } catch (e) {
-          console.error('Session expired or invalid, auto-logging into demo account');
-          await quickLogin('athlete');
+      // Local fallback session
+      if (mounted) {
+        const localToken = localStorage.getItem('sportx_token');
+        const localRole = (localStorage.getItem('sportx_role') as UserRole) || 'athlete';
+        const localName = localStorage.getItem('sportx_name') || 'Alex Chen';
+        const localEmail = localStorage.getItem('sportx_email') || 'athlete@sportx.ai';
+
+        if (localToken) {
+          setUser({
+            id: 'local-user-1',
+            email: localEmail,
+            full_name: localName,
+            role: localRole,
+            is_active: true,
+          });
+        } else {
+          // Default demo athlete state for seamless out-of-the-box exploration
+          setUser({
+            id: 'local-user-1',
+            email: 'athlete@sportx.ai',
+            full_name: 'Alex Chen',
+            role: 'athlete',
+            is_active: true,
+          });
+          localStorage.setItem('sportx_token', 'demo_token_athlete');
         }
-      } else {
-        // Auto-login default athlete for seamless exploration
-        await quickLogin('athlete');
+        setLoading(false);
       }
-      setIsLoading(false);
     }
 
     initAuth();
 
-    // Supabase Auth listener
+    // Supabase auth state change subscriber
     if (isSupabaseEnabled) {
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+        if (!mounted) return;
+        setSession(newSession);
 
-          setUser({
-            id: session.user.id as any,
-            email: session.user.email || '',
-            full_name: profile?.full_name || session.user.user_metadata?.full_name || 'Athlete',
-            role: (profile?.role || session.user.user_metadata?.role || 'athlete') as UserRole,
-            is_active: true
-          });
-          setToken(session.access_token);
-          localStorage.setItem('sportx_token', session.access_token);
+        if (newSession?.user) {
+          await loadUserProfiles(newSession.user.id, newSession.user);
+          localStorage.setItem('sportx_token', newSession.access_token);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
-          setToken(null);
+          setProfile(null);
+          setAthleteProfile(null);
+          setCoachProfile(null);
           localStorage.removeItem('sportx_token');
         }
+        setLoading(false);
       });
 
       return () => {
+        mounted = false;
         authListener.subscription.unsubscribe();
       };
     }
-  }, []);
 
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
+    return () => {
+      mounted = false;
+    };
+  }, [isSupabaseEnabled, loadUserProfiles]);
+
+  const signIn = async (email: string, password: string) => {
+    setLoading(true);
     try {
       if (isSupabaseEnabled) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        if (data.session) {
-          localStorage.setItem('sportx_token', data.session.access_token);
-          setToken(data.session.access_token);
+        const { session: newSession, user: authUser } = await authService.signIn({ email, password });
+        if (newSession && authUser) {
+          setSession(newSession as Session);
+          await loadUserProfiles(authUser.id, authUser as any);
+          localStorage.setItem('sportx_token', newSession.access_token);
           return;
         }
       }
 
-      // Local API login fallback
-      const res = await api.login(email, password);
-      localStorage.setItem('sportx_token', res.access_token);
-      setToken(res.access_token);
+      // Local mock login fallback
+      localStorage.setItem('sportx_token', 'local_token_' + Date.now());
       setUser({
-        id: res.user_id,
-        email: res.email,
-        full_name: res.full_name,
-        role: res.role as UserRole,
-        is_active: true
+        id: 'local-user-1',
+        email,
+        full_name: email.split('@')[0],
+        role: 'athlete',
+        is_active: true,
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
+  const signUp = async (params: SignUpParams) => {
+    setLoading(true);
+    try {
+      if (isSupabaseEnabled) {
+        const { session: newSession, user: authUser } = await authService.signUp(params);
+        if (authUser) {
+          if (newSession) {
+            setSession(newSession as Session);
+            localStorage.setItem('sportx_token', newSession.access_token);
+          }
+          await loadUserProfiles(authUser.id, authUser as any);
+          return;
+        }
+      }
+
+      // Local fallback registration
+      localStorage.setItem('sportx_token', 'local_token_' + Date.now());
+      setUser({
+        id: 'local-user-' + Date.now(),
+        email: params.email,
+        full_name: params.full_name,
+        role: params.role,
+        is_active: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    setLoading(true);
+    try {
+      await authService.signOut();
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setAthleteProfile(null);
+      setCoachProfile(null);
+      localStorage.removeItem('sportx_token');
+      localStorage.removeItem('sportx_role');
+      localStorage.removeItem('sportx_name');
+      localStorage.removeItem('sportx_email');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user?.id && typeof user.id === 'string') {
+      await loadUserProfiles(user.id, session?.user || null);
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    await authService.resetPassword(email);
+  };
+
   const quickLogin = async (role: UserRole) => {
-    setIsLoading(true);
+    setLoading(true);
     try {
       let email = 'athlete@sportx.ai';
-      let password = 'athlete123';
       let name = 'Alex Chen';
 
       if (role === 'coach') {
         email = 'coach@sportx.ai';
-        password = 'coach123';
         name = 'Marcus Vance';
-      } else if (role === 'researcher') {
-        email = 'researcher@sportx.ai';
-        password = 'research123';
-        name = 'Dr. Elena Rostova';
       }
 
-      try {
-        const res = await api.login(email, password);
-        localStorage.setItem('sportx_token', res.access_token);
-        setToken(res.access_token);
-        setUser({
-          id: res.user_id,
-          email: res.email,
-          full_name: res.full_name,
-          role: res.role as UserRole,
-          is_active: true
-        });
-      } catch {
-        // Mock offline fallback
-        const mockToken = 'mock_jwt_token_' + role;
-        localStorage.setItem('sportx_token', mockToken);
-        setToken(mockToken);
-        setUser({
-          id: 1,
-          email,
-          full_name: name,
-          role,
-          is_active: true
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      localStorage.setItem('sportx_token', 'demo_token_' + role);
+      localStorage.setItem('sportx_role', role);
+      localStorage.setItem('sportx_name', name);
+      localStorage.setItem('sportx_email', email);
 
-  const register = async (userData: any) => {
-    setIsLoading(true);
-    try {
-      if (isSupabaseEnabled) {
-        const { data, error } = await supabase.auth.signUp({
-          email: userData.email,
-          password: userData.password,
-          options: {
-            data: {
-              full_name: userData.full_name,
-              role: userData.role || 'athlete'
-            }
-          }
-        });
-        if (error) throw error;
-        if (data.session) {
-          localStorage.setItem('sportx_token', data.session.access_token);
-          setToken(data.session.access_token);
-          return;
-        }
-      }
-
-      const res = await api.register(userData);
-      localStorage.setItem('sportx_token', res.access_token);
-      setToken(res.access_token);
       setUser({
-        id: res.user_id,
-        email: res.email,
-        full_name: res.full_name,
-        role: res.role as UserRole,
-        is_active: true
+        id: 'demo-' + role + '-id',
+        email,
+        full_name: name,
+        role,
+        is_active: true,
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
-
-  const logout = async () => {
-    if (isSupabaseEnabled) {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.warn('Supabase sign out err:', err);
-      }
-    }
-    localStorage.removeItem('sportx_token');
-    setToken(null);
-    setUser(null);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        token,
+        session,
+        profile,
+        athleteProfile,
+        coachProfile,
+        loading,
+        isLoading: loading,
         isAuthenticated: !!user,
-        isLoading,
         isSupabaseEnabled,
-        login,
+        signIn,
+        login: signIn,
+        signUp,
+        register: signUp,
+        signOut,
+        logout: signOut,
+        refreshProfile,
+        resetPassword,
         quickLogin,
-        register,
-        logout
       }}
     >
       {children}

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { api } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
+import { sleepService } from '../../services/sleepService';
+import { nutritionService } from '../../services/nutritionService';
+import { recoveryService } from '../../services/recoveryService';
 import { Moon, Utensils, HeartPulse, X, Check } from 'lucide-react';
 
 interface Props {
@@ -10,6 +13,7 @@ interface Props {
 }
 
 export const HolisticTrackingModal: React.FC<Props> = ({ type = 'sleep', initialTab, onClose, onSuccess }) => {
+  const { user } = useAuth();
   const activeType = initialTab || type;
   const todayStr = new Date().toISOString().split('T')[0];
   const [loading, setLoading] = useState(false);
@@ -40,33 +44,43 @@ export const HolisticTrackingModal: React.FC<Props> = ({ type = 'sleep', initial
     setLoading(true);
     setError(null);
     try {
+      const userIdStr = user?.id ? String(user.id) : undefined;
       if (activeType === 'sleep') {
-        await api.logSleep({
-          log_date: todayStr,
-          bedtime,
-          wake_time: wakeTime,
-          total_sleep_minutes: Math.round(sleepHours * 60),
-          sleep_quality_score: sleepQuality
-        });
+        await sleepService.logSleep(
+          {
+            log_date: todayStr,
+            bedtime,
+            wake_time: wakeTime,
+            total_sleep_minutes: Math.round(sleepHours * 60),
+            sleep_quality_score: sleepQuality,
+          },
+          userIdStr
+        );
       } else if (activeType === 'nutrition') {
-        await api.logNutrition({
-          log_date: todayStr,
-          meal_type: mealType,
-          meal_description: mealDesc || 'Healthy meal',
-          calories,
-          protein_g: protein,
-          carbs_g: carbs,
-          fats_g: fats,
-          water_ml: water
-        });
+        await nutritionService.logNutrition(
+          {
+            log_date: todayStr,
+            meal_type: mealType,
+            meal_description: mealDesc || 'Healthy meal',
+            calories,
+            protein_g: protein,
+            carbs_g: carbs,
+            fats_g: fats,
+            water_ml: water,
+          },
+          userIdStr
+        );
       } else if (activeType === 'recovery') {
-        await api.logRecovery({
-          log_date: todayStr,
-          soreness_level: soreness,
-          fatigue_level: fatigue,
-          stress_level: stress,
-          training_load_estimate: 60
-        });
+        await recoveryService.logRecovery(
+          {
+            log_date: todayStr,
+            soreness_level: soreness,
+            fatigue_level: fatigue,
+            stress_level: stress,
+            training_load_estimate: 60,
+          },
+          userIdStr
+        );
       }
       onSuccess();
     } catch (err: any) {

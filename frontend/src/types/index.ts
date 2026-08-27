@@ -1,10 +1,11 @@
 export type UserRole = 'athlete' | 'coach' | 'researcher' | 'admin';
 
 export interface User {
-  id: number;
+  id: number | string;
   email: string;
   full_name: string;
   role: UserRole;
+  avatar_url?: string | null;
   is_active: boolean;
 }
 

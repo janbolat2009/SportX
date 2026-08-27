@@ -1,5 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
+import { workoutService } from '../../services/workoutService';
+import { analysisService } from '../../services/analysisService';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Exercise, Repetition } from '../../types';
 import { CameraQualityCheck } from './CameraQualityCheck';
 import { PostWorkoutReport } from '../athlete/PostWorkoutReport';
@@ -17,6 +21,7 @@ interface Props {
 }
 
 export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat', onBack, onSessionComplete }) => {
+  const { user } = useAuth();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>(initialExerciseSlug);
   const [cameraActive, setCameraActive] = useState(false);
@@ -41,9 +46,11 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
   const [sessionStartTime, setSessionStartTime] = useState<number>(0);
   const [completedSession, setCompletedSession] = useState<any | null>(null);
 
+  // Audio & State Machine Refs
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const cameraInstanceRef = useRef<any>(null);
+  const cameraInstanceRef = useRef<Camera | null>(null);
   const poseInstanceRef = useRef<Pose | null>(null);
   const stateMachineRef = useRef<{
     phase: string;
@@ -62,15 +69,15 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
   });
 
   useEffect(() => {
-    async function loadExercises() {
+    async function loadEx() {
       try {
-        const data = await api.getExercises();
+        const data = await workoutService.getExercises();
         setExercises(data);
       } catch (e) {
-        console.error('Failed to load exercises:', e);
+        console.error(e);
       }
     }
-    loadExercises();
+    loadEx();
   }, []);
 
   const selectedExercise = exercises.find((e) => e.slug === selectedSlug) || {
@@ -81,51 +88,49 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
     ideal_rom_degrees: 90
   };
 
-  // Compute 2D Angle between 3 landmarks (vertex is b)
-  const calculateAngle = (a: any, b: any, c: any) => {
-    if (!a || !b || !c) return 180;
+  const playBeep = (freq = 880, durationMs = 150) => {
+    if (!soundEnabled) return;
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + durationMs / 1000);
+    } catch {}
+  };
+
+  const calculateAngle = (
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+    c: { x: number; y: number }
+  ): number => {
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
     let angle = Math.abs((radians * 180.0) / Math.PI);
     if (angle > 180.0) angle = 360.0 - angle;
-    return Math.round(angle);
+    return angle;
   };
 
-  // Audio Beep Feedback
-  const playBeep = useCallback((freq = 520, durationMs = 120) => {
-    if (!soundEnabled) return;
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.frequency.value = freq;
-      gain.gain.value = 0.08;
-      osc.start();
-      setTimeout(() => {
-        osc.stop();
-        audioCtx.close();
-      }, durationMs);
-    } catch {
-      // Audio context might be restricted before user gesture
-    }
-  }, [soundEnabled]);
-
-  // Handle MediaPipe Pose Results
   const onPoseResults = useCallback((results: PoseResults) => {
+    if (!canvasRef.current || !videoRef.current) return;
     const canvas = canvasRef.current;
-    const video = videoRef.current;
-    if (!canvas || !video) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
-      setLatestLandmarks(null);
+    if (!results.poseLandmarks || results.poseLandmarks.length < 33) {
+      ctx.restore();
       return;
     }
 
@@ -133,39 +138,56 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
     setLatestLandmarks(lms);
 
     // Draw Skeleton Lines
-    const connections = [
-      [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], // Shoulders and arms
-      [11, 23], [12, 24], [23, 24],                      // Torso
-      [23, 25], [24, 26], [25, 27], [26, 28]             // Legs
-    ];
+    const drawLine = (idx1: number, idx2: number, color = '#10b981', width = 4) => {
+      const p1 = lms[idx1];
+      const p2 = lms[idx2];
+      if (!p1 || !p2 || (p1.visibility && p1.visibility < 0.3) || (p2.visibility && p2.visibility < 0.3)) return;
+      ctx.beginPath();
+      ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+      ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    };
 
-    ctx.lineWidth = 3.5;
-    ctx.strokeStyle = '#10b981'; // Athletic emerald
+    // Draw Keypoints
+    const drawPoint = (idx: number, color = '#ffffff', radius = 5) => {
+      const p = lms[idx];
+      if (!p || (p.visibility && p.visibility < 0.3)) return;
+      ctx.beginPath();
+      ctx.arc(p.x * canvas.width, p.y * canvas.height, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
 
-    connections.forEach(([i, j]) => {
-      const p1 = lms[i];
-      const p2 = lms[j];
-      if (p1 && p2 && (p1.visibility || 1) > 0.4 && (p2.visibility || 1) > 0.4) {
-        ctx.beginPath();
-        ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
-        ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
-        ctx.stroke();
-      }
-    });
+    // Torso Box
+    drawLine(11, 12, '#38bdf8', 3);
+    drawLine(11, 23, '#38bdf8', 3);
+    drawLine(12, 24, '#38bdf8', 3);
+    drawLine(23, 24, '#38bdf8', 3);
 
-    // Draw Key Joint Dots
-    lms.forEach((lm, idx) => {
-      if ([0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].includes(idx)) {
-        if ((lm.visibility || 1) > 0.4) {
-          ctx.beginPath();
-          ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = '#ffffff';
-          ctx.fill();
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = '#10b981';
-          ctx.stroke();
-        }
-      }
+    // Left Arm
+    drawLine(11, 13, '#10b981', 4);
+    drawLine(13, 15, '#10b981', 4);
+
+    // Right Arm
+    drawLine(12, 14, '#10b981', 4);
+    drawLine(14, 16, '#10b981', 4);
+
+    // Left Leg
+    drawLine(23, 25, '#10b981', 4);
+    drawLine(25, 27, '#10b981', 4);
+    drawLine(27, 31, '#10b981', 4);
+
+    // Right Leg
+    drawLine(24, 26, '#10b981', 4);
+    drawLine(26, 28, '#10b981', 4);
+    drawLine(28, 32, '#10b981', 4);
+
+    // Draw Joints
+    [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].forEach((idx) => {
+      drawPoint(idx, '#ffffff', 4);
     });
 
     // Extract Relevant Angles based on Exercise
@@ -182,11 +204,6 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
       setPrimaryAngle(primary);
       setSymmetryRatio(Math.max(60, symmetry));
 
-      // Knee Valgus Check
-      const kneeDist = Math.abs(lms[25].x - lms[26].x);
-      const hipDist = Math.abs(lms[23].x - lms[24].x) || 0.1;
-      const isValgus = (kneeDist / hipDist) < 0.75;
-
       if (isRecording) {
         if (sm.phase === 'STANDING' && primary < 155) {
           sm.phase = 'DESCENT';
@@ -196,10 +213,6 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
           setActiveSeverity('good');
         } else if (sm.phase === 'DESCENT') {
           if (primary < sm.minAngle) sm.minAngle = primary;
-          if (isValgus) {
-            setActiveCue('Push knees outward');
-            setActiveSeverity('attention');
-          }
           if (primary <= 95) {
             sm.phase = 'BOTTOM';
             setActiveCue('Good depth - drive up');
@@ -209,7 +222,6 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
           sm.phase = 'ASCENT';
           setActiveCue('Drive through heels');
         } else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && primary > 160) {
-          // Rep completed
           const repDuration = (now - sm.repStartTime) / 1000;
           if (repDuration >= 0.8 && sm.minAngle < 120) {
             sm.repCount += 1;
@@ -256,66 +268,121 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
           sm.phase = 'DESCENT';
           sm.minAngle = primary;
           sm.repStartTime = now;
-          setActiveCue('Lower chest with control');
+          setActiveCue('Lower chest smoothly');
         } else if (sm.phase === 'DESCENT') {
           if (primary < sm.minAngle) sm.minAngle = primary;
           if (primary <= 95) {
             sm.phase = 'BOTTOM';
-            setActiveCue('Full depth reached');
+            setActiveCue('Push back to lockout');
           }
-        } else if (sm.phase === 'BOTTOM' && primary > 115) {
+        } else if (sm.phase === 'BOTTOM' && primary > 110) {
           sm.phase = 'ASCENT';
-          setActiveCue('Push floor away');
-        } else if (sm.phase === 'ASCENT' && primary > 155) {
+        } else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && primary > 160) {
           const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.7 && sm.minAngle < 125) {
+          if (repDuration >= 0.7 && sm.minAngle < 120) {
             sm.repCount += 1;
             setRepCount(sm.repCount);
             playBeep(880, 150);
-            setSessionReps((prev) => [...prev, {
+
+            const repScore = sm.minAngle <= 90 ? 96 : 82;
+            const newRep: Repetition = {
               id: sm.repCount,
               rep_number: sm.repCount,
               start_time: 0,
               end_time: repDuration,
               duration_seconds: repDuration,
-              rep_score: 92,
+              rep_score: repScore,
               alignment_score: symmetry,
-              rom_score: 90,
+              rom_score: sm.minAngle <= 90 ? 98 : 78,
               symmetry_score: symmetry,
-              tempo_score: 88,
+              tempo_score: 90,
+              stability_score: 92,
+              peak_angle: sm.minAngle,
+              min_angle: sm.minAngle,
+              is_valid: sm.minAngle <= 105
+            };
+            setSessionReps((prev) => [...prev, newRep]);
+            setActiveCue('Solid push-up rep');
+          }
+          sm.phase = 'PLANK';
+          sm.minAngle = 180;
+        }
+      }
+      setCurrentPhase(sm.phase);
+
+    } else if (selectedSlug === 'bicep_curl') {
+      const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
+      const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
+      primary = Math.round((l_elbow + r_elbow) / 2);
+      symmetry = Math.round(100 - Math.abs(l_elbow - r_elbow));
+      setPrimaryAngle(primary);
+      setSymmetryRatio(Math.max(60, symmetry));
+
+      if (isRecording) {
+        if (sm.phase === 'STANDING' && primary < 140) {
+          sm.phase = 'FLEXION';
+          sm.minAngle = primary;
+          sm.repStartTime = now;
+          setActiveCue('Curl smoothly');
+        } else if (sm.phase === 'FLEXION') {
+          if (primary < sm.minAngle) sm.minAngle = primary;
+          if (primary <= 65) {
+            sm.phase = 'PEAK';
+            setActiveCue('Peak contraction - lower controlled');
+          }
+        } else if (sm.phase === 'PEAK' && primary > 80) {
+          sm.phase = 'EXTENSION';
+        } else if ((sm.phase === 'EXTENSION' || sm.phase === 'FLEXION') && primary > 150) {
+          const repDuration = (now - sm.repStartTime) / 1000;
+          if (repDuration >= 0.8 && sm.minAngle < 85) {
+            sm.repCount += 1;
+            setRepCount(sm.repCount);
+            playBeep(880, 150);
+
+            const newRep: Repetition = {
+              id: sm.repCount,
+              rep_number: sm.repCount,
+              start_time: 0,
+              end_time: repDuration,
+              duration_seconds: repDuration,
+              rep_score: sm.minAngle <= 60 ? 95 : 85,
+              alignment_score: symmetry,
+              rom_score: sm.minAngle <= 60 ? 98 : 82,
+              symmetry_score: symmetry,
+              tempo_score: 90,
               stability_score: 90,
               peak_angle: sm.minAngle,
               min_angle: sm.minAngle,
               is_valid: true
-            }]);
+            };
+            setSessionReps((prev) => [...prev, newRep]);
+            setActiveCue('Good curl!');
           }
-          sm.phase = 'PLANK';
+          sm.phase = 'STANDING';
+          sm.minAngle = 180;
         }
       }
       setCurrentPhase(sm.phase);
+
     } else {
-      // Default / Curl / Press joint angle
+      // Shoulder press default
       const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
-      setPrimaryAngle(l_elbow);
+      const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
+      primary = Math.round((l_elbow + r_elbow) / 2);
+      symmetry = Math.round(100 - Math.abs(l_elbow - r_elbow));
+      setPrimaryAngle(primary);
+      setSymmetryRatio(Math.max(60, symmetry));
+      setCurrentPhase(isRecording ? 'PRESSING' : 'READY');
     }
 
-  }, [selectedSlug, isRecording, playBeep]);
+    ctx.restore();
+  }, [selectedSlug, isRecording, soundEnabled]);
 
-  // Start Camera Stream & MediaPipe Pose
   const startCamera = async () => {
-    setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: false
-      });
-
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-
         const pose = new Pose({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
         });
         pose.setOptions({
           modelComplexity: 1,
@@ -326,6 +393,12 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
         });
         pose.onResults(onPoseResults);
         poseInstanceRef.current = pose;
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720, facingMode: 'user' }
+        });
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
 
         const camera = new Camera(videoRef.current, {
           onFrame: async () => {
@@ -340,29 +413,22 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
         cameraInstanceRef.current = camera;
         setCameraActive(true);
       }
-    } catch (err: any) {
-      console.warn('Webcam permission not granted or stream failed:', err);
-      setCameraError('Camera access required. Please allow webcam permissions in your browser.');
+    } catch (err) {
+      setCameraError('Camera access required.');
     }
   };
 
   const stopCamera = () => {
-    if (cameraInstanceRef.current) {
-      cameraInstanceRef.current.stop();
-    }
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((t) => t.stop());
-      videoRef.current.srcObject = null;
+    if (cameraInstanceRef.current) cameraInstanceRef.current.stop();
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
     }
     setCameraActive(false);
   };
 
   useEffect(() => {
     startCamera();
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
   }, []);
 
   const handleStartWorkout = () => {
@@ -393,7 +459,7 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
 
     const sessionPayload = {
       exercise_slug: selectedSlug,
-      session_type: 'LIVE_CAMERA',
+      session_type: 'LIVE_CAMERA' as const,
       duration_seconds: duration,
       total_reps: repCount,
       valid_reps: sessionReps.filter((r) => r.is_valid).length,
@@ -403,18 +469,94 @@ export const LiveCameraStudio: React.FC<Props> = ({ initialExerciseSlug = 'squat
       symmetry_score: symmetryRatio,
       tempo_score: 88,
       stability_score: 90,
-      model_version: 'sportx-ml-v1.0',
+      model_version: 'sportx-gb-v1.0',
       feedback_summary: activeCue || `Completed ${repCount} repetitions with solid technique.`,
       repetitions: sessionReps,
       issues: sessionIssues
     };
 
-    try {
-      const saved = await api.finalizeSession(sessionPayload);
-      setCompletedSession(saved);
-    } catch {
-      setCompletedSession(sessionPayload);
+    let savedSession: any = null;
+
+    if (isSupabaseConfigured() && user?.id) {
+      try {
+        const { data: ap } = await supabase
+          .from('athlete_profiles')
+          .select('id')
+          .eq('user_id', String(user.id))
+          .maybeSingle();
+
+        if (ap) {
+          const exObj = exercises.find((e) => e.slug === selectedSlug) || exercises[0];
+          const newSession = await workoutService.createWorkoutSession({
+            athlete_id: ap.id,
+            exercise_id: exObj?.id || 1,
+            session_type: 'LIVE_CAMERA',
+            duration_seconds: duration,
+            total_reps: repCount,
+            valid_reps: sessionReps.filter((r) => r.is_valid).length,
+            overall_score: calculatedOverall,
+            alignment_score: symmetryRatio,
+            rom_score: calculatedOverall,
+            symmetry_score: symmetryRatio,
+            tempo_score: 88,
+            stability_score: 90,
+            model_version: 'sportx-gb-v1.0',
+            feedback_summary: activeCue || `Completed ${repCount} repetitions with solid technique.`,
+          });
+
+          if (newSession && sessionReps.length > 0) {
+            await workoutService.createRepetitions(
+              sessionReps.map((r, idx) => ({
+                session_id: newSession.id,
+                rep_number: r.rep_number || idx + 1,
+                start_time: r.start_time || 0,
+                end_time: r.end_time || 0,
+                duration_seconds: r.duration_seconds || 0,
+                rep_score: r.rep_score || calculatedOverall,
+                alignment_score: r.alignment_score || symmetryRatio,
+                rom_score: r.rom_score || calculatedOverall,
+                symmetry_score: r.symmetry_score || symmetryRatio,
+                tempo_score: r.tempo_score || 88,
+                stability_score: r.stability_score || 90,
+                peak_angle: r.peak_angle || 90,
+                min_angle: r.min_angle || 90,
+                is_valid: r.is_valid ?? true,
+                phase_durations: r.phase_durations || null,
+                detected_errors: (r.detected_errors as any) || null,
+              }))
+            );
+
+            await analysisService.saveTechniqueAnalysis({
+              session_id: newSession.id,
+              model_name: 'SportX Gradient Boosting',
+              model_version: 'sportx-gb-v1.0',
+              overall_score: calculatedOverall,
+              confidence: 0.95,
+              range_of_motion: calculatedOverall,
+              symmetry: symmetryRatio / 100,
+              tempo: 2.8,
+            });
+          }
+
+          savedSession = {
+            ...sessionPayload,
+            id: newSession?.id,
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase session persistence fallback:', err);
+      }
     }
+
+    if (!savedSession) {
+      try {
+        savedSession = await api.finalizeSession(sessionPayload);
+      } catch {
+        savedSession = sessionPayload;
+      }
+    }
+
+    setCompletedSession(savedSession);
   };
 
   return (
