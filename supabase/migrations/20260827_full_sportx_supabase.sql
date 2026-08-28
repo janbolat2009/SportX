@@ -869,3 +869,73 @@ CREATE POLICY "Athletes view comments on their sessions" ON public.coach_comment
             AND ap.user_id = auth.uid()
         )
     );
+
+-- =====================================================================
+-- 9. NUTRITION MEAL LOGS, SLEEP RECORDS & AI CHAT
+-- =====================================================================
+
+-- 9.1 Meal Logs
+CREATE TABLE IF NOT EXISTS public.meal_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    meal_type TEXT NOT NULL DEFAULT 'Lunch',
+    description TEXT NOT NULL,
+    serving_size TEXT,
+    calories NUMERIC(7,2) NOT NULL DEFAULT 0,
+    protein NUMERIC(5,2) NOT NULL DEFAULT 0,
+    carbs NUMERIC(5,2) NOT NULL DEFAULT 0,
+    fat NUMERIC(5,2) NOT NULL DEFAULT 0,
+    fiber NUMERIC(5,2) DEFAULT 0,
+    estimated BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_meal_logs_user_id ON public.meal_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_meal_logs_created_at ON public.meal_logs(created_at DESC);
+
+ALTER TABLE public.meal_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own meal logs" ON public.meal_logs;
+CREATE POLICY "Users manage own meal logs" ON public.meal_logs
+    FOR ALL USING (auth.uid() = user_id);
+
+-- 9.2 AI Conversations
+CREATE TABLE IF NOT EXISTS public.ai_conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL DEFAULT 'New Conversation',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON public.ai_conversations(user_id);
+
+ALTER TABLE public.ai_conversations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own AI conversations" ON public.ai_conversations;
+CREATE POLICY "Users manage own AI conversations" ON public.ai_conversations
+    FOR ALL USING (auth.uid() = user_id);
+
+-- 9.3 AI Messages
+CREATE TABLE IF NOT EXISTS public.ai_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES public.ai_conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_messages_conv ON public.ai_messages(conversation_id);
+
+ALTER TABLE public.ai_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage messages in own conversations" ON public.ai_messages;
+CREATE POLICY "Users manage messages in own conversations" ON public.ai_messages
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.ai_conversations c
+            WHERE c.id = public.ai_messages.conversation_id
+            AND c.user_id = auth.uid()
+        )
+    );
+

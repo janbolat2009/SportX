@@ -7,10 +7,12 @@ import { workoutService } from '../../services/workoutService';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Exercise, Repetition } from '../../types';
 import { PostWorkoutReport } from '../athlete/PostWorkoutReport';
+import { LandmarkSmoother } from '../../analysis/smoothing';
+import { ExerciseAnalyzerFactory, IExerciseAnalyzer } from '../../analysis/ExerciseAnalyzerFactory';
+import { LandmarkPoint } from '../../analysis/types';
 import {
   Play, Square, ArrowLeft, CheckCircle2, AlertTriangle,
-  Volume2, VolumeX, SwitchCamera, Loader2, Sparkles, RefreshCw,
-  Activity, ShieldCheck, Dumbbell
+  Volume2, VolumeX, SwitchCamera, Loader2, Sparkles, RefreshCw
 } from 'lucide-react';
 
 type CameraState =
@@ -54,7 +56,6 @@ const getMediaPipePoseConstructors = async (): Promise<{ PoseConstructor: any; C
     });
   };
 
-  // Ensure scripts are loaded
   if (!(window as any).Pose) {
     await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js');
   }
@@ -96,8 +97,8 @@ export const LiveCameraStudio: React.FC<Props> = ({
   const [primaryAngle, setPrimaryAngle] = useState<number>(180);
   const [symmetryRatio, setSymmetryRatio] = useState<number>(96);
   const [activeCueKey, setActiveCueKey] = useState<string>('cue.standInFrame');
+  const [activeCueDefault, setActiveCueDefault] = useState<string>('Stand so your whole body is in frame');
   const [activeSeverity, setActiveSeverity] = useState<'good' | 'attention' | 'deviation'>('good');
-  const [, setLatestLandmarks] = useState<any[] | null>(null);
 
   // Session State
   const [isRecording, setIsRecording] = useState(false);
@@ -116,25 +117,10 @@ export const LiveCameraStudio: React.FC<Props> = ({
   const isRecordingRef = useRef(false);
   const selectedSlugRef = useRef(selectedSlug);
   const animFrameIdRef = useRef<number | null>(null);
-  const prevLandmarksRef = useRef<any[] | null>(null);
 
-  const stateMachineRef = useRef<{
-    phase: string;
-    repCount: number;
-    minAngle: number;
-    maxAngle: number;
-    repStartTime: number;
-    lastRepCompleteTime: number;
-    issuesInRep: any[];
-  }>({
-    phase: 'READY',
-    repCount: 0,
-    minAngle: 180,
-    maxAngle: 0,
-    repStartTime: 0,
-    lastRepCompleteTime: 0,
-    issuesInRep: []
-  });
+  // Analysis Engine Instances
+  const smootherRef = useRef<LandmarkSmoother>(new LandmarkSmoother(0.65));
+  const analyzerRef = useRef<IExerciseAnalyzer>(ExerciseAnalyzerFactory.create(initialExerciseSlug));
 
   useEffect(() => {
     isRecordingRef.current = isRecording;
@@ -142,6 +128,8 @@ export const LiveCameraStudio: React.FC<Props> = ({
 
   useEffect(() => {
     selectedSlugRef.current = selectedSlug;
+    analyzerRef.current = ExerciseAnalyzerFactory.create(selectedSlug);
+    smootherRef.current.reset();
   }, [selectedSlug]);
 
   useEffect(() => {
@@ -159,8 +147,8 @@ export const LiveCameraStudio: React.FC<Props> = ({
   const selectedExercise = exercises.find((e) => e.slug === selectedSlug) || {
     name: selectedSlug.replace('_', ' ').toUpperCase(),
     slug: selectedSlug,
-    target_muscles: 'Core & Kinetic Chain',
-    camera_setup_instructions: 'Position camera 2 to 3 meters away with full body visible.',
+    target_muscles: 'Kinetic Chain & Core',
+    camera_setup_instructions: 'Position camera 2 to 3 meters away so your full body is visible.',
     default_camera_angle: 'Side View (90 deg)',
     ideal_rom_degrees: 90
   };
@@ -186,46 +174,6 @@ export const LiveCameraStudio: React.FC<Props> = ({
     } catch {}
   };
 
-  // Vector Dot-Product Joint Angle Calculation
-  const calculateAngle = (
-    a: { x: number; y: number },
-    b: { x: number; y: number },
-    c: { x: number; y: number }
-  ): number => {
-    const v1x = a.x - b.x;
-    const v1y = a.y - b.y;
-    const v2x = c.x - b.x;
-    const v2y = c.y - b.y;
-    const dot = v1x * v2x + v1y * v2y;
-    const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
-    const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
-    if (mag1 * mag2 === 0) return 180;
-    const cosAngle = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
-    return Math.round((Math.acos(cosAngle) * 180.0) / Math.PI);
-  };
-
-  // Exponential Moving Average (EMA) Landmark Smoothing
-  const smoothLandmarks = (rawLandmarks: any[]): any[] => {
-    const alpha = 0.65;
-    if (!prevLandmarksRef.current || prevLandmarksRef.current.length !== rawLandmarks.length) {
-      prevLandmarksRef.current = rawLandmarks;
-      return rawLandmarks;
-    }
-
-    const smoothed = rawLandmarks.map((lm, idx) => {
-      const prev = prevLandmarksRef.current![idx];
-      return {
-        x: prev.x * (1 - alpha) + lm.x * alpha,
-        y: prev.y * (1 - alpha) + lm.y * alpha,
-        z: prev.z ? prev.z * (1 - alpha) + lm.z * alpha : lm.z,
-        visibility: lm.visibility,
-      };
-    });
-
-    prevLandmarksRef.current = smoothed;
-    return smoothed;
-  };
-
   const onPoseResults = useCallback((results: any) => {
     if (!canvasRef.current || !videoRef.current) return;
     const canvas = canvasRef.current;
@@ -236,23 +184,22 @@ export const LiveCameraStudio: React.FC<Props> = ({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!results.poseLandmarks || results.poseLandmarks.length < 33) {
-      setLatestLandmarks(null);
       if (isRecordingRef.current) {
         setActiveCueKey('cue.standInFrame');
+        setActiveCueDefault('Stand so your whole body is in frame');
         setActiveSeverity('attention');
       }
       ctx.restore();
       return;
     }
 
-    // Apply EMA Smoothing
-    const lms = smoothLandmarks(results.poseLandmarks);
-    setLatestLandmarks(lms);
+    // 1. Landmark Smoothing via EMA
+    const smoothedLms: LandmarkPoint[] = smootherRef.current.smooth(results.poseLandmarks);
 
-    // Draw Biomechanical Skeleton
+    // 2. Draw Skeletal Frame on Canvas
     const drawLine = (idx1: number, idx2: number, color = '#10b981', width = 4) => {
-      const p1 = lms[idx1];
-      const p2 = lms[idx2];
+      const p1 = smoothedLms[idx1];
+      const p2 = smoothedLms[idx2];
       if (!p1 || !p2 || (p1.visibility && p1.visibility < 0.25) || (p2.visibility && p2.visibility < 0.25)) return;
       ctx.beginPath();
       ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
@@ -264,7 +211,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
     };
 
     const drawPoint = (idx: number, color = '#ffffff', radius = 5) => {
-      const p = lms[idx];
+      const p = smoothedLms[idx];
       if (!p || (p.visibility && p.visibility < 0.25)) return;
       ctx.beginPath();
       ctx.arc(p.x * canvas.width, p.y * canvas.height, radius, 0, 2 * Math.PI);
@@ -272,7 +219,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
       ctx.fill();
     };
 
-    // Torso Frame
+    // Torso
     drawLine(11, 12, '#38bdf8', 3.5);
     drawLine(11, 23, '#38bdf8', 3.5);
     drawLine(12, 24, '#38bdf8', 3.5);
@@ -296,373 +243,46 @@ export const LiveCameraStudio: React.FC<Props> = ({
       drawPoint(idx, '#ffffff', 4.5);
     });
 
+    // 3. Evaluate Movement via Exercise-Specific Analyzer
     const now = Date.now();
-    const sm = stateMachineRef.current;
-    const cooldownPeriodMs = 350; // Minimum time between consecutive repetitions
-    const activeSlug = selectedSlugRef.current;
+    const frameResult = analyzerRef.current.analyzeFrame(smoothedLms, now);
 
-    // ==========================================
-    // EXERCISE 1: SQUAT KINEMATICS & STATE MACHINE
-    // ==========================================
-    if (activeSlug === 'squat') {
-      const l_vis = Math.min(lms[23]?.visibility || 0, lms[25]?.visibility || 0, lms[27]?.visibility || 0);
-      const r_vis = Math.min(lms[24]?.visibility || 0, lms[26]?.visibility || 0, lms[28]?.visibility || 0);
+    setPrimaryAngle(frameResult.primaryAngle);
+    setSymmetryRatio(frameResult.symmetryRatio);
+    setCurrentPhaseKey(frameResult.phaseKey);
+    setActiveCueKey(frameResult.currentFeedbackKey);
+    setActiveCueDefault(frameResult.currentFeedbackDefault);
+    setActiveSeverity(frameResult.feedbackSeverity);
 
-      if (l_vis < 0.35 && r_vis < 0.35) {
-        if (isRecordingRef.current) {
-          setActiveCueKey('cue.stepBackFullBody');
-          setActiveSeverity('attention');
-        }
-        ctx.restore();
-        return;
-      }
+    // 4. Handle Repetition Completion
+    if (isRecordingRef.current && frameResult.isRepCompleted && frameResult.completedRep) {
+      const rep = frameResult.completedRep;
+      setRepCount(rep.repNumber);
+      setRepPulse(true);
+      setTimeout(() => setRepPulse(false), 400);
+      playBeep(880, 180);
 
-      const l_knee = calculateAngle(lms[23], lms[25], lms[27]);
-      const r_knee = calculateAngle(lms[24], lms[26], lms[28]);
+      const transformedRep: Repetition = {
+        id: rep.repNumber,
+        rep_number: rep.repNumber,
+        start_time: rep.startTime,
+        end_time: rep.endTime,
+        duration_seconds: rep.durationSeconds,
+        rep_score: rep.repScore,
+        alignment_score: rep.alignmentScore,
+        rom_score: rep.romScore,
+        symmetry_score: rep.symmetryScore,
+        tempo_score: rep.tempoScore,
+        stability_score: rep.stabilityScore,
+        peak_angle: rep.peakAngle,
+        min_angle: rep.minAngle,
+        is_valid: rep.isValid,
+      };
 
-      // Visibility-weighted angle
-      let kneeAngle: number;
-      if (l_vis > 0.45 && r_vis > 0.45) {
-        kneeAngle = Math.round((l_knee + r_knee) / 2);
-      } else if (l_vis >= r_vis) {
-        kneeAngle = l_knee;
-      } else {
-        kneeAngle = r_knee;
-      }
+      setSessionReps((prev) => [...prev, transformedRep]);
 
-      const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_knee - r_knee))));
-      setPrimaryAngle(kneeAngle);
-      setSymmetryRatio(symmetry);
-
-      if (isRecordingRef.current) {
-        // Phase 1: Standing -> Descent initiation
-        if ((sm.phase === 'STANDING' || sm.phase === 'READY') && kneeAngle < 145) {
-          if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
-            sm.phase = 'DESCENT';
-            sm.minAngle = kneeAngle;
-            sm.repStartTime = now;
-            setCurrentPhaseKey('phase.descent');
-            setActiveCueKey('cue.controlDescent');
-            setActiveSeverity('good');
-          }
-        } 
-        // Phase 2: In Descent, tracking peak depth
-        else if (sm.phase === 'DESCENT') {
-          if (kneeAngle < sm.minAngle) sm.minAngle = kneeAngle;
-          if (kneeAngle <= 110) {
-            sm.phase = 'BOTTOM';
-            setCurrentPhaseKey('phase.bottom');
-            setActiveCueKey('cue.goodDepth');
-            setActiveSeverity('good');
-          } else if (symmetry < 80) {
-            setActiveCueKey('cue.balanceWeight');
-            setActiveSeverity('attention');
-          }
-        } 
-        // Phase 3: Ascent initiation
-        else if (sm.phase === 'BOTTOM') {
-          if (kneeAngle < sm.minAngle) sm.minAngle = kneeAngle;
-          if (kneeAngle > 120) {
-            sm.phase = 'ASCENT';
-            setCurrentPhaseKey('phase.ascent');
-            setActiveCueKey('cue.driveHipsUp');
-          }
-        } 
-        // Phase 4: Standing Lockout & Repetition Completion
-        else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && kneeAngle >= 150) {
-          const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.7 && sm.minAngle <= 125) {
-            sm.repCount += 1;
-            sm.lastRepCompleteTime = now;
-            setRepCount(sm.repCount);
-            setRepPulse(true);
-            setTimeout(() => setRepPulse(false), 400);
-            playBeep(880, 180);
-
-            const depthScore = sm.minAngle <= 95 ? 98 : sm.minAngle <= 105 ? 92 : 82;
-            const newRep: Repetition = {
-              id: sm.repCount,
-              rep_number: sm.repCount,
-              start_time: 0,
-              end_time: repDuration,
-              duration_seconds: repDuration,
-              rep_score: Math.round((depthScore + symmetry + 90) / 3),
-              alignment_score: symmetry,
-              rom_score: depthScore,
-              symmetry_score: symmetry,
-              tempo_score: repDuration >= 1.8 ? 94 : 85,
-              stability_score: 90,
-              peak_angle: sm.minAngle,
-              min_angle: sm.minAngle,
-              is_valid: sm.minAngle <= 115
-            };
-            setSessionReps((prev) => [...prev, newRep]);
-            setActiveCueKey('cue.repComplete');
-            setActiveSeverity('good');
-          }
-          sm.phase = 'STANDING';
-          sm.minAngle = 180;
-          setCurrentPhaseKey('phase.standing');
-        }
-      }
-
-    // ==========================================
-    // EXERCISE 2: PUSH-UP KINEMATICS & STATE MACHINE
-    // ==========================================
-    } else if (activeSlug === 'push_up' || activeSlug === 'pushup') {
-      const l_vis = Math.min(lms[11]?.visibility || 0, lms[13]?.visibility || 0, lms[15]?.visibility || 0);
-      const r_vis = Math.min(lms[12]?.visibility || 0, lms[14]?.visibility || 0, lms[16]?.visibility || 0);
-
-      if (l_vis < 0.35 && r_vis < 0.35) {
-        if (isRecordingRef.current) {
-          setActiveCueKey('cue.ensureArmsVisible');
-          setActiveSeverity('attention');
-        }
-        ctx.restore();
-        return;
-      }
-
-      const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
-      const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
-
-      let elbowAngle: number;
-      if (l_vis > 0.45 && r_vis > 0.45) {
-        elbowAngle = Math.round((l_elbow + r_elbow) / 2);
-      } else if (l_vis >= r_vis) {
-        elbowAngle = l_elbow;
-      } else {
-        elbowAngle = r_elbow;
-      }
-
-      const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_elbow - r_elbow))));
-      setPrimaryAngle(elbowAngle);
-      setSymmetryRatio(symmetry);
-
-      if (isRecordingRef.current) {
-        if ((sm.phase === 'PLANK' || sm.phase === 'READY') && elbowAngle < 140) {
-          if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
-            sm.phase = 'DESCENT';
-            sm.minAngle = elbowAngle;
-            sm.repStartTime = now;
-            setCurrentPhaseKey('phase.descent');
-            setActiveCueKey('cue.lowerChestControl');
-          }
-        } else if (sm.phase === 'DESCENT') {
-          if (elbowAngle < sm.minAngle) sm.minAngle = elbowAngle;
-          if (elbowAngle <= 100) {
-            sm.phase = 'BOTTOM';
-            setCurrentPhaseKey('phase.bottom');
-            setActiveCueKey('cue.targetDepthPress');
-          }
-        } else if (sm.phase === 'BOTTOM') {
-          if (elbowAngle < sm.minAngle) sm.minAngle = elbowAngle;
-          if (elbowAngle > 115) {
-            sm.phase = 'ASCENT';
-            setCurrentPhaseKey('phase.ascent');
-          }
-        } else if ((sm.phase === 'ASCENT' || sm.phase === 'DESCENT') && elbowAngle >= 150) {
-          const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.7 && sm.minAngle <= 115) {
-            sm.repCount += 1;
-            sm.lastRepCompleteTime = now;
-            setRepCount(sm.repCount);
-            setRepPulse(true);
-            setTimeout(() => setRepPulse(false), 400);
-            playBeep(880, 180);
-
-            const romScore = sm.minAngle <= 95 ? 98 : 84;
-            const newRep: Repetition = {
-              id: sm.repCount,
-              rep_number: sm.repCount,
-              start_time: 0,
-              end_time: repDuration,
-              duration_seconds: repDuration,
-              rep_score: Math.round((romScore + symmetry + 92) / 3),
-              alignment_score: symmetry,
-              rom_score: romScore,
-              symmetry_score: symmetry,
-              tempo_score: 90,
-              stability_score: 92,
-              peak_angle: sm.minAngle,
-              min_angle: sm.minAngle,
-              is_valid: sm.minAngle <= 110
-            };
-            setSessionReps((prev) => [...prev, newRep]);
-            setActiveCueKey('cue.repComplete');
-          }
-          sm.phase = 'PLANK';
-          sm.minAngle = 180;
-          setCurrentPhaseKey('phase.plank');
-        }
-      }
-
-    // ==========================================
-    // EXERCISE 3: BICEP CURL KINEMATICS & STATE MACHINE
-    // ==========================================
-    } else if (activeSlug === 'bicep_curl') {
-      const l_vis = Math.min(lms[11]?.visibility || 0, lms[13]?.visibility || 0, lms[15]?.visibility || 0);
-      const r_vis = Math.min(lms[12]?.visibility || 0, lms[14]?.visibility || 0, lms[16]?.visibility || 0);
-
-      if (l_vis < 0.35 && r_vis < 0.35) {
-        if (isRecordingRef.current) {
-          setActiveCueKey('cue.ensureArmsVisible');
-          setActiveSeverity('attention');
-        }
-        ctx.restore();
-        return;
-      }
-
-      const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
-      const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
-
-      let elbowAngle: number;
-      if (l_vis > 0.45 && r_vis > 0.45) {
-        elbowAngle = Math.round((l_elbow + r_elbow) / 2);
-      } else if (l_vis >= r_vis) {
-        elbowAngle = l_elbow;
-      } else {
-        elbowAngle = r_elbow;
-      }
-
-      const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_elbow - r_elbow))));
-      setPrimaryAngle(elbowAngle);
-      setSymmetryRatio(symmetry);
-
-      if (isRecordingRef.current) {
-        if ((sm.phase === 'EXTENDED' || sm.phase === 'READY') && elbowAngle < 125) {
-          if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
-            sm.phase = 'CURLING';
-            sm.minAngle = elbowAngle;
-            sm.repStartTime = now;
-            setCurrentPhaseKey('phase.curling');
-            setActiveCueKey('cue.curlNoSwing');
-          }
-        } else if (sm.phase === 'CURLING') {
-          if (elbowAngle < sm.minAngle) sm.minAngle = elbowAngle;
-          if (elbowAngle <= 85) {
-            sm.phase = 'PEAK';
-            setCurrentPhaseKey('phase.peak');
-            setActiveCueKey('cue.peakSqueeze');
-          }
-        } else if (sm.phase === 'PEAK') {
-          if (elbowAngle > 95) {
-            sm.phase = 'LOWERING';
-            setCurrentPhaseKey('phase.lowering');
-          }
-        } else if ((sm.phase === 'LOWERING' || sm.phase === 'CURLING') && elbowAngle >= 140) {
-          const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.7 && sm.minAngle <= 90) {
-            sm.repCount += 1;
-            sm.lastRepCompleteTime = now;
-            setRepCount(sm.repCount);
-            setRepPulse(true);
-            setTimeout(() => setRepPulse(false), 400);
-            playBeep(880, 180);
-
-            const romScore = sm.minAngle <= 70 ? 98 : 86;
-            const newRep: Repetition = {
-              id: sm.repCount,
-              rep_number: sm.repCount,
-              start_time: 0,
-              end_time: repDuration,
-              duration_seconds: repDuration,
-              rep_score: Math.round((romScore + symmetry + 90) / 3),
-              alignment_score: symmetry,
-              rom_score: romScore,
-              symmetry_score: symmetry,
-              tempo_score: 90,
-              stability_score: 90,
-              peak_angle: sm.minAngle,
-              min_angle: sm.minAngle,
-              is_valid: true
-            };
-            setSessionReps((prev) => [...prev, newRep]);
-            setActiveCueKey('cue.repComplete');
-          }
-          sm.phase = 'EXTENDED';
-          sm.minAngle = 180;
-          setCurrentPhaseKey('phase.extended');
-        }
-      }
-
-    // ==========================================
-    // EXERCISE 4: SHOULDER PRESS KINEMATICS & STATE MACHINE
-    // ==========================================
-    } else if (activeSlug === 'shoulder_press') {
-      const l_vis = Math.min(lms[11]?.visibility || 0, lms[13]?.visibility || 0, lms[15]?.visibility || 0);
-      const r_vis = Math.min(lms[12]?.visibility || 0, lms[14]?.visibility || 0, lms[16]?.visibility || 0);
-
-      const l_elbow = calculateAngle(lms[11], lms[13], lms[15]);
-      const r_elbow = calculateAngle(lms[12], lms[14], lms[16]);
-
-      let elbowAngle: number;
-      if (l_vis > 0.45 && r_vis > 0.45) {
-        elbowAngle = Math.round((l_elbow + r_elbow) / 2);
-      } else if (l_vis >= r_vis) {
-        elbowAngle = l_elbow;
-      } else {
-        elbowAngle = r_elbow;
-      }
-
-      const symmetry = Math.max(50, Math.min(100, Math.round(100 - Math.abs(l_elbow - r_elbow))));
-      setPrimaryAngle(elbowAngle);
-      setSymmetryRatio(symmetry);
-
-      if (isRecordingRef.current) {
-        if ((sm.phase === 'RACK' || sm.phase === 'READY') && elbowAngle > 110) {
-          if (now - sm.lastRepCompleteTime > cooldownPeriodMs) {
-            sm.phase = 'PRESSING';
-            sm.maxAngle = elbowAngle;
-            sm.repStartTime = now;
-            setCurrentPhaseKey('phase.pressing');
-            setActiveCueKey('cue.pressVertical');
-          }
-        } else if (sm.phase === 'PRESSING') {
-          if (elbowAngle > sm.maxAngle) sm.maxAngle = elbowAngle;
-          if (elbowAngle >= 145) {
-            sm.phase = 'LOCKOUT';
-            setCurrentPhaseKey('phase.lockout');
-            setActiveCueKey('cue.lockoutReached');
-          }
-        } else if (sm.phase === 'LOCKOUT') {
-          if (elbowAngle < 130) {
-            sm.phase = 'LOWERING';
-            setCurrentPhaseKey('phase.lowering');
-          }
-        } else if ((sm.phase === 'LOWERING' || sm.phase === 'PRESSING') && elbowAngle <= 95) {
-          const repDuration = (now - sm.repStartTime) / 1000;
-          if (repDuration >= 0.7 && sm.maxAngle >= 140) {
-            sm.repCount += 1;
-            sm.lastRepCompleteTime = now;
-            setRepCount(sm.repCount);
-            setRepPulse(true);
-            setTimeout(() => setRepPulse(false), 400);
-            playBeep(880, 180);
-
-            const romScore = sm.maxAngle >= 155 ? 98 : 88;
-            const newRep: Repetition = {
-              id: sm.repCount,
-              rep_number: sm.repCount,
-              start_time: 0,
-              end_time: repDuration,
-              duration_seconds: repDuration,
-              rep_score: Math.round((romScore + symmetry + 92) / 3),
-              alignment_score: symmetry,
-              rom_score: romScore,
-              symmetry_score: symmetry,
-              tempo_score: 90,
-              stability_score: 92,
-              peak_angle: sm.maxAngle,
-              min_angle: 90,
-              is_valid: true
-            };
-            setSessionReps((prev) => [...prev, newRep]);
-            setActiveCueKey('cue.repComplete');
-          }
-          sm.phase = 'RACK';
-          sm.maxAngle = 0;
-          setCurrentPhaseKey('phase.rack');
-        }
+      if (rep.issues && rep.issues.length > 0) {
+        setSessionIssues((prev) => [...prev, ...rep.issues]);
       }
     }
 
@@ -697,7 +317,6 @@ export const LiveCameraStudio: React.FC<Props> = ({
     setCameraState('requesting_permission');
     setCameraError(null);
 
-    // 1. Check browser mediaDevices support
     if (!navigator || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraState('browser_unsupported');
       setCameraError('Camera API is not supported on this browser. Please use Chrome, Safari, or Edge.');
@@ -709,7 +328,6 @@ export const LiveCameraStudio: React.FC<Props> = ({
     try {
       let stream: MediaStream;
 
-      // 2. Request real MediaStream via getUserMedia
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -740,7 +358,6 @@ export const LiveCameraStudio: React.FC<Props> = ({
           console.warn('AutoPlay playback warning:', playErr);
         });
 
-        // 3. Load & Initialize MediaPipe Pose Constructors
         const { PoseConstructor, CameraConstructor } = await getMediaPipePoseConstructors();
 
         const pose = new PoseConstructor({
@@ -758,7 +375,6 @@ export const LiveCameraStudio: React.FC<Props> = ({
         pose.onResults(onPoseResults);
         poseInstanceRef.current = pose;
 
-        // 4. Connect Camera Loop
         if (CameraConstructor) {
           const camera = new CameraConstructor(video, {
             onFrame: async () => {
@@ -772,7 +388,6 @@ export const LiveCameraStudio: React.FC<Props> = ({
           await camera.start();
           cameraInstanceRef.current = camera;
         } else {
-          // Fallback animation frame loop
           const renderLoop = async () => {
             if (videoRef.current && poseInstanceRef.current) {
               await poseInstanceRef.current.send({ image: videoRef.current });
@@ -822,18 +437,8 @@ export const LiveCameraStudio: React.FC<Props> = ({
     setSessionReps([]);
     setSessionIssues([]);
     setSessionStartTime(Date.now());
-    stateMachineRef.current = {
-      phase: selectedSlug === 'push_up' ? 'PLANK' : selectedSlug === 'shoulder_press' ? 'RACK' : 'STANDING',
-      repCount: 0,
-      minAngle: 180,
-      maxAngle: 0,
-      repStartTime: Date.now(),
-      lastRepCompleteTime: 0,
-      issuesInRep: []
-    };
-    setCurrentPhaseKey(
-      selectedSlug === 'push_up' ? 'phase.plank' : selectedSlug === 'shoulder_press' ? 'phase.rack' : 'phase.standing'
-    );
+    analyzerRef.current.reset();
+    smootherRef.current.reset();
     playBeep(660, 250);
   };
 
@@ -858,8 +463,8 @@ export const LiveCameraStudio: React.FC<Props> = ({
       symmetry_score: symmetryRatio,
       tempo_score: 88,
       stability_score: 90,
-      model_version: 'sportx-gb-v1.0',
-      feedback_summary: t(activeCueKey) || `Completed ${repCount} repetitions with solid technique.`,
+      model_version: 'sportx-biomech-v2.0',
+      feedback_summary: t(activeCueKey, activeCueDefault) || `Completed ${repCount} repetitions with solid technique.`,
       repetitions: sessionReps,
       issues: sessionIssues
     };
@@ -889,8 +494,8 @@ export const LiveCameraStudio: React.FC<Props> = ({
             symmetry_score: symmetryRatio,
             tempo_score: 88,
             stability_score: 90,
-            model_version: 'sportx-gb-v1.0',
-            feedback_summary: t(activeCueKey) || `Completed ${repCount} repetitions with solid technique.`,
+            model_version: 'sportx-biomech-v2.0',
+            feedback_summary: t(activeCueKey, activeCueDefault) || `Completed ${repCount} repetitions with solid technique.`,
           });
 
           if (newSession && sessionReps.length > 0) {
@@ -922,7 +527,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           };
         }
       } catch (err) {
-        console.warn('Supabase session save fallback:', err);
+        console.warn('Supabase session save notice:', err);
       }
     }
 
@@ -965,6 +570,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
           >
             <option value="squat">Squat</option>
             <option value="pushup">Push-up</option>
+            <option value="pullup">Pull-up</option>
             <option value="bicep_curl">Bicep Curl</option>
             <option value="shoulder_press">Shoulder Press</option>
           </select>
@@ -1149,7 +755,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
                 ) : (
                   <CheckCircle2 className="w-4 h-4 text-brand-400 shrink-0" />
                 )}
-                <span>{t(activeCueKey)}</span>
+                <span>{t(activeCueKey, activeCueDefault)}</span>
               </div>
             </div>
 

@@ -47,6 +47,21 @@ export const translations: TranslationDictionary = {
     ru: 'Прогресс',
     kk: 'Прогресс',
   },
+  'nav.nutrition': {
+    en: 'Nutrition',
+    ru: 'Питание',
+    kk: 'Тамақтану',
+  },
+  'nav.sleep': {
+    en: 'Sleep',
+    ru: 'Сон',
+    kk: 'Ұйқы',
+  },
+  'nav.assistant': {
+    en: 'AI Assistant',
+    ru: 'ИИ Ассистент',
+    kk: 'ЖИ Бапкер',
+  },
   'nav.coach': {
     en: 'Coach Hub',
     ru: 'Тренер',
@@ -56,6 +71,11 @@ export const translations: TranslationDictionary = {
     en: 'Profile',
     ru: 'Профиль',
     kk: 'Профиль',
+  },
+  'nav.settings': {
+    en: 'Settings',
+    ru: 'Настройки',
+    kk: 'Баптаулар',
   },
   'nav.login': {
     en: 'Log In',
@@ -220,9 +240,9 @@ export const translations: TranslationDictionary = {
     kk: 'Авторизация қажет',
   },
   'auth.loginRequiredDesc': {
-    en: 'Please sign in or create an account to view your personalized dashboard and progress.',
-    ru: 'Пожалуйста, войдите или зарегистрируйтесь, чтобы просмотреть свои тренировки и прогресс.',
-    kk: 'Жеке жаттығуларыңыз бен прогресіңізді көру үшін жүйеге кіріңіз немесе тіркеліңіз.',
+    en: 'Please sign in or create an account to view your personalized dashboard, nutrition, sleep, and progress.',
+    ru: 'Пожалуйста, войдите или зарегистрируйтесь, чтобы просмотреть тренировки, питание, сон и прогресс.',
+    kk: 'Жеке жаттығуларыңызды, тамақтануды, ұйқыны және прогресті көру үшін жүйеге кіріңіз.',
   },
 
   // Train Section
@@ -524,6 +544,21 @@ export const translations: TranslationDictionary = {
     ru: 'ПЛАНКА',
     kk: 'ПЛАНКА',
   },
+  'phase.hang': {
+    en: 'HANG',
+    ru: 'ВИС',
+    kk: 'АСЫЛУ',
+  },
+  'phase.pulling': {
+    en: 'PULLING',
+    ru: 'ТЯГА',
+    kk: 'ТАРТУ',
+  },
+  'phase.top': {
+    en: 'TOP POSITION',
+    ru: 'ВЕРХНЯЯ ТОЧКА',
+    kk: 'ЖОҒАРҒЫ НҮКТЕ',
+  },
   'phase.curling': {
     en: 'CURLING',
     ru: 'ПОДЪЕМ',
@@ -631,42 +666,56 @@ export const translations: TranslationDictionary = {
     ru: 'Полная фиксация вверху достигнута',
     kk: 'Жоғарғы толық бекіту орындалды',
   },
+  'cue.pullVertical': {
+    en: 'Pull chest up to bar smoothly',
+    ru: 'Подтягивайте грудь к перекладине плавно',
+    kk: 'Кеудеңізді турникке бірқалыпты тартыңыз',
+  },
+  'cue.topReach': {
+    en: 'Top reached! Lower with control into full extension',
+    ru: 'Верхняя точка! Опускайтесь плавно до полного виса',
+    kk: 'Жоғарғы нүкте! Толық созылуға дейін бірқалыпты түсіңіз',
+  },
 
-  // Dashboard & Empty States
-  'dashboard.greeting': {
-    en: 'Ready to train,',
-    ru: 'Готовы к тренировке,',
-    kk: 'Жаттығуға дайынсыз ба,',
+  // Nutrition
+  'nutrition.title': {
+    en: 'Nutrition Intelligence',
+    ru: 'Умный учет питания',
+    kk: 'Тамақтануды талдау',
   },
-  'dashboard.quickStart': {
-    en: 'Quick Start Live Camera',
-    ru: 'Быстрый старт с камерой',
-    kk: 'Камерамен жылдам бастау',
+  'nutrition.subtitle': {
+    en: 'Type your meal in English, Russian or Kazakh to estimate calories and macronutrients.',
+    ru: 'Введите прием пищи на русском, казахском или английском для расчета КБЖУ.',
+    kk: 'Калория мен макронутриенттерді есептеу үшін тағамыңызды қазақша, орысша немесе ағылшынша жазыңыз.',
   },
-  'dashboard.noWorkoutsYet': {
-    en: 'No workouts recorded yet.',
-    ru: 'Пока нет сохраненных тренировок.',
-    kk: 'Әзірге сақталған жаттығулар жоқ.',
+  'nutrition.logMeal': {
+    en: 'Log Meal with Natural Language',
+    ru: 'Записать прием пищи',
+    kk: 'Тамақтануды жазу',
   },
-  'dashboard.startFirstWorkout': {
-    en: 'Start your first camera session to track reps and biomechanics.',
-    ru: 'Начните первую сессию с камерой для анализа техники и повторов.',
-    kk: 'Техника мен қайталауларды талдау үшін алғашқы камера сессиясын бастаңыз.',
+
+  // Sleep
+  'sleep.title': {
+    en: 'Sleep & Recovery Insights',
+    ru: 'Сон и восстановление',
+    kk: 'Ұйқы және қалпына келу',
   },
-  'dashboard.recentActivity': {
-    en: 'Recent Activity',
-    ru: 'Недавняя активность',
-    kk: 'Соңғы белсенділік',
+  'sleep.subtitle': {
+    en: 'Track sleep and wake times to calculate objective sleep duration and evaluate training readiness.',
+    ru: 'Отслеживайте время сна для расчета длительности и оценки готовности к тренировкам.',
+    kk: 'Ұйқы ұзақтығын есептеу және жаттығуға дайындықты бағалау үшін ұйқы уақытын бақылаңыз.',
   },
-  'dashboard.overallScore': {
-    en: 'Overall Form Score',
-    ru: 'Общая оценка формы',
-    kk: 'Жалпы техникалық баға',
+
+  // AI Assistant
+  'assistant.title': {
+    en: 'SportX AI Assistant',
+    ru: 'ИИ-Ассистент SportX',
+    kk: 'SportX ЖИ Бапкері',
   },
-  'dashboard.totalReps': {
-    en: 'Total Reps',
-    ru: 'Всего повторов',
-    kk: 'Барлық қайталаулар',
+  'assistant.subtitle': {
+    en: 'Biomechanical analysis, training advice, and recovery guidance.',
+    ru: 'Биомеханический анализ, тренировочные программы и советы по восстановлению.',
+    kk: 'Биомеханикалық талдау, жаттығу бағдарламалары және қалпына келу кеңестері.',
   },
 
   // Profile

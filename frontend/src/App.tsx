@@ -6,6 +6,9 @@ import { MobileNav } from './components/layout/MobileNav';
 import { AthleteDashboard } from './components/athlete/AthleteDashboard';
 import { TrainLibraryView } from './components/exercise/TrainLibraryView';
 import { ProgressView } from './components/athlete/ProgressView';
+import { NutritionView } from './components/athlete/NutritionView';
+import { SleepView } from './components/athlete/SleepView';
+import { AIAssistantView } from './components/athlete/AIAssistantView';
 import { LiveCameraStudio } from './components/camera/LiveCameraStudio';
 import { VideoUploadStudio } from './components/video/VideoUploadStudio';
 import { CoachDashboard } from './components/coach/CoachDashboard';
@@ -13,13 +16,15 @@ import { ProfileView } from './components/profile/ProfileView';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AthleteRoute } from './components/auth/AthleteRoute';
 import { CoachRoute } from './components/auth/CoachRoute';
+import { NightlightModal } from './components/common/NightlightModal';
 
 const MainAppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { t } = useTranslation();
-  // Default to train tab for new unauthenticated visitors so they see what they can train immediately
+  // Default to train tab for new unauthenticated visitors
   const [currentTab, setCurrentTab] = useState<string>('train');
   const [activeExerciseSlug, setActiveExerciseSlug] = useState<string>('squat');
+  const [showNightlight, setShowNightlight] = useState(false);
 
   const handleStartLiveCamera = (exerciseSlug: string = 'squat') => {
     setActiveExerciseSlug(exerciseSlug);
@@ -33,7 +38,7 @@ const MainAppContent: React.FC = () => {
   const isCameraStudioActive = currentTab === 'live-camera';
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-brand-500 selection:text-black">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-brand-500 selection:text-black overflow-x-hidden">
       
       {/* Top Desktop & Mobile Header (Hidden in Live Camera Studio for maximum viewport) */}
       {!isCameraStudioActive && (
@@ -44,7 +49,7 @@ const MainAppContent: React.FC = () => {
       )}
 
       {/* Main View Router */}
-      <main className={`flex-1 ${!isCameraStudioActive ? 'pb-20 md:pb-8' : ''}`}>
+      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${!isCameraStudioActive ? 'pb-20 md:pb-8' : ''}`}>
         
         {/* Train Tab (Publicly accessible muscle selector & exercise library) */}
         {currentTab === 'train' && (
@@ -95,6 +100,27 @@ const MainAppContent: React.FC = () => {
           </AthleteRoute>
         )}
 
+        {/* Nutrition Tracking Tab */}
+        {currentTab === 'nutrition' && (
+          <ProtectedRoute>
+            <NutritionView />
+          </ProtectedRoute>
+        )}
+
+        {/* Sleep Insights Tab */}
+        {currentTab === 'sleep' && (
+          <ProtectedRoute>
+            <SleepView />
+          </ProtectedRoute>
+        )}
+
+        {/* AI Assistant Tab */}
+        {currentTab === 'assistant' && (
+          <ProtectedRoute>
+            <AIAssistantView />
+          </ProtectedRoute>
+        )}
+
         {/* Coach Hub */}
         {currentTab === 'coach' && (
           <CoachRoute>
@@ -128,6 +154,13 @@ const MainAppContent: React.FC = () => {
           </div>
         </footer>
       )}
+
+      {/* Nightlight Notification Widget */}
+      <NightlightModal
+        isOpen={showNightlight}
+        onClose={() => setShowNightlight(false)}
+        onNavigateToSleep={() => setCurrentTab('sleep')}
+      />
 
     </div>
   );
