@@ -1,12 +1,66 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
 from app.models import User, AthleteProfile, NutritionRecord
 from app.schemas import NutritionRecordCreate, NutritionRecordOut
+from ml.nutrition.inference.nutrition_matcher import NutritionInferenceEngine
 
 router = APIRouter()
+
+# Global ML inference engine instance
+_engine: Optional[NutritionInferenceEngine] = None
+
+def get_engine() -> NutritionInferenceEngine:
+    global _engine
+    if _engine is None:
+        _engine = NutritionInferenceEngine()
+    return _engine
+
+
+class MealEstimateRequest(BaseModel):
+    query: str
+    language: Optional[str] = "en"
+
+
+class DetectedFoodOut(BaseModel):
+    food_id: int
+    food_name: str
+    original_name_en: str
+    category: str
+    portion_grams: int
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: float
+    confidence: float
+    is_estimated: bool
+
+
+class MealEstimateResponse(BaseModel):
+    raw_query: str
+    detected_foods: List[DetectedFoodOut]
+    total_calories: float
+    total_protein: float
+    total_carbs: float
+    total_fat: float
+    total_fiber: float
+    total_grams: int
+    model_version: str
+    is_estimated: bool
+
+
+@router.post("/estimate", response_model=MealEstimateResponse)
+def estimate_meal_nutrition(req: MealEstimateRequest):
+    """
+    ML-powered multi-lingual natural language food recognition and portion calculation.
+    """
+    engine = get_engine()
+    result = engine.predict(req.query, lang=req.language or "en")
+    return result
 
 
 @router.post("/", response_model=NutritionRecordOut)

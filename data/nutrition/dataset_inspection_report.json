@@ -1,0 +1,43 @@
+{
+  "dataset_name": "SportX Nutrition Cleaned Multi-Lingual Dataset",
+  "raw_source": "en.openfoodfacts.org.products.tsv & Curated Sports Nutrition Database",
+  "total_samples": 5043,
+  "columns": [
+    "name_en",
+    "name_ru",
+    "name_kk",
+    "serving_g",
+    "calories_100g",
+    "protein_100g",
+    "carbs_100g",
+    "fat_100g",
+    "fiber_100g",
+    "category"
+  ],
+  "languages": [
+    "en",
+    "ru",
+    "kk"
+  ],
+  "macro_ranges": {
+    "calories_100g": [
+      0.0,
+      929.0
+    ],
+    "protein_100g": [
+      0.0,
+      100.0
+    ],
+    "carbs_100g": [
+      0.0,
+      100.0
+    ],
+    "fat_100g": [
+      0.0,
+      100.0
+    ]
+  },
+  "clean_duplicates_removed": true,
+  "units_normalized": "100g basis (kcal, grams)",
+  "status": "ready_for_training"
+}

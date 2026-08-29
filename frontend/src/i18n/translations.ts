@@ -693,6 +693,96 @@ export const translations: TranslationDictionary = {
     ru: 'Записать прием пищи',
     kk: 'Тамақтануды жазу',
   },
+  'nutrition.calories': {
+    en: 'Calories',
+    ru: 'Калории',
+    kk: 'Калориялар',
+  },
+  'nutrition.protein': {
+    en: 'Protein',
+    ru: 'Белки',
+    kk: 'Ақуыздар',
+  },
+  'nutrition.carbs': {
+    en: 'Carbohydrates',
+    ru: 'Углеводы',
+    kk: 'Көмірсулар',
+  },
+  'nutrition.fats': {
+    en: 'Fats',
+    ru: 'Жиры',
+    kk: 'Майлар',
+  },
+  'nutrition.energy': {
+    en: 'Energy & Recovery',
+    ru: 'Энергия и восстановление',
+    kk: 'Энергия және қалпына келу',
+  },
+  'nutrition.hormones': {
+    en: 'Hormonal Balance',
+    ru: 'Гормональный баланс',
+    kk: 'Гормоналды тепе-теңдік',
+  },
+  'nutrition.breakfast': {
+    en: 'Breakfast',
+    ru: 'Завтрак',
+    kk: 'Таңғы ас',
+  },
+  'nutrition.lunch': {
+    en: 'Lunch',
+    ru: 'Обед',
+    kk: 'Түскі ас',
+  },
+  'nutrition.dinner': {
+    en: 'Dinner',
+    ru: 'Ужин',
+    kk: 'Кешкі ас',
+  },
+  'nutrition.snack': {
+    en: 'Snack',
+    ru: 'Перекус',
+    kk: 'Жеңіл тамақ',
+  },
+  'nutrition.placeholder': {
+    en: 'e.g. Chicken breast with rice + 2 eggs (or Борщ с хлебом / Кеспе)',
+    ru: 'например, Куриная грудка с рисом + 2 яйца (или Борщ с хлебом / Кеспе)',
+    kk: 'мысалы, Тауық еті мен күріш + 2 жұмыртқа (немесе Борщ / Кеспе)',
+  },
+  'nutrition.detectedFoods': {
+    en: 'Detected Foods & Portions',
+    ru: 'Распознанные продукты и порции',
+    kk: 'Анықталған тағамдар мен порциялар',
+  },
+  'nutrition.saveMeal': {
+    en: 'Log This Meal',
+    ru: 'Записать прием пищи',
+    kk: 'Тамақтануды сақтау',
+  },
+  'nutrition.savedSuccess': {
+    en: 'Meal logged successfully to your daily nutrition log.',
+    ru: 'Прием пищи успешно записан в ваш дневник питания.',
+    kk: 'Тамақтану күнделігіңізге сәтті сақталды.',
+  },
+  'nutrition.todayHistory': {
+    en: "Today's Meal Log",
+    ru: 'Дневник питания за сегодня',
+    kk: 'Бүгінгі тамақтану журналы',
+  },
+  'nutrition.loadingHistory': {
+    en: 'Loading meal history...',
+    ru: 'Загрузка истории питания...',
+    kk: 'Тамақтану тарихы жүктелуде...',
+  },
+  'nutrition.noMealsYet': {
+    en: 'No meals logged yet today.',
+    ru: 'Сегодня приемов пищи еще не записано.',
+    kk: 'Бүгінге әлі тамақтану жазылмаған.',
+  },
+  'nutrition.noMealsDesc': {
+    en: 'Type your breakfast, lunch, dinner or snack above to keep track of your daily calories & macros.',
+    ru: 'Введите завтрак, обед, ужин или перекус выше для автоматического подсчета калорий и БЖУ.',
+    kk: 'Калория мен БЖУ-ды автоматты түрде есептеу үшін таңғы, түскі, кешкі асыңызды жоғарыда жазыңыз.',
+  },
 
   // Sleep
   'sleep.title': {

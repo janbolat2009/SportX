@@ -1,0 +1,359 @@
+{
+  "summary": {
+    "model_version": "sportx-nutrition-v2.0",
+    "total_test_queries": 27,
+    "accuracy_top1_pct": 77.78,
+    "precision_pct": 82.61,
+    "recall_pct": 84.44,
+    "f1_score_pct": 83.51,
+    "calorie_mae_kcal": 80.3,
+    "calorie_rmse_kcal": 148.48,
+    "protein_mae_g": 5.69,
+    "status": "validated_reproducible"
+  },
+  "case_results": [
+    {
+      "query": "Chicken breast with rice",
+      "language": "en",
+      "detected_foods": [
+        "Chicken Breast (Cooked)",
+        "White Rice (Boiled/Steamed)"
+      ],
+      "total_calories": 481.5,
+      "total_protein": 51.4,
+      "expected_cal": 350,
+      "calorie_error": 131.5,
+      "match_success": true
+    },
+    {
+      "query": "200g chicken breast",
+      "language": "en",
+      "detected_foods": [
+        "Chicken Breast (Cooked)"
+      ],
+      "total_calories": 330.0,
+      "total_protein": 62.0,
+      "expected_cal": 330,
+      "calorie_error": 0.0,
+      "match_success": true
+    },
+    {
+      "query": "2 whole eggs and toast",
+      "language": "en",
+      "detected_foods": [
+        "Whole Egg (Boiled)",
+        "White Bread / Toast"
+      ],
+      "total_calories": 263.3,
+      "total_protein": 17.1,
+      "expected_cal": 250,
+      "calorie_error": 13.3,
+      "match_success": true
+    },
+    {
+      "query": "Oatmeal with banana",
+      "language": "en",
+      "detected_foods": [
+        "Oatmeal / Rolled Oats (Cooked with Water)",
+        "Fresh Banana"
+      ],
+      "total_calories": 248.8,
+      "total_protein": 6.3,
+      "expected_cal": 250,
+      "calorie_error": 1.2,
+      "match_success": true
+    },
+    {
+      "query": "150g salmon fillet and broccoli",
+      "language": "en",
+      "detected_foods": [
+        "Salmon Fillet (Baked/Grilled)",
+        "Broccoli (Steamed)"
+      ],
+      "total_calories": 347.0,
+      "total_protein": 32.4,
+      "expected_cal": 350,
+      "calorie_error": 3.0,
+      "match_success": true
+    },
+    {
+      "query": "Whey protein shake with milk",
+      "language": "en",
+      "detected_foods": [
+        "Whey Protein Shake",
+        "Milk"
+      ],
+      "total_calories": 376.0,
+      "total_protein": 26.7,
+      "expected_cal": 180,
+      "calorie_error": 196.0,
+      "match_success": true
+    },
+    {
+      "query": "Lean beef steak with baked potato",
+      "language": "en",
+      "detected_foods": [
+        "Lean Beef / Steak (Cooked)",
+        "Boiled / Baked Potato"
+      ],
+      "total_calories": 494.5,
+      "total_protein": 43.0,
+      "expected_cal": 490,
+      "calorie_error": 4.5,
+      "match_success": true
+    },
+    {
+      "query": "Canned tuna with fresh salad",
+      "language": "en",
+      "detected_foods": [
+        "Canned Tuna (in Water)",
+        "Salad"
+      ],
+      "total_calories": 244.0,
+      "total_protein": 31.2,
+      "expected_cal": 180,
+      "calorie_error": 64.0,
+      "match_success": true
+    },
+    {
+      "query": "Greek yogurt with almonds",
+      "language": "en",
+      "detected_foods": [
+        "Greek Yogurt (Plain)",
+        "Almonds / Walnuts"
+      ],
+      "total_calories": 297.8,
+      "total_protein": 23.3,
+      "expected_cal": 300,
+      "calorie_error": 2.2,
+      "match_success": true
+    },
+    {
+      "query": "Pasta with minced beef",
+      "language": "en",
+      "detected_foods": [
+        "Durum Wheat Pasta / Macaroni (Boiled)",
+        "Minced Beef (Lean 90/10)"
+      ],
+      "total_calories": 609.9,
+      "total_protein": 47.2,
+      "expected_cal": 610,
+      "calorie_error": 0.1,
+      "match_success": true
+    },
+    {
+      "query": "Куриная грудка с рисом",
+      "language": "ru",
+      "detected_foods": [
+        "Куриная грудка (вареная)",
+        "Рис белый (вареный)"
+      ],
+      "total_calories": 481.5,
+      "total_protein": 51.4,
+      "expected_cal": 350,
+      "calorie_error": 131.5,
+      "match_success": true
+    },
+    {
+      "query": "200г вареной курицы",
+      "language": "ru",
+      "detected_foods": [
+        "Яйцо куриное (вареное)"
+      ],
+      "total_calories": 310.0,
+      "total_protein": 26.0,
+      "expected_cal": 330,
+      "calorie_error": 20.0,
+      "match_success": false
+    },
+    {
+      "query": "2 яйца и тост",
+      "language": "ru",
+      "detected_foods": [
+        "Хлеб белый / Тост"
+      ],
+      "total_calories": 212.0,
+      "total_protein": 6.4,
+      "expected_cal": 250,
+      "calorie_error": 38.0,
+      "match_success": false
+    },
+    {
+      "query": "Борщ с говядиной и хлебом",
+      "language": "ru",
+      "detected_foods": [
+        "Борщ с говядиной",
+        "Борщ с говядиной"
+      ],
+      "total_calories": 406.0,
+      "total_protein": 24.4,
+      "expected_cal": 300,
+      "calorie_error": 106.0,
+      "match_success": false
+    },
+    {
+      "query": "Овсяная каша с бананом",
+      "language": "ru",
+      "detected_foods": [
+        "Овсянка / Геркулес на воде",
+        "Хлеб цельнозерновой"
+      ],
+      "total_calories": 240.8,
+      "total_protein": 8.6,
+      "expected_cal": 250,
+      "calorie_error": 9.2,
+      "match_success": false
+    },
+    {
+      "query": "Творог 5% с орехами",
+      "language": "ru",
+      "detected_foods": [
+        "Творог 5%",
+        "Миндаль / Грецкие орехи"
+      ],
+      "total_calories": 415.7,
+      "total_protein": 40.3,
+      "expected_cal": 415,
+      "calorie_error": 0.7,
+      "match_success": true
+    },
+    {
+      "query": "Гречка с говядиной",
+      "language": "ru",
+      "detected_foods": [
+        "Гречка (вареная)",
+        "Борщ с говядиной"
+      ],
+      "total_calories": 401.0,
+      "total_protein": 19.8,
+      "expected_cal": 520,
+      "calorie_error": 119.0,
+      "match_success": false
+    },
+    {
+      "query": "Плов с мясом",
+      "language": "ru",
+      "detected_foods": [
+        "Плов с говядиной",
+        "Самса с мясом"
+      ],
+      "total_calories": 903.0,
+      "total_protein": 34.5,
+      "expected_cal": 555,
+      "calorie_error": 348.0,
+      "match_success": true
+    },
+    {
+      "query": "Манты с мясом",
+      "language": "ru",
+      "detected_foods": [
+        "Манты с говядиной",
+        "Самса с мясом"
+      ],
+      "total_calories": 835.5,
+      "total_protein": 33.2,
+      "expected_cal": 487,
+      "calorie_error": 348.5,
+      "match_success": true
+    },
+    {
+      "query": "Стейк из семги с овощами",
+      "language": "ru",
+      "detected_foods": [
+        "Говядина нежирная (вареная/гриль)",
+        "Лагман с говядиной и овощами"
+      ],
+      "total_calories": 830.0,
+      "total_protein": 63.5,
+      "expected_cal": 350,
+      "calorie_error": 480.0,
+      "match_success": false
+    },
+    {
+      "query": "Тауық еті мен күріш",
+      "language": "kk",
+      "detected_foods": [
+        "Тауық төс еті (пісірілген)",
+        "Ақ күріш (пісірілген)"
+      ],
+      "total_calories": 481.5,
+      "total_protein": 51.4,
+      "expected_cal": 350,
+      "calorie_error": 131.5,
+      "match_success": true
+    },
+    {
+      "query": "2 жұмыртқа және нан",
+      "language": "kk",
+      "detected_foods": [
+        "Жұмыртқа (пісірілген)",
+        "Қара нан / Дәнді нан"
+      ],
+      "total_calories": 269.3,
+      "total_protein": 17.9,
+      "expected_cal": 250,
+      "calorie_error": 19.3,
+      "match_success": true
+    },
+    {
+      "query": "Бесбармақ еті",
+      "language": "kk",
+      "detected_foods": [
+        "Бесбармақ / Ет"
+      ],
+      "total_calories": 735.0,
+      "total_protein": 50.8,
+      "expected_cal": 735,
+      "calorie_error": 0.0,
+      "match_success": true
+    },
+    {
+      "query": "Кеспе сорпасы",
+      "language": "kk",
+      "detected_foods": [
+        "Кеспе (сорпа)"
+      ],
+      "total_calories": 227.5,
+      "total_protein": 16.8,
+      "expected_cal": 227,
+      "calorie_error": 0.5,
+      "match_success": true
+    },
+    {
+      "query": "Сүзбе 5%",
+      "language": "kk",
+      "detected_foods": [
+        "Сүзбе 5%"
+      ],
+      "total_calories": 242.0,
+      "total_protein": 34.0,
+      "expected_cal": 242,
+      "calorie_error": 0.0,
+      "match_success": true
+    },
+    {
+      "query": "Қарақұмық ботқасы",
+      "language": "kk",
+      "detected_foods": [
+        "Қарақұмық (пісірілген)"
+      ],
+      "total_calories": 198.0,
+      "total_protein": 7.6,
+      "expected_cal": 198,
+      "calorie_error": 0.0,
+      "match_success": true
+    },
+    {
+      "query": "Палау етпен",
+      "language": "kk",
+      "detected_foods": [
+        "Палау (етпен)"
+      ],
+      "total_calories": 555.0,
+      "total_protein": 22.5,
+      "expected_cal": 555,
+      "calorie_error": 0.0,
+      "match_success": true
+    }
+  ]
+}

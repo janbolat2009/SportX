@@ -52,10 +52,10 @@ export const MobileDrawer: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
-  const languages: { code: Language; label: string; flag: string }[] = [
-    { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-    { code: 'kk', label: 'Қазақша', flag: '🇰🇿' },
-    { code: 'en', label: 'English', flag: '🇬🇧' },
+  const languages: { code: Language; label: string; shortLabel: string }[] = [
+    { code: 'ru', label: 'Русский', shortLabel: 'RU' },
+    { code: 'kk', label: 'Қазақша', shortLabel: 'KK' },
+    { code: 'en', label: 'English', shortLabel: 'EN' },
   ];
 
   const handleNavClick = (tabId: string) => {
@@ -166,7 +166,7 @@ export const MobileDrawer: React.FC<Props> = ({
                   }`}
                 >
                   <Apple className="w-4 h-4 shrink-0 text-emerald-400" />
-                  <span>{t('nav.nutrition', 'Nutrition')}</span>
+                  <span>{t('nav.nutrition')}</span>
                 </button>
 
                 <button
@@ -178,7 +178,7 @@ export const MobileDrawer: React.FC<Props> = ({
                   }`}
                 >
                   <Moon className="w-4 h-4 shrink-0 text-indigo-400" />
-                  <span>{t('nav.sleep', 'Sleep Insights')}</span>
+                  <span>{t('nav.sleep')}</span>
                 </button>
 
                 <button
@@ -190,7 +190,7 @@ export const MobileDrawer: React.FC<Props> = ({
                   }`}
                 >
                   <Bot className="w-4 h-4 shrink-0 text-sky-400" />
-                  <span>{t('nav.assistant', 'AI Assistant')}</span>
+                  <span>{t('nav.assistant')}</span>
                 </button>
 
                 <button
@@ -212,7 +212,7 @@ export const MobileDrawer: React.FC<Props> = ({
         {/* Bottom Section: Language Switcher & Auth Actions */}
         <div className="pt-4 border-t border-zinc-850 space-y-4">
           
-          {/* Language Selector Grid */}
+          {/* Text-based Language Selector Grid (No flags) */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
               <Globe className="w-3.5 h-3.5 text-brand-400" />
@@ -223,14 +223,14 @@ export const MobileDrawer: React.FC<Props> = ({
                 <button
                   key={item.code}
                   onClick={() => setLanguage(item.code)}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 border transition-all ${
+                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center border transition-all ${
                     language === item.code
                       ? 'bg-brand-500/15 border-brand-500 text-brand-400'
                       : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                   }`}
                 >
-                  <span>{item.flag}</span>
-                  <span className="text-[11px]">{item.code.toUpperCase()}</span>
+                  <span className="text-[10px] font-mono opacity-60 uppercase">{item.shortLabel}</span>
+                  <span className="text-xs font-bold">{item.label}</span>
                 </button>
               ))}
             </div>

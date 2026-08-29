@@ -5,7 +5,7 @@ import { NutritionIntelligence, MealEstimationResult } from '../../services/nutr
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   Apple, Plus, Sparkles, Flame, CheckCircle2,
-  Trash2, Loader2, Info, ArrowRight, Utensils
+  Trash2, Loader2, Info, Utensils
 } from 'lucide-react';
 
 interface MealLogEntry {
@@ -20,6 +20,7 @@ interface MealLogEntry {
   fat: number;
   fiber?: number;
   estimated: boolean;
+  model_version?: string;
   created_at?: string;
 }
 
@@ -31,10 +32,11 @@ export const NutritionView: React.FC = () => {
   const [estimation, setEstimation] = useState<MealEstimationResult | null>(null);
   const [logs, setLogs] = useState<MealLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [estimating, setEstimating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Load past meals from Supabase
+  // Fetch past meal logs from Supabase
   useEffect(() => {
     async function fetchMeals() {
       if (!isSupabaseConfigured() || !user?.id) return;
@@ -59,15 +61,28 @@ export const NutritionView: React.FC = () => {
     fetchMeals();
   }, [user]);
 
-  // Real-time estimation as user types
+  // Real-time asynchronous ML estimation with debouncing
   useEffect(() => {
-    if (mealText.trim().length >= 2) {
-      const res = NutritionIntelligence.estimateMeal(mealText);
-      setEstimation(res);
-    } else {
+    if (mealText.trim().length < 2) {
       setEstimation(null);
+      return;
     }
-  }, [mealText]);
+
+    const timer = setTimeout(async () => {
+      setEstimating(true);
+      try {
+        const res = await NutritionIntelligence.estimateMealAsync(mealText, language);
+        setEstimation(res);
+      } catch {
+        const localRes = NutritionIntelligence.estimateMealLocal(mealText);
+        setEstimation(localRes);
+      } finally {
+        setEstimating(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [mealText, language]);
 
   const handleSaveMeal = async () => {
     if (!estimation || estimation.components.length === 0 || !user?.id) return;
@@ -77,13 +92,14 @@ export const NutritionView: React.FC = () => {
       user_id: String(user.id),
       meal_type: mealType,
       description: mealText.trim(),
-      serving_size: `${estimation.totalGrams}g estimated`,
+      serving_size: `${estimation.totalGrams}g`,
       calories: estimation.totalCalories,
       protein: estimation.totalProtein,
       carbs: estimation.totalCarbs,
       fat: estimation.totalFat,
       fiber: estimation.totalFiber,
-      estimated: true,
+      estimated: estimation.isEstimated,
+      model_version: estimation.modelVersion || 'sportx-nutrition-v2.0',
       created_at: new Date().toISOString(),
     };
 
@@ -128,7 +144,7 @@ export const NutritionView: React.FC = () => {
   };
 
   // Daily Totals
-  const todayCalories = logs.reduce((sum, l) => sum + (l.calories || 0), 0);
+  const todayCalories = Math.round(logs.reduce((sum, l) => sum + (l.calories || 0), 0));
   const todayProtein = Math.round(logs.reduce((sum, l) => sum + (l.protein || 0), 0));
   const todayCarbs = Math.round(logs.reduce((sum, l) => sum + (l.carbs || 0), 0));
   const todayFat = Math.round(logs.reduce((sum, l) => sum + (l.fat || 0), 0));
@@ -143,17 +159,17 @@ export const NutritionView: React.FC = () => {
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
           <Apple className="w-6 h-6 text-emerald-400" />
-          <span>{t('nutrition.title', 'Nutrition Intelligence')}</span>
+          <span>{t('nutrition.title')}</span>
         </h1>
         <p className="text-xs sm:text-sm text-zinc-400">
-          {t('nutrition.subtitle', 'Type your meal in English, Russian or Kazakh to estimate calories and macronutrients.')}
+          {t('nutrition.subtitle')}
         </p>
       </div>
 
-      {/* Daily Summary Cards */}
+      {/* Daily Progress Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">Calories</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.calories')}</span>
           <div className="flex items-baseline gap-1">
             <span className="text-xl sm:text-2xl font-black text-white font-mono">{todayCalories}</span>
             <span className="text-[11px] text-zinc-500 font-mono">/ {targetCalories}</span>
@@ -167,7 +183,7 @@ export const NutritionView: React.FC = () => {
         </div>
 
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">Protein</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.protein')}</span>
           <div className="flex items-baseline gap-1">
             <span className="text-xl sm:text-2xl font-black text-sky-400 font-mono">{todayProtein}g</span>
             <span className="text-[11px] text-zinc-500 font-mono">/ {targetProtein}g</span>
@@ -181,15 +197,15 @@ export const NutritionView: React.FC = () => {
         </div>
 
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">Carbohydrates</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.carbs')}</span>
           <span className="text-xl sm:text-2xl font-black text-amber-400 font-mono block">{todayCarbs}g</span>
-          <span className="text-[10px] text-zinc-500">Energy & Recovery</span>
+          <span className="text-[10px] text-zinc-500">{t('nutrition.energy')}</span>
         </div>
 
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">Fats</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.fats')}</span>
           <span className="text-xl sm:text-2xl font-black text-rose-400 font-mono block">{todayFat}g</span>
-          <span className="text-[10px] text-zinc-500">Hormonal Balance</span>
+          <span className="text-[10px] text-zinc-500">{t('nutrition.hormones')}</span>
         </div>
       </div>
 
@@ -198,7 +214,7 @@ export const NutritionView: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>{t('nutrition.logMeal', 'Log Meal with Natural Language')}</span>
+            <span>{t('nutrition.logMeal')}</span>
           </h2>
 
           {/* Meal Type Selector */}
@@ -214,25 +230,30 @@ export const NutritionView: React.FC = () => {
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                {type}
+                {t(`nutrition.${type.toLowerCase()}`)}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Input area */}
+        {/* Input Area */}
         <div className="space-y-2">
           <div className="relative">
             <input
               type="text"
               value={mealText}
               onChange={(e) => setMealText(e.target.value)}
-              placeholder="e.g. Chicken breast with rice + 2 eggs (or Борщ с хлебом / Кеспе)"
+              placeholder={t('nutrition.placeholder')}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
             />
+            {estimating && (
+              <div className="absolute right-3.5 top-3.5">
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+              </div>
+            )}
           </div>
 
-          {/* Suggestions quick chips */}
+          {/* Quick Example Chips */}
           <div className="flex flex-wrap gap-1.5 pt-1">
             {[
               'Chicken breast with rice',
@@ -254,20 +275,20 @@ export const NutritionView: React.FC = () => {
           </div>
         </div>
 
-        {/* Real-time Parsed Estimation Preview */}
+        {/* ML Parsed Estimation Review Card */}
         {estimation && estimation.components.length > 0 && (
           <div className="p-4 rounded-2xl bg-zinc-950 border border-emerald-500/30 space-y-3 animate-in fade-in">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5" />
-                <span>Estimated Nutrition (FDC / OpenFood Database)</span>
+                <span>{t('nutrition.detectedFoods')} (OpenFoodFacts & SportX ML)</span>
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
                 {estimation.totalGrams}g Total
               </span>
             </div>
 
-            {/* Components breakdown */}
+            {/* Components Breakdown */}
             <div className="space-y-1.5">
               {estimation.components.map((comp, idx) => {
                 const name =
@@ -295,19 +316,19 @@ export const NutritionView: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
               <div className="flex items-center gap-4 text-xs font-mono">
                 <div>
-                  <span className="text-[10px] text-zinc-500 block">TOTAL CALORIES</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.calories')}</span>
                   <span className="text-base font-black text-white">{estimation.totalCalories} kcal</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-500 block">PROTEIN</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.protein')}</span>
                   <span className="text-sm font-bold text-sky-400">{estimation.totalProtein}g</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-500 block">CARBS</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.carbs')}</span>
                   <span className="text-sm font-bold text-amber-400">{estimation.totalCarbs}g</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-500 block">FATS</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.fats')}</span>
                   <span className="text-sm font-bold text-rose-400">{estimation.totalFat}g</span>
                 </div>
               </div>
@@ -323,7 +344,7 @@ export const NutritionView: React.FC = () => {
                 ) : (
                   <>
                     <Plus className="w-4 h-4 stroke-[3]" />
-                    <span>Log This Meal</span>
+                    <span>{t('nutrition.saveMeal')}</span>
                   </>
                 )}
               </button>
@@ -334,28 +355,28 @@ export const NutritionView: React.FC = () => {
         {saveSuccess && (
           <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>Meal logged successfully to your daily nutrition log.</span>
+            <span>{t('nutrition.savedSuccess')}</span>
           </div>
         )}
       </div>
 
-      {/* Meal History Table / Cards */}
+      {/* Meal History List */}
       <div className="space-y-3">
         <h2 className="text-sm font-bold text-zinc-200 flex items-center gap-2">
           <Utensils className="w-4 h-4 text-zinc-400" />
-          <span>Today's Meal Log ({logs.length})</span>
+          <span>{t('nutrition.todayHistory')} ({logs.length})</span>
         </h2>
 
         {loading ? (
           <div className="p-12 text-center text-zinc-500 text-xs flex flex-col items-center justify-center space-y-2">
             <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-            <p>Loading meal history...</p>
+            <p>{t('nutrition.loadingHistory')}</p>
           </div>
         ) : logs.length === 0 ? (
           <div className="p-8 rounded-3xl bg-zinc-900 border border-zinc-800 text-center space-y-2">
-            <p className="text-xs text-zinc-400">No meals logged yet today.</p>
+            <p className="text-xs text-zinc-400">{t('nutrition.noMealsYet')}</p>
             <p className="text-[11px] text-zinc-500">
-              Type your breakfast, lunch, dinner or snack above to keep track of your daily calories & macros.
+              {t('nutrition.noMealsDesc')}
             </p>
           </div>
         ) : (

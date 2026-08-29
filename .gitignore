@@ -31,7 +31,10 @@ data/processed/*
 !data/processed/.gitkeep
 data/features/*.csv
 backend/app/ml/datasets/*.csv
+backend/app/ml/datasets/*.tsv
 *.csv
+*.tsv
+
 
 # Node / React
 node_modules/

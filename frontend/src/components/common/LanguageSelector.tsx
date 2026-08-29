@@ -8,10 +8,10 @@ export const LanguageSelector: React.FC<{ compact?: boolean }> = ({ compact = fa
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const languages: { code: Language; label: string; flag: string }[] = [
-    { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-    { code: 'kk', label: 'Қазақша', flag: '🇰🇿' },
-    { code: 'en', label: 'English', flag: '🇬🇧' },
+  const languages: { code: Language; label: string; shortLabel: string }[] = [
+    { code: 'ru', label: 'Русский', shortLabel: 'RU' },
+    { code: 'kk', label: 'Қазақша', shortLabel: 'KK' },
+    { code: 'en', label: 'English', shortLabel: 'EN' },
   ];
 
   const currentLang = languages.find((l) => l.code === language) || languages[0];
@@ -34,11 +34,12 @@ export const LanguageSelector: React.FC<{ compact?: boolean }> = ({ compact = fa
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white transition-all shadow-xs"
         aria-expanded={isOpen}
         aria-haspopup="true"
-        title="Switch Language / Тілді ауыстыру / Сменить язык"
+        title="Language / Тіл / Язык"
       >
         <Globe className="w-3.5 h-3.5 text-brand-400" />
-        <span className="mr-0.5">{currentLang.flag}</span>
-        {!compact && <span className="font-medium">{currentLang.label}</span>}
+        <span className="font-bold text-xs uppercase text-zinc-200">
+          {compact ? currentLang.shortLabel : currentLang.label}
+        </span>
         <ChevronDown className="w-3 h-3 text-zinc-500" />
       </button>
 
@@ -58,7 +59,7 @@ export const LanguageSelector: React.FC<{ compact?: boolean }> = ({ compact = fa
               }`}
             >
               <div className="flex items-center gap-2">
-                <span>{item.flag}</span>
+                <span className="text-[11px] font-mono text-zinc-400 font-bold">{item.shortLabel}</span>
                 <span>{item.label}</span>
               </div>
               {language === item.code && <Check className="w-3.5 h-3.5 text-brand-400" />}
