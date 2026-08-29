@@ -54,30 +54,6 @@ export const ProgressView: React.FC = () => {
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Athlete Progress</h1>
           <p className="text-xs text-zinc-400">Biomechanics and holistic readiness metrics</p>
         </div>
-
-        {/* Quick Log Action */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setHolisticType('sleep');
-              setShowHolisticModal(true);
-            }}
-            className="px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border hover:border-surface-borderLight text-xs font-semibold text-zinc-200 flex items-center gap-1.5 transition-all"
-          >
-            <Moon className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Log Sleep</span>
-          </button>
-          <button
-            onClick={() => {
-              setHolisticType('nutrition');
-              setShowHolisticModal(true);
-            }}
-            className="px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border hover:border-surface-borderLight text-xs font-semibold text-zinc-200 flex items-center gap-1.5 transition-all"
-          >
-            <Utensils className="w-3.5 h-3.5 text-amber-400" />
-            <span>Log Meal</span>
-          </button>
-        </div>
       </div>
 
       {/* Summary KPI Cards */}
