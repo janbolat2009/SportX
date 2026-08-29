@@ -72,7 +72,7 @@
 - Python 3.10+
 - Node.js 18+ and npm
 
-### 1. Backend Setup
+### 1. Backend Setup & OpenAI Configuration
 ```bash
 # Navigate to backend directory
 cd backend
@@ -80,10 +80,16 @@ cd backend
 # Install dependencies
 pip install -r requirements.txt
 
+# Configure OpenAI API Key (Backend Only)
+# Create or edit .env in the project root or backend/.env:
+# OPENAI_API_KEY=sk-proj-your-actual-openai-api-key
+
 # Start FastAPI backend server
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 API Documentation will be available at `http://127.0.0.1:8000/docs`.
+
+> 🔒 **Security Notice**: `OPENAI_API_KEY` is loaded exclusively on the FastAPI backend server. It is never exposed in client JavaScript bundles or client `.env` files. If you update the key, restart the backend server with `uvicorn app.main:app --reload`.
 
 ### 2. Frontend Setup
 ```bash
@@ -97,6 +103,7 @@ npm install
 npm run dev
 ```
 Open `http://localhost:5173` in your browser.
+
 
 ---
 

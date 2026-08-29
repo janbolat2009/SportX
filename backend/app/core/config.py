@@ -1,6 +1,17 @@
 import os
+from pathlib import Path
 from typing import List
 from pydantic_settings import BaseSettings
+
+# Load .env files from current dir, backend dir, or parent dir
+try:
+    from dotenv import load_dotenv
+    root_dir = Path(__file__).resolve().parent.parent.parent.parent
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+    load_dotenv(backend_dir / ".env")
+    load_dotenv(root_dir / ".env")
+except ImportError:
+    pass
 
 
 class Settings(BaseSettings):
@@ -37,6 +48,7 @@ class Settings(BaseSettings):
     DEFAULT_SCORING_VERSION: str = "biomech-scoring-v1.0"
     
     # OpenAI Backend Assistant Settings
+    # Reads OPENAI_API_KEY from environment or .env file
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     AI_MAX_REQUESTS_PER_MINUTE: int = 20
@@ -54,7 +66,8 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = True
-        env_file = ".env"
+        env_file = [".env", "backend/.env", "../.env"]
+        extra = "ignore"
 
 
 settings = Settings()
