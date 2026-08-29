@@ -784,6 +784,12 @@ export const translations: TranslationDictionary = {
     kk: 'Калория мен БЖУ-ды автоматты түрде есептеу үшін таңғы, түскі, кешкі асыңызды жоғарыда жазыңыз.',
   },
 
+  'nutrition.amount': {
+    en: 'Amount',
+    ru: 'Количество',
+    kk: 'Мөлшері',
+  },
+
   // Sleep
   'sleep.title': {
     en: 'Sleep & Recovery Insights',
@@ -807,6 +813,17 @@ export const translations: TranslationDictionary = {
     ru: 'Биомеханический анализ, тренировочные программы и советы по восстановлению.',
     kk: 'Биомеханикалық талдау, жаттығу бағдарламалары және қалпына келу кеңестері.',
   },
+  'assistant.placeholder': {
+    en: 'Ask about squat form, push-up depth, protein timing, or recovery...',
+    ru: 'Спросите о технике приседаний, отжиманий, питании или восстановлении...',
+    kk: 'Отырып-тұру, сығылу техникасы, тамақтану немесе қалпына келу туралы сұраңыз...',
+  },
+  'assistant.analyzing': {
+    en: 'SportX AI is thinking...',
+    ru: 'SportX ИИ анализирует...',
+    kk: 'SportX ЖИ талдауда...',
+  },
+
 
   // Profile
   'profile.title': {

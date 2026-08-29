@@ -35,6 +35,7 @@ app.add_middleware(
 
 # Include API Router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(api_router, prefix="/api")
 
 # Serve uploaded videos
 if os.path.exists(settings.UPLOAD_DIR):

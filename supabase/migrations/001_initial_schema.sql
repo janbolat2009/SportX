@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- SPORTX PRODUCTION DATABASE SCHEMA & INITIAL MIGRATION
--- File: supabase/migrations/20260827_full_sportx_supabase.sql
+-- File: supabase/migrations/001_initial_schema.sql
 -- Description: Complete schema for SportX AI Fitness & Biomechanics Platform.
 -- Covers: auth integration, profiles, exercises (17 categories), workout sessions,
 -- exercise sessions, technique analysis, technique issues, meal logs, sleep records,

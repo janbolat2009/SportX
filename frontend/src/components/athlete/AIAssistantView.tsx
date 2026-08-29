@@ -4,7 +4,7 @@ import { useTranslation } from '../../i18n/LanguageContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   Bot, Send, User as UserIcon, Sparkles, Loader2,
-  Dumbbell, Apple, Moon, ShieldAlert, Trash2, ArrowRight
+  Dumbbell, Apple, Moon, ShieldAlert, Trash2, ArrowRight, CheckCircle2
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -22,7 +22,7 @@ export const AIAssistantView: React.FC = () => {
       role: 'assistant',
       content:
         language === 'ru'
-          ? 'Привет! Я спортивный ИИ-ассистент SportX. Могу ответить на вопросы по технике упражнений, питанию, сну и тренировочным программам. Чем я могу помочь?'
+          ? 'Привет! Я спортивный ИИ-ассистент SportX. Могу ответить на вопросы по технике упражнений, тренировочным программам, питанию и восстановлению. Чем я могу помочь?'
           : language === 'kk'
           ? 'Сәлем! Мен SportX жасанды интеллект бапкерімін. Жаттығу техникасы, тамақтану, ұйқы және қалпына келу бойынша сұрақтарыңызға жауап бере аламын. Не көмек керек?'
           : 'Hello! I am your SportX AI Fitness Assistant. I can help evaluate your exercise technique, design training routines, or optimize your nutrition and sleep. How can I help today?',
@@ -33,12 +33,13 @@ export const AIAssistantView: React.FC = () => {
   const [inputQuery, setInputQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, loading]);
 
   // Load active conversation from Supabase
   useEffect(() => {
@@ -76,6 +77,7 @@ export const AIAssistantView: React.FC = () => {
     const textToSend = queryText || inputQuery;
     if (!textToSend.trim() || loading) return;
 
+    setErrorMessage(null);
     const userMsg: ChatMessage = {
       role: 'user',
       content: textToSend.trim(),
@@ -109,10 +111,11 @@ export const AIAssistantView: React.FC = () => {
     }
 
     // Save user message to Supabase
-    if (isSupabaseConfigured() && activeConvId) {
+    if (isSupabaseConfigured() && activeConvId && user?.id) {
       try {
         await supabase.from('ai_messages').insert({
           conversation_id: activeConvId,
+          user_id: String(user.id),
           role: 'user',
           content: userMsg.content,
           created_at: userMsg.created_at,
@@ -120,12 +123,30 @@ export const AIAssistantView: React.FC = () => {
       } catch {}
     }
 
-    // Get response from backend or local knowledge engine
+    // Get Auth token if available
+    let authToken = '';
+    if (isSupabaseConfigured()) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        authToken = sessionData?.session?.access_token || '';
+      } catch {}
+    }
+
+    // Call secure backend endpoint
     try {
-      const response = await fetch('/api/v1/ai-assistant/chat', {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
+          message: textToSend.trim(),
+          conversationId: activeConvId,
           messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
           user_context: {
             sport: athleteProfile?.sport || 'General Fitness',
@@ -140,7 +161,8 @@ export const AIAssistantView: React.FC = () => {
         const data = await response.json();
         assistantContent = data.content;
       } else {
-        assistantContent = generateClientKnowledgeResponse(textToSend, language);
+        const fallbackContent = generateClientKnowledgeResponse(textToSend, language);
+        assistantContent = fallbackContent;
       }
 
       const assistantMsg: ChatMessage = {
@@ -152,10 +174,11 @@ export const AIAssistantView: React.FC = () => {
       setMessages((prev) => [...prev, assistantMsg]);
 
       // Save assistant message to Supabase
-      if (isSupabaseConfigured() && activeConvId) {
+      if (isSupabaseConfigured() && activeConvId && user?.id) {
         try {
           await supabase.from('ai_messages').insert({
             conversation_id: activeConvId,
+            user_id: String(user.id),
             role: 'assistant',
             content: assistantMsg.content,
             created_at: assistantMsg.created_at,
@@ -184,7 +207,12 @@ export const AIAssistantView: React.FC = () => {
     setMessages([
       {
         role: 'assistant',
-        content: 'Conversation history cleared. How can I help you today?',
+        content:
+          language === 'ru'
+            ? 'История сообщений очищена. Чем я могу помочь по вашим тренировкам сегодня?'
+            : language === 'kk'
+            ? 'Хабарламалар тарихы тазартылды. Жаттығуларыңыз бойынша қалай көмектесе аламын?'
+            : 'Conversation history cleared. How can I help with your training today?',
         created_at: new Date().toISOString(),
       },
     ]);
@@ -217,51 +245,64 @@ export const AIAssistantView: React.FC = () => {
       {/* Suggestion Chips */}
       <div className="flex flex-wrap gap-1.5 shrink-0">
         {[
-          'How to improve squat depth?',
-          'What to eat post-workout?',
-          'How to avoid elbow flare in push-ups?',
-          'How many hours of sleep for muscle recovery?'
+          language === 'ru' ? 'Как делать приседания?' : language === 'kk' ? 'Отырып-тұруды қалай дұрыс жасау керек?' : 'How to improve squat depth?',
+          language === 'ru' ? 'Техника отжиманий' : language === 'kk' ? 'Еденнен сығылу техникасы' : 'Push-up biomechanics & elbow path',
+          language === 'ru' ? 'Питание после тренировки' : language === 'kk' ? 'Жаттығудан кейінгі тамақтану' : 'Post-workout protein intake',
+          language === 'ru' ? 'Советы по сну и восстановлению' : language === 'kk' ? 'Ұйқы және қалпына келу' : 'Optimal sleep for recovery',
         ].map((prompt, idx) => (
           <button
             key={idx}
             type="button"
             onClick={() => handleSendMessage(prompt)}
-            className="px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 hover:text-white transition-all flex items-center gap-1 active:scale-95"
+            className="px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-medium text-zinc-300 hover:text-white transition-colors"
           >
-            <Sparkles className="w-3 h-3 text-sky-400" />
-            <span>{prompt}</span>
+            {prompt}
           </button>
         ))}
       </div>
 
-      {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto space-y-3 p-3 rounded-3xl bg-zinc-900/60 border border-zinc-800">
-        {messages.map((msg, idx) => {
-          const isUser = msg.role === 'user';
+      {/* Chat Messages Body */}
+      <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 py-2">
+        {messages.map((msg, index) => {
+          const isAssistant = msg.role === 'assistant';
           return (
             <div
-              key={idx}
-              className={`flex items-start gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
+              key={index}
+              className={`flex items-start gap-3 ${
+                isAssistant ? 'justify-start' : 'justify-end'
+              }`}
             >
-              {!isUser && (
-                <div className="w-7 h-7 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+              {isAssistant && (
+                <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0 mt-0.5">
                   <Bot className="w-4 h-4" />
                 </div>
               )}
 
               <div
-                className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed max-w-[85%] sm:max-w-[78%] whitespace-pre-wrap ${
-                  isUser
-                    ? 'bg-brand-500 text-black font-semibold rounded-tr-none'
-                    : 'bg-zinc-950 text-zinc-200 border border-zinc-800 rounded-tl-none'
+                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-md ${
+                  isAssistant
+                    ? 'bg-zinc-900 border border-zinc-800 text-zinc-200'
+                    : 'bg-brand-500 text-black font-semibold shadow-brand-500/10'
                 }`}
               >
-                {msg.content}
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+                {msg.created_at && (
+                  <div
+                    className={`text-[9px] font-mono mt-1 text-right ${
+                      isAssistant ? 'text-zinc-500' : 'text-zinc-800'
+                    }`}
+                  >
+                    {new Date(msg.created_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                )}
               </div>
 
-              {isUser && (
-                <div className="w-7 h-7 rounded-xl bg-zinc-800 text-zinc-300 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5 border border-zinc-700">
-                  {user?.full_name?.charAt(0).toUpperCase() || 'U'}
+              {!isAssistant && (
+                <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0 mt-0.5 font-bold text-xs">
+                  {user?.full_name?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />}
                 </div>
               )}
             </div>
@@ -269,45 +310,45 @@ export const AIAssistantView: React.FC = () => {
         })}
 
         {loading && (
-          <div className="flex items-center gap-2 text-xs text-zinc-500 p-2">
-            <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
-            <span>SportX AI is thinking...</span>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center gap-2 text-zinc-400 text-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+              <span>{t('assistant.analyzing', 'SportX AI is thinking...')}</span>
+            </div>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Box */}
+      {/* Input Form */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="flex items-center gap-2 pt-1 shrink-0"
+        className="pt-2 border-t border-zinc-800 shrink-0 flex items-center gap-2"
       >
         <input
           type="text"
           value={inputQuery}
           onChange={(e) => setInputQuery(e.target.value)}
-          placeholder="Ask anything about technique, sets, nutrition, sleep..."
+          placeholder={t('assistant.placeholder', 'Ask about squat form, push-up depth, protein timing, or recovery...')}
           className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-sky-500 transition-colors"
+          disabled={loading}
         />
-
         <button
           type="submit"
           disabled={!inputQuery.trim() || loading}
-          className="p-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black font-bold transition-all shadow-md shadow-sky-500/20 active:scale-95 disabled:opacity-50"
+          className="p-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black font-black transition-all shadow-md shadow-sky-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shrink-0"
           aria-label="Send message"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-4 h-4 fill-current" />
         </button>
       </form>
-
-      {/* Non-medical Disclaimer */}
-      <p className="text-[10px] text-zinc-500 text-center shrink-0">
-        SportX AI provides athletic technique and fitness training information. Not intended for clinical or medical diagnosis.
-      </p>
 
     </div>
   );
@@ -316,31 +357,34 @@ export const AIAssistantView: React.FC = () => {
 function generateClientKnowledgeResponse(query: string, lang: string): string {
   const q = query.toLowerCase();
 
+  // Strict off-topic refusal
+  const offTopics = ['python', 'code', 'javascript', 'math', 'calc', 'history', 'movie', 'game', 'president', 'war', 'crypto'];
+  if (offTopics.some((t) => q.includes(t))) {
+    return 'I can only help with exercise technique, training, workouts, and fitness-related questions.';
+  }
+
   if (q.includes('squat') || q.includes('присед') || q.includes('отырып')) {
-    return lang === 'ru'
-      ? 'Для правильной биомеханики приседания:\n\n1. **Ширина стойки**: Ноги на ширине плеч, носки развернуты на 15–30 градусов.\n2. **Глубина (ROM)**: Опускайтесь до параллели или чуть ниже (угол в колене 90–105°).\n3. **Колени**: Должны двигаться строго по направлению носков, не заваливаясь внутрь (вальгус).\n4. **Корпус**: Держите спину прямой, упирайтесь всей стопой в пол.'
-      : 'Squat biomechanics guidelines:\n\n1. **Footing**: Shoulder-width stance with toes flared 15-30 degrees.\n2. **Depth**: Lower until hips reach parallel or sub-parallel (~95-105° knee angle).\n3. **Knees**: Track in line with toes, preventing inward knee collapse.\n4. **Torso**: Maintain braced neutral spine and drive through midfoot.';
+    if (lang === 'ru') {
+      return 'Для идеальной техники приседаний:\n1. Поставьте стопы на ширине плеч, носки разверните на 15–30 градусов.\n2. На вдохе напрягите мышцы кора и начинайте движение с одновременного сгибания таза и коленей.\n3. Опускайтесь до параллели бедер с полом (угол в коленях ~90-100°).\n4. Направляйте колени строго по линии носков, не допуская завала внутрь.\n5. Толкайтесь всей поверхностью стопы при подъеме.';
+    } else if (lang === 'kk') {
+      return 'Отырып-тұрудың дұрыс техникасы:\n1. Аяқты иық еніне қойып, башайларды 15–30 градусқа сыртқа бұрыңыз.\n2. Терең дем алып, іш бұлшықеттерін қатайтып, жамбас пен тізені бірге бүгіңіз.\n3. Жамбас тізе деңгейіне дейін түсуі керек (~90-100°).\n4. Тізелерді ішке құлатпай, сыртқа қарай бағыттаңыз.\n5. Көтерілген кезде толық табанмен итеріліңіз.';
+    }
+    return 'Squat Technique Guidelines:\n1. Set feet shoulder-width apart with toes flared 15-30 degrees.\n2. Inhale, brace core, and initiate by hinging hips back and bending knees.\n3. Descend until thighs are parallel with floor (~90-100° knee angle).\n4. Track knees in line with second and third toes to prevent inward collapse.\n5. Drive through midfoot and heels to full standing lockout.';
   }
 
-  if (q.includes('push') || q.includes('отжиман') || q.includes('бүгу')) {
-    return lang === 'ru'
-      ? 'Ключевые моменты для отжиманий:\n\n1. **Угол локтей**: Держите локти под углом ~45° к корпусу, не расставляйте их широко (90° создает лишнюю нагрузку на плечевые суставы).\n2. **Линия тела**: Напрягите пресс и ягодицы, удерживая прямую линию от плеч до стоп без провисания таза.\n3. **Глубина**: Опускайтесь до касания грудью 5-7 см от пола.'
-      : 'Push-up biomechanics cues:\n\n1. **Elbow Angle**: Tuck elbows to ~45 degrees from torso (avoid 90-degree flaring).\n2. **Plank Neutrality**: Keep core and glutes engaged to prevent lumbar sagging.\n3. **Full Lockout**: Extend elbows at top without shrugging shoulders.';
+  if (q.includes('push') || q.includes('отжиман') || q.includes('сығылу')) {
+    if (lang === 'ru') {
+      return 'Техника идеальных отжиманий:\n1. Руки чуть шире плеч, пальцы направлены вперед.\n2. Локти держите под углом 45° к корпусу, избегая разведения в стороны.\n3. Держите тело в одной прямой линии от макушки до пяток, напрягая пресс и ягодицы.\n4. Опускайтесь до расстояния 5-7 см от пола, затем мощно выжимайте себя вверх.';
+    } else if (lang === 'kk') {
+      return 'Еденнен сығылу техникасы:\n1. Қолдарды иықтан сәл кеңірек қойыңыз.\n2. Шынтақты денеге 45° бұрышта ұстаңыз, жан-жаққа жаймаңыз.\n3. Денені бастан өкшеге дейін түзу тақтайдай ұстаңыз.\n4. Кеудені еденге 5-7 см қалғанша түсіріп, күшпен жоғары итеріңіз.';
+    }
+    return 'Push-up Biomechanics:\n1. Hands slightly wider than shoulder-width.\n2. Angle elbows at ~45° to your torso (avoid 90° flaring).\n3. Squeeze glutes and core to keep a rigid straight plank line.\n4. Lower until chest is 2-3 inches from floor, then press to full extension.';
   }
 
-  if (q.includes('protein') || q.includes('eat') || q.includes('питани') || q.includes('тамақ')) {
-    return lang === 'ru'
-      ? 'Рекомендации по питанию:\n\n• **Белок**: 1.6–2.2г на кг веса в день для восстановления мышечных волокон (куриная грудка, яйца, творог, рыба).\n• **Углеводы**: Употребляйте сложные углеводы (гречка, рис, овсянка) за 2 часа до тренировки для восполнения запасов гликогена.\n• **Водный баланс**: Выпивайте 30-40 мл воды на 1 кг веса тела ежедневно.'
-      : 'Nutrition principles for athletic recovery:\n\n• **Protein**: 1.6-2.2g per kg bodyweight daily for muscle protein synthesis.\n• **Carbohydrates**: Complex carbs (rice, oats, potatoes) to replenish glycogen.\n• **Hydration**: 30-40ml of water per kg daily to support cellular recovery.';
+  if (lang === 'ru') {
+    return 'Я могу проанализировать вашу технику упражнений, подобрать количество повторений и подходов, а также рассчитать питание и рекомендации по сну. Какой вопрос вас интересует?';
+  } else if (lang === 'kk') {
+    return 'Мен жаттығу техникасын талдап, қайталау мен тәсілдер санын есептеп, тамақтану мен ұйқы бойынша кеңес бере аламын. Сізді қандай сұрақ қызықтырады?';
   }
-
-  if (q.includes('sleep') || q.includes('сон') || q.includes('ұйқы')) {
-    return lang === 'ru'
-      ? 'Оптимальный сон для атлетов:\n\n• **Длительность**: 7.5–9 часов непрерывного сна.\n• **Фазы**: Глубокий сон необходим для выработки соматотропина (гормона роста).\n• **Гигиена сна**: Прохладная комната (18–20°C), темнота и отсутствие синего света за 45 минут до сна.'
-      : 'Sleep and athletic performance:\n\n• **Duration**: 7.5-9 hours for complete nervous system recovery.\n• **Deep Sleep**: Essential for growth hormone secretion and tissue repair.\n• **Consistency**: Regular bedtime within a 30-minute window daily.';
-  }
-
-  return lang === 'ru'
-    ? 'Я готов помочь вам с анализом техники, подбором упражнений, планом питания и рекомендациями по сну. Задайте конкретный вопрос о вашей тренировке!'
-    : 'I am ready to help optimize your movement kinematics, workout programming, nutrition tracking, and sleep recovery. Ask any specific question to get started!';
+  return 'I can analyze your movement biomechanics, suggest sets and repetitions, and provide science-backed nutrition and recovery recommendations. How can I assist your workout today?';
 }

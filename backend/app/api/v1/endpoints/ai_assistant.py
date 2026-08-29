@@ -1,51 +1,236 @@
 import os
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+import time
+import httpx
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends, Header, Request, status
+from pydantic import BaseModel, Field
+from app.core.config import settings
+from app.core.database import get_db
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
+# ---------------------------------------------------------------------------
+# Rate Limiting (In-Memory Sliding Window)
+# ---------------------------------------------------------------------------
+_rate_limit_records: Dict[str, List[float]] = {}
+
+def check_rate_limit(client_id: str, limit_per_minute: int = 20) -> bool:
+    now = time.time()
+    window_start = now - 60.0
+    
+    if client_id not in _rate_limit_records:
+        _rate_limit_records[client_id] = []
+    
+    # Filter timestamps within current window
+    _rate_limit_records[client_id] = [t for t in _rate_limit_records[client_id] if t > window_start]
+    
+    if len(_rate_limit_records[client_id]) >= limit_per_minute:
+        return False
+    
+    _rate_limit_records[client_id].append(now)
+    return True
+
+# ---------------------------------------------------------------------------
+# System Prompt & Scope Definition
+# ---------------------------------------------------------------------------
+SPORTX_SYSTEM_PROMPT = """You are the SportX AI Fitness & Biomechanics Assistant, an elite artificial intelligence coach specialized exclusively in exercise technique, strength & conditioning, athletic biomechanics, training programming, workout recovery, sports nutrition, and sleep optimization.
+
+ALLOWED TOPICS (ONLY answer these):
+1. Exercise technique and movement mechanics (squat depth, push-up hand width, curl elbow drift, press overhead bar path, etc.).
+2. Workout structure, sets, reps, tempo, rest periods, progressive overload, and training splits.
+3. Strength training, cardiovascular conditioning, joint mobility, warm-ups, and cool-downs.
+4. Sports nutrition (macronutrients, protein intake timing, hydration, meal planning for training).
+5. Sleep and athletic recovery optimization.
+6. SportX platform features and computer-vision technique metrics (ROM, symmetry, stability).
+
+STRICT OFF-TOPIC REFUSAL RULE:
+You must strictly refuse any question unrelated to fitness, workouts, training, exercises, nutrition, sleep, or biomechanics.
+If the user asks about:
+- Politics, world news, religion
+- Programming / Coding / Math / Science homework
+- History, literature, movies, video games, entertainment, celebrity gossip
+- Travel, finance, economics, business
+- General chit-chat or generic assistant tasks
+
+You MUST IMMEDIATELY respond with ONLY this exact brief sentence:
+"I can only help with exercise technique, training, workouts, and fitness-related questions."
+Do NOT answer the question. Do NOT apologize. Do NOT elaborate.
+
+SAFETY & MEDICAL BOUNDARIES:
+- Never provide clinical or medical diagnoses for injuries, pathologies, or pain.
+- Always recommend consulting a qualified physician or physical therapist for acute or chronic pain.
+- Never claim you can physically observe the user in real time unless camera-analysis metrics are explicitly provided in user context.
+- Keep explanations clear, evidence-based, concise, and motivating."""
+
+# ---------------------------------------------------------------------------
+# Request & Response Schemas
+# ---------------------------------------------------------------------------
 class ChatMessage(BaseModel):
-    role: str
-    content: str
+    role: str = Field(..., description="Role: 'user', 'assistant', or 'system'")
+    content: str = Field(..., max_length=4000)
 
-class AssistantRequest(BaseModel):
-    messages: List[ChatMessage]
-    user_context: Optional[dict] = None
+class AssistantChatRequest(BaseModel):
+    message: Optional[str] = None
+    messages: Optional[List[ChatMessage]] = None
+    conversationId: Optional[str] = None
+    user_context: Optional[Dict[str, Any]] = None
 
-class AssistantResponse(BaseModel):
-    role: str
+class AssistantChatResponse(BaseModel):
+    role: str = "assistant"
     content: str
+    conversationId: Optional[str] = None
     sources_used: Optional[List[str]] = None
 
-@router.post("/chat", response_model=AssistantResponse)
-async def chat_with_assistant(request: AssistantRequest):
-    """
-    Secure backend proxy for AI Fitness Assistant.
-    Protects OPENAI_API_KEY on the server side.
-    """
-    api_key = os.getenv("OPENAI_API_KEY")
+# ---------------------------------------------------------------------------
+# Offline Deterministic Biomechanical Knowledge Engine (Fallback)
+# ---------------------------------------------------------------------------
+def deterministic_fitness_response(query: str, lang: str = "en") -> str:
+    q = query.lower().strip()
 
-    # If OpenAI API key is configured, query OpenAI
-    if api_key and not api_key.startswith("your-") and len(api_key) > 10:
+    # Off-topic filter for offline fallback
+    off_topic_triggers = [
+        "python", "javascript", "code", "html", "css", "programming", "math",
+        "calculate 2", "derivative", "integral", "history", "president",
+        "election", "war", "movie", "actor", "game", "gta", "crypto", "bitcoin",
+        "stock", "invest", "recipe for cake", "how to fly"
+    ]
+    if any(trigger in q for trigger in off_topic_triggers):
+        return "I can only help with exercise technique, training, workouts, and fitness-related questions."
+
+    if any(k in q for k in ["squat", "присед", "отырып"]):
+        return (
+            "### Squat Biomechanics & Technique Guide\n\n"
+            "1. **Foot Stance & Setup**: Place feet shoulder-width apart with toes turned outward 15–30°. Ensure tripod foot contact (heel, big toe base, pinky toe base).\n"
+            "2. **Descent Phase**: Inhale and brace your core. Initiate movement by breaking at the hips and knees simultaneously. Keep torso angle steady.\n"
+            "3. **Target Depth**: Descend until hip crease is level with or below knee joint (ideal knee angle $\\approx 90^\\circ - 100^\\circ$).\n"
+            "4. **Knee Tracking**: Drive knees out in line with second and third toes to prevent valgus collapse.\n"
+            "5. **Ascent**: Drive evenly through midfoot while maintaining thoracic extension to full hip lockout."
+        )
+    elif any(k in q for k in ["pushup", "push-up", "push up", "отжиман"]):
+        return (
+            "### Push-up Biomechanics & Technique Guide\n\n"
+            "1. **Hand Placement**: Position hands slightly wider than shoulder-width, fingers pointing forward or slightly outward.\n"
+            "2. **Elbow Path**: Angle elbows at approximately $45^\\circ$ relative to torso. Avoid flared $90^\\circ$ alignment to prevent shoulder impingement.\n"
+            "3. **Rigid Plank Line**: Squeeze glutes and engage transverse abdominis to prevent anterior pelvic tilt and sagging hips.\n"
+            "4. **Depth & Lockout**: Lower chest until 2–3 inches above floor, then press up smoothly to full arm extension."
+        )
+    elif any(k in q for k in ["pullup", "pull-up", "pull up", "подтягиван", "тартылу"]):
+        return (
+            "### Pull-up Biomechanics Guide\n\n"
+            "1. **Grip**: Overhand grip slightly wider than shoulder-width.\n"
+            "2. **Scapular Depression**: Initiate every repetition by depressing and retracting shoulder blades before flexing elbows.\n"
+            "3. **Vertical Path**: Pull chest toward the bar without excessive backward swinging or leg kicking.\n"
+            "4. **Full ROM**: Lower under control into a dead hang to ensure full latissimus stretch."
+        )
+    elif any(k in q for k in ["bicep", "curl", "бицепс", "бүгу"]):
+        return (
+            "### Dumbbell Bicep Curl Guide\n\n"
+            "1. **Upper-Arm Isolation**: Keep elbows pinned securely beside your ribcage without letting them drift forward.\n"
+            "2. **Supination**: Rotate wrists outward at mid-ascent to maximize peak biceps brachii contraction.\n"
+            "3. **Momentum Control**: Avoid swinging your lumbar spine or leaning backwards.\n"
+            "4. **Eccentric Cadence**: Lower weights with a 2-second controlled tempo."
+        )
+    elif any(k in q for k in ["shoulder press", "overhead press", "жим стоя", "иық"]):
+        return (
+            "### Overhead Shoulder Press Guide\n\n"
+            "1. **Core Bracing**: Lock your ribcage down to protect your lower back from hyperextension.\n"
+            "2. **Bar Path**: Press straight up, clearing your chin, and lock out with arms inline with ears overhead.\n"
+            "3. **Symmetry**: Ensure equal bilateral pressing speed and vertical lockout height."
+        )
+    elif any(k in q for k in ["nutrition", "protein", "diet", "калори", "питан", "тамақ", "белок"]):
+        return (
+            "### Athletic Nutrition Principles\n\n"
+            "• **Protein Intake**: 1.6–2.2g per kg of bodyweight per day for strength and muscle recovery.\n"
+            "• **Carbohydrates**: 3–6g per kg of bodyweight depending on training volume to replenish glycogen.\n"
+            "• **Post-Workout Window**: 25–40g of protein within 2 hours of training with complex carbs.\n"
+            "• **Hydration**: Minimum 35–45ml of water per kg daily."
+        )
+    elif any(k in q for k in ["sleep", "recovery", "сон", "ұйқы", "қалпына"]):
+        return (
+            "### Sleep & Recovery Guide\n\n"
+            "• **Optimal Duration**: 7.5–9 hours of continuous sleep for youth and athletic growth hormone release.\n"
+            "• **Sleep Schedule**: Maintain wake and bedtimes within a 30-minute consistency window.\n"
+            "• **Environment**: Room temperature between 18–20°C and zero blue-light exposure 45 minutes before sleep."
+        )
+    else:
+        return (
+            "Hello! I am your SportX AI Fitness Assistant. I can analyze your exercise technique, evaluate range of motion and symmetry, suggest training sets and repetitions, and provide sports nutrition and recovery recommendations. How can I help with your training today?"
+        )
+
+# ---------------------------------------------------------------------------
+# POST /api/ai/chat & /api/v1/ai-assistant/chat Endpoint
+# ---------------------------------------------------------------------------
+@router.post("/chat", response_model=AssistantChatResponse)
+async def chat_with_assistant(
+    request: AssistantChatRequest,
+    raw_req: Request,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Secure backend proxy for SportX AI Assistant.
+    - Validates user rate limits.
+    - Uses server-side OPENAI_API_KEY without exposing it to the frontend.
+    - Enforces strict fitness-only scope via dedicated system prompt.
+    - Seamlessly falls back to deterministic biomechanical knowledge engine if OpenAI is unavailable.
+    """
+    # 1. Rate Limiting Check
+    client_ip = raw_req.client.host if raw_req.client else "unknown"
+    if not check_rate_limit(client_ip, settings.AI_MAX_REQUESTS_PER_MINUTE):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Please wait a moment before sending another message."
+        )
+
+    # 2. Extract query text
+    user_query = ""
+    history_messages: List[Dict[str, str]] = []
+
+    if request.message and request.message.strip():
+        user_query = request.message.strip()
+    elif request.messages and len(request.messages) > 0:
+        user_query = request.messages[-1].content.strip()
+        for m in request.messages[:-1]:
+            if m.role in ["user", "assistant"]:
+                history_messages.append({"role": m.role, "content": m.content})
+
+    if not user_query:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Message content cannot be empty."
+        )
+
+    # 3. User Context Enrichment
+    context_str = ""
+    if request.user_context:
+        sport = request.user_context.get("sport", "General Fitness")
+        level = request.user_context.get("training_level", "Intermediate")
+        goal = request.user_context.get("fitness_goal", "Strength & Technique")
+        score = request.user_context.get("overall_score")
+        issues = request.user_context.get("recent_issues")
+
+        context_str = f"\n\nATHLETE CONTEXT:\n- Sport: {sport}\n- Training Level: {level}\n- Goal: {goal}"
+        if score is not None:
+            context_str += f"\n- Recent Technique Score: {score}%"
+        if issues:
+            context_str += f"\n- Recent Detected Technique Flaws: {issues}"
+
+    # 4. Query OpenAI if configured
+    api_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+    model_name = settings.OPENAI_MODEL or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    if api_key and not api_key.startswith("your-") and len(api_key) > 15:
         try:
-            import httpx
-            system_prompt = (
-                "You are the SportX AI Fitness Assistant. You provide objective, scientific biomechanical advice, "
-                "training recommendations, exercise technique guidance, nutrition advice, and sleep insights. "
-                "Never provide clinical or medical diagnoses. Recommend consulting a physician for medical symptoms."
-            )
+            full_system = SPORTX_SYSTEM_PROMPT + context_str
+            openai_payload_messages = [{"role": "system", "content": full_system}]
+            
+            # Add up to 6 recent history messages to preserve conversation flow
+            for h in history_messages[-6:]:
+                openai_payload_messages.append(h)
+            
+            openai_payload_messages.append({"role": "user", "content": user_query})
 
-            # Build context
-            if request.user_context:
-                ctx_summary = f"\nUser Context: Goal={request.user_context.get('fitness_goal', 'Fitness')}, Recent Reps={request.user_context.get('total_reps', 0)}, Recent Score={request.user_context.get('overall_score', 85)}%"
-                system_prompt += ctx_summary
-
-            openai_messages = [{"role": "system", "content": system_prompt}]
-            for msg in request.messages:
-                openai_messages.append({"role": msg.role, "content": msg.content})
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=25.0) as client:
                 resp = await client.post(
                     "https://api.openai.com/v1/chat/completions",
                     headers={
@@ -53,57 +238,30 @@ async def chat_with_assistant(request: AssistantRequest):
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "gpt-4o-mini",
-                        "messages": openai_messages,
-                        "temperature": 0.7,
+                        "model": model_name,
+                        "messages": openai_payload_messages,
+                        "temperature": 0.5,
+                        "max_tokens": 800,
                     },
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    answer = data["choices"][0]["message"]["content"]
-                    return AssistantResponse(role="assistant", content=answer)
+                    ai_content = data["choices"][0]["message"]["content"].strip()
+                    return AssistantChatResponse(
+                        role="assistant",
+                        content=ai_content,
+                        conversationId=request.conversationId,
+                        sources_used=["SportX OpenAI Biomechanics Engine"]
+                    )
         except Exception as e:
-            # Fall back to structured rules engine below if upstream times out
+            # Fallback to local rules engine on upstream network/API issue
             pass
 
-    # High-quality structured fallback engine based on biomechanics & training science
-    last_query = request.messages[-1].content.lower() if request.messages else ""
-
-    if "push-up" in last_query or "push up" in last_query or "отжиман" in last_query:
-        answer = (
-            "For optimal push-up biomechanics:\n\n"
-            "1. **Hand Placement**: Position hands slightly wider than shoulder-width, fingers pointing forward or slightly outward.\n"
-            "2. **Elbow Path**: Keep elbows tucked at approximately a 45-degree angle to your torso (avoid flaring them out to 90 degrees to protect shoulders).\n"
-            "3. **Core & Hip Alignment**: Squeeze glutes and brace abdominals to maintain a rigid plank line without lower back sagging.\n"
-            "4. **Depth**: Lower until your chest is approximately 2-3 inches from the floor (elbows at ~90 degrees), then press up to full elbow extension."
-        )
-    elif "squat" in last_query or "присед" in last_query or "отырып" in last_query:
-        answer = (
-            "For squat technique and range of motion:\n\n"
-            "1. **Footing**: Set feet shoulder-width apart with toes flared 15-30 degrees outward.\n"
-            "2. **Descent**: Initiate by hinging at the hips and bending knees simultaneously, keeping weight balanced across your whole foot.\n"
-            "3. **Depth**: Descend until hip crease is level with or slightly below the top of the knee (sub-parallel, knee angle ~95-105°).\n"
-            "4. **Knee Tracking**: Ensure knees track in line with your second and third toes without caving inward (valgus collapse)."
-        )
-    elif "eat" in last_query or "nutrition" in last_query or "protein" in last_query or "питан" in last_query or "тамақ" in last_query:
-        answer = (
-            "Post-workout nutrition guidelines:\n\n"
-            "• **Protein**: Consume 20-35g of high-quality protein within 1-2 hours post-workout to stimulate muscle protein synthesis (e.g. chicken breast, eggs, whey, cottage cheese).\n"
-            "• **Carbohydrates**: Pair with 30-50g of complex carbs (rice, oats, potatoes, or bananas) to replenish muscle glycogen stores.\n"
-            "• **Hydration**: Drink 500-750ml of water with electrolytes to restore fluid balance."
-        )
-    elif "sleep" in last_query or "сон" in last_query or "ұйқы" in last_query:
-        answer = (
-            "Sleep and athletic recovery principles:\n\n"
-            "• **Duration**: Aim for 7.5 to 9 hours of uninterrupted sleep for optimal growth hormone secretion and central nervous system recovery.\n"
-            "• **Consistency**: Keep bedtime and wake-up times within a 30-minute window every day.\n"
-            "• **Sleep Hygiene**: Maintain a dark, cool room (18-20°C) and avoid screens/bright blue light for 45 minutes prior to sleep."
-        )
-    else:
-        answer = (
-            "Hello! I am your SportX AI Fitness Assistant. I can analyze your exercise kinematics, suggest training set/rep schemes, "
-            "evaluate muscle balance, and recommend nutrition and recovery strategies based on your workout history. "
-            "How can I help you optimize your training today?"
-        )
-
-    return AssistantResponse(role="assistant", content=answer)
+    # 5. Deterministic Knowledge Engine Fallback
+    fallback_answer = deterministic_fitness_response(user_query)
+    return AssistantChatResponse(
+        role="assistant",
+        content=fallback_answer,
+        conversationId=request.conversationId,
+        sources_used=["SportX Biomechanical Knowledge Base"]
+    )

@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     DEFAULT_FEATURE_VERSION: str = "pose-kinematics-v1.0"
     DEFAULT_SCORING_VERSION: str = "biomech-scoring-v1.0"
     
+    # OpenAI Backend Assistant Settings
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    AI_MAX_REQUESTS_PER_MINUTE: int = 20
+
+    # Supabase Server Verification
+    SUPABASE_URL: str = "https://uzhdqldeqfnrwggbsrau.supabase.co"
+    SUPABASE_ANON_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6aGRxbGRlcWZucndnZ2JzcmF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MTU3ODIsImV4cCI6MjEwMzM5MTc4Mn0.hQ5RSq6xKa-K-qHQ-K86oRZebePt3x0V8EMFSM--y6Y"
+
     # Disclaimers
     MEDICAL_DISCLAIMER: str = (
         "SportX is a fitness biomechanics and movement analysis platform designed for "

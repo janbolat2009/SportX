@@ -692,8 +692,76 @@ export class NutritionIntelligence {
 
     return null;
   }
+
+  /**
+   * Reusable pure nutrition calculation function.
+   * Scales nutritional values proportionally based on entered amount in grams:
+   * nutrient_for_portion = nutrient_per_100g * (grams / 100)
+   */
+  public static calculateNutrition(
+    foodItem: FoodItem,
+    grams: number
+  ): {
+    grams: number;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+  } {
+    const validGrams = Math.max(0, Math.min(5000, Number(grams) || 0));
+    const factor = validGrams / 100.0;
+
+    return {
+      grams: validGrams,
+      calories: Math.round(foodItem.caloriesPer100g * factor * 10) / 10,
+      protein: Math.round(foodItem.proteinPer100g * factor * 10) / 10,
+      carbs: Math.round(foodItem.carbsPer100g * factor * 10) / 10,
+      fat: Math.round(foodItem.fatPer100g * factor * 10) / 10,
+      fiber: Math.round((foodItem.fiberPer100g || 0) * factor * 10) / 10,
+    };
+  }
+
+  /**
+   * Converts various unit quantities (g, kg, ml, pieces, servings, cups) into grams.
+   */
+  public static convertUnitToGrams(
+    amount: number,
+    unit: 'g' | 'kg' | 'ml' | 'pieces' | 'servings' | 'cups',
+    foodItem?: FoodItem
+  ): number {
+    const val = Math.max(0, Number(amount) || 0);
+    switch (unit) {
+      case 'g':
+        return Math.round(val);
+      case 'kg':
+        return Math.round(val * 1000);
+      case 'ml':
+        return Math.round(val); // standard liquid density ~ 1g/ml
+      case 'pieces': {
+        const single = foodItem?.defaultPortionGrams || 100;
+        return Math.round(val * single);
+      }
+      case 'servings': {
+        const serving = foodItem?.defaultPortionGrams || 150;
+        return Math.round(val * serving);
+      }
+      case 'cups':
+        return Math.round(val * 180);
+      default:
+        return Math.round(val);
+    }
+  }
+}
+
+/**
+ * Global helper function for convenience
+ */
+export function calculateNutrition(foodItem: FoodItem, grams: number) {
+  return NutritionIntelligence.calculateNutrition(foodItem, grams);
 }
 
 function anyEstimated(components: EstimatedMealComponent[]): boolean {
   return components.some((c) => c.isEstimated);
 }
+

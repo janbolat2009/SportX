@@ -1,19 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../i18n/LanguageContext';
-import { NutritionIntelligence, MealEstimationResult } from '../../services/nutritionIntelligence';
+import {
+  NutritionIntelligence,
+  MealEstimationResult,
+  EstimatedMealComponent,
+  calculateNutrition,
+  STRUCTURED_FOOD_DATABASE,
+  FoodItem
+} from '../../services/nutritionIntelligence';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
   Apple, Plus, Sparkles, Flame, CheckCircle2,
-  Trash2, Loader2, Info, Utensils
+  Trash2, Loader2, Info, Utensils, Scale, AlertCircle, Edit3
 } from 'lucide-react';
 
 interface MealLogEntry {
   id?: string;
   user_id?: string;
   meal_type: string;
+  food_name?: string;
   description: string;
-  serving_size?: string;
+  amount_grams?: number;
   calories: number;
   protein: number;
   carbs: number;
@@ -24,17 +32,20 @@ interface MealLogEntry {
   created_at?: string;
 }
 
+type PortionUnit = 'g' | 'kg' | 'ml' | 'pieces' | 'servings';
+
 export const NutritionView: React.FC = () => {
   const { user } = useAuth();
   const { language, t } = useTranslation();
   const [mealText, setMealText] = useState('');
   const [mealType, setMealType] = useState<'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'>('Lunch');
-  const [estimation, setEstimation] = useState<MealEstimationResult | null>(null);
+  const [components, setComponents] = useState<EstimatedMealComponent[]>([]);
   const [logs, setLogs] = useState<MealLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [estimating, setEstimating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Fetch past meal logs from Supabase
   useEffect(() => {
@@ -47,10 +58,15 @@ export const NutritionView: React.FC = () => {
           .select('*')
           .eq('user_id', String(user.id))
           .order('created_at', { ascending: false })
-          .limit(20);
+          .limit(30);
 
         if (!error && data) {
-          setLogs(data as any);
+          // Normalize carbohydrates column if DB used carbohydrates instead of carbs
+          const normalized = data.map((d: any) => ({
+            ...d,
+            carbs: d.carbs ?? d.carbohydrates ?? 0,
+          }));
+          setLogs(normalized);
         }
       } catch (err) {
         console.warn('Notice loading meals:', err);
@@ -64,7 +80,8 @@ export const NutritionView: React.FC = () => {
   // Real-time asynchronous ML estimation with debouncing
   useEffect(() => {
     if (mealText.trim().length < 2) {
-      setEstimation(null);
+      setComponents([]);
+      setValidationError(null);
       return;
     }
 
@@ -72,10 +89,12 @@ export const NutritionView: React.FC = () => {
       setEstimating(true);
       try {
         const res = await NutritionIntelligence.estimateMealAsync(mealText, language);
-        setEstimation(res);
+        setComponents(res.components);
+        setValidationError(null);
       } catch {
         const localRes = NutritionIntelligence.estimateMealLocal(mealText);
-        setEstimation(localRes);
+        setComponents(localRes.components);
+        setValidationError(null);
       } finally {
         setEstimating(false);
       }
@@ -84,22 +103,123 @@ export const NutritionView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [mealText, language]);
 
+  // Handle manual portion change in grams or units
+  const handleUpdatePortion = (index: number, newAmount: number, unit: PortionUnit = 'g') => {
+    if (isNaN(newAmount) || newAmount < 0) {
+      setValidationError(
+        language === 'ru'
+          ? 'Пожалуйста, введите положительное число для порции.'
+          : language === 'kk'
+          ? 'Порция үшін оң санды енгізіңіз.'
+          : 'Please enter a valid positive number for portion size.'
+      );
+      return;
+    }
+
+    if (newAmount > 5000) {
+      setValidationError(
+        language === 'ru'
+          ? 'Порция не может превышать 5000г.'
+          : language === 'kk'
+          ? 'Порция 5000г-нан аспауы керек.'
+          : 'Portion size cannot exceed 5000g.'
+      );
+      return;
+    }
+
+    setValidationError(null);
+
+    setComponents((prev) => {
+      const updated = [...prev];
+      const comp = updated[index];
+      if (!comp) return prev;
+
+      let calculatedGrams = newAmount;
+      if (unit === 'kg') calculatedGrams = newAmount * 1000;
+      else if (unit === 'pieces') calculatedGrams = newAmount * (comp.foodItem.defaultPortionGrams || 100);
+      else if (unit === 'servings') calculatedGrams = newAmount * (comp.foodItem.defaultPortionGrams || 150);
+
+      calculatedGrams = Math.round(calculatedGrams);
+      const scaled = calculateNutrition(comp.foodItem, calculatedGrams);
+
+      updated[index] = {
+        ...comp,
+        quantity: newAmount,
+        unit: unit,
+        gramsEstimated: calculatedGrams,
+        calories: scaled.calories,
+        protein: scaled.protein,
+        carbs: scaled.carbs,
+        fat: scaled.fat,
+        fiber: scaled.fiber,
+        isEstimated: false,
+      };
+      return updated;
+    });
+  };
+
+  // Remove a component
+  const handleRemoveComponent = (index: number) => {
+    setComponents((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Dynamic Totals Calculation
+  const totalCalories = useMemo(
+    () => Math.round(components.reduce((sum, c) => sum + c.calories, 0) * 10) / 10,
+    [components]
+  );
+  const totalProtein = useMemo(
+    () => Math.round(components.reduce((sum, c) => sum + c.protein, 0) * 10) / 10,
+    [components]
+  );
+  const totalCarbs = useMemo(
+    () => Math.round(components.reduce((sum, c) => sum + c.carbs, 0) * 10) / 10,
+    [components]
+  );
+  const totalFat = useMemo(
+    () => Math.round(components.reduce((sum, c) => sum + c.fat, 0) * 10) / 10,
+    [components]
+  );
+  const totalFiber = useMemo(
+    () => Math.round(components.reduce((sum, c) => sum + (c.fiber || 0), 0) * 10) / 10,
+    [components]
+  );
+  const totalGrams = useMemo(
+    () => Math.round(components.reduce((sum, c) => sum + c.gramsEstimated, 0)),
+    [components]
+  );
+
   const handleSaveMeal = async () => {
-    if (!estimation || estimation.components.length === 0 || !user?.id) return;
+    if (components.length === 0 || !user?.id) return;
+    if (totalGrams <= 0) {
+      setValidationError(
+        language === 'ru'
+          ? 'Общий вес порции должен быть больше нуля.'
+          : language === 'kk'
+          ? 'Порция салмағы нөлден үлкен болуы керек.'
+          : 'Total portion weight must be greater than zero.'
+      );
+      return;
+    }
 
     setSaving(true);
+    setValidationError(null);
+
+    const primaryFoodName = components.map((c) => c.foodItem.nameEn).join(' + ');
+
     const newLog: MealLogEntry = {
       user_id: String(user.id),
       meal_type: mealType,
-      description: mealText.trim(),
-      serving_size: `${estimation.totalGrams}g`,
-      calories: estimation.totalCalories,
-      protein: estimation.totalProtein,
-      carbs: estimation.totalCarbs,
-      fat: estimation.totalFat,
-      fiber: estimation.totalFiber,
-      estimated: estimation.isEstimated,
-      model_version: estimation.modelVersion || 'sportx-nutrition-v2.0',
+      food_name: primaryFoodName.slice(0, 100),
+      description: mealText.trim() || primaryFoodName,
+      amount_grams: totalGrams,
+      calories: totalCalories,
+      protein: totalProtein,
+      carbs: totalCarbs,
+      fat: totalFat,
+      fiber: totalFiber,
+      estimated: components.some((c) => c.isEstimated),
+      model_version: 'sportx-nutrition-v2.0',
       created_at: new Date().toISOString(),
     };
 
@@ -107,12 +227,32 @@ export const NutritionView: React.FC = () => {
       if (isSupabaseConfigured()) {
         const { data, error } = await supabase
           .from('meal_logs')
-          .insert(newLog)
+          .insert({
+            user_id: String(user.id),
+            meal_type: mealType,
+            food_name: primaryFoodName.slice(0, 100),
+            description: mealText.trim() || primaryFoodName,
+            amount_grams: totalGrams,
+            calories: totalCalories,
+            protein: totalProtein,
+            carbohydrates: totalCarbs,
+            fat: totalFat,
+            fiber: totalFiber,
+            estimated: components.some((c) => c.isEstimated),
+            model_version: 'sportx-nutrition-v2.0',
+            created_at: new Date().toISOString(),
+          })
           .select()
           .single();
 
         if (!error && data) {
-          setLogs((prev) => [data as any, ...prev]);
+          setLogs((prev) => [
+            {
+              ...data,
+              carbs: data.carbohydrates ?? data.carbs ?? totalCarbs,
+            } as any,
+            ...prev,
+          ]);
         } else {
           setLogs((prev) => [{ ...newLog, id: String(Date.now()) }, ...prev]);
         }
@@ -121,7 +261,7 @@ export const NutritionView: React.FC = () => {
       }
 
       setMealText('');
-      setEstimation(null);
+      setComponents([]);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -159,53 +299,53 @@ export const NutritionView: React.FC = () => {
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
           <Apple className="w-6 h-6 text-emerald-400" />
-          <span>{t('nutrition.title')}</span>
+          <span>{t('nutrition.title', 'Nutrition Intelligence')}</span>
         </h1>
         <p className="text-xs sm:text-sm text-zinc-400">
-          {t('nutrition.subtitle')}
+          {t('nutrition.subtitle', 'Type your meal in English, Russian or Kazakh to estimate calories and macronutrients.')}
         </p>
       </div>
 
       {/* Daily Progress Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.calories')}</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.calories', 'Calories')}</span>
           <div className="flex items-baseline gap-1">
             <span className="text-xl sm:text-2xl font-black text-white font-mono">{todayCalories}</span>
             <span className="text-[11px] text-zinc-500 font-mono">/ {targetCalories}</span>
           </div>
           <div className="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden mt-2">
             <div
-              className="bg-emerald-400 h-full rounded-full transition-all"
+              className="bg-emerald-400 h-full rounded-full transition-all duration-300"
               style={{ width: `${Math.min(100, (todayCalories / targetCalories) * 100)}%` }}
             />
           </div>
         </div>
 
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.protein')}</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.protein', 'Protein')}</span>
           <div className="flex items-baseline gap-1">
             <span className="text-xl sm:text-2xl font-black text-sky-400 font-mono">{todayProtein}g</span>
             <span className="text-[11px] text-zinc-500 font-mono">/ {targetProtein}g</span>
           </div>
           <div className="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden mt-2">
             <div
-              className="bg-sky-400 h-full rounded-full transition-all"
+              className="bg-sky-400 h-full rounded-full transition-all duration-300"
               style={{ width: `${Math.min(100, (todayProtein / targetProtein) * 100)}%` }}
             />
           </div>
         </div>
 
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.carbs')}</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.carbs', 'Carbs')}</span>
           <span className="text-xl sm:text-2xl font-black text-amber-400 font-mono block">{todayCarbs}g</span>
-          <span className="text-[10px] text-zinc-500">{t('nutrition.energy')}</span>
+          <span className="text-[10px] text-zinc-500">{t('nutrition.energy', 'Energy & Glycogen')}</span>
         </div>
 
         <div className="p-4 rounded-3xl bg-zinc-900 border border-zinc-800 space-y-1">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.fats')}</span>
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase block">{t('nutrition.fats', 'Fats')}</span>
           <span className="text-xl sm:text-2xl font-black text-rose-400 font-mono block">{todayFat}g</span>
-          <span className="text-[10px] text-zinc-500">{t('nutrition.hormones')}</span>
+          <span className="text-[10px] text-zinc-500">{t('nutrition.hormones', 'Hormonal Balance')}</span>
         </div>
       </div>
 
@@ -214,7 +354,7 @@ export const NutritionView: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>{t('nutrition.logMeal')}</span>
+            <span>{t('nutrition.logMeal', 'Log Meal')}</span>
           </h2>
 
           {/* Meal Type Selector */}
@@ -230,7 +370,7 @@ export const NutritionView: React.FC = () => {
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                {t(`nutrition.${type.toLowerCase()}`)}
+                {t(`nutrition.${type.toLowerCase()}`, type)}
               </button>
             ))}
           </div>
@@ -243,7 +383,7 @@ export const NutritionView: React.FC = () => {
               type="text"
               value={mealText}
               onChange={(e) => setMealText(e.target.value)}
-              placeholder={t('nutrition.placeholder')}
+              placeholder={t('nutrition.placeholder', 'e.g. Chicken breast with rice + 2 eggs')}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
             />
             {estimating && (
@@ -258,9 +398,10 @@ export const NutritionView: React.FC = () => {
             {[
               'Chicken breast with rice',
               '2 eggs and toast',
+              '200g salmon and broccoli',
               'Овсянка с бананом',
               'Борщ с говядиной',
-              'Бешбармак',
+              'Бесбармақ',
               'Творог 5%'
             ].map((chip, idx) => (
               <button
@@ -275,22 +416,31 @@ export const NutritionView: React.FC = () => {
           </div>
         </div>
 
-        {/* ML Parsed Estimation Review Card */}
-        {estimation && estimation.components.length > 0 && (
-          <div className="p-4 rounded-2xl bg-zinc-950 border border-emerald-500/30 space-y-3 animate-in fade-in">
-            <div className="flex items-center justify-between">
+        {/* Validation Alert */}
+        {validationError && (
+          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{validationError}</span>
+          </div>
+        )}
+
+        {/* Dynamic Portion Editor & Review Card */}
+        {components.length > 0 && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-emerald-500/30 space-y-4 animate-in fade-in">
+            
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
               <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5" />
-                <span>{t('nutrition.detectedFoods')} (OpenFoodFacts & SportX ML)</span>
+                <Scale className="w-3.5 h-3.5" />
+                <span>{t('nutrition.detectedFoods', 'Detected Foods & Portions')}</span>
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
-                {estimation.totalGrams}g Total
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                {totalGrams}g Total
               </span>
             </div>
 
-            {/* Components Breakdown */}
-            <div className="space-y-1.5">
-              {estimation.components.map((comp, idx) => {
+            {/* Editable Portion Items List */}
+            <div className="space-y-3">
+              {components.map((comp, idx) => {
                 const name =
                   language === 'ru'
                     ? comp.foodItem.nameRu
@@ -299,13 +449,81 @@ export const NutritionView: React.FC = () => {
                     : comp.foodItem.nameEn;
 
                 return (
-                  <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-zinc-850">
-                    <span className="text-zinc-200 truncate pr-2">{name} ({comp.gramsEstimated}g)</span>
-                    <div className="flex items-center gap-2.5 text-zinc-400 font-mono text-[11px] shrink-0">
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-2.5 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white truncate">{name}</p>
+                        <p className="text-[10px] text-zinc-400 font-mono">
+                          100g = {comp.foodItem.caloriesPer100g} kcal | P: {comp.foodItem.proteinPer100g}g | C: {comp.foodItem.carbsPer100g}g | F: {comp.foodItem.fatPer100g}g
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveComponent(idx)}
+                        className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        title="Remove food"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Portion Controls */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-zinc-850">
+                      
+                      {/* Manual Portion Input */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-zinc-400 font-medium">
+                          {t('nutrition.amount', 'Amount')}:
+                        </span>
+                        
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="5"
+                            max="5000"
+                            step="5"
+                            value={comp.gramsEstimated || ''}
+                            onChange={(e) => handleUpdatePortion(idx, parseFloat(e.target.value) || 0, 'g')}
+                            className="w-20 bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-bold text-white font-mono focus:outline-none focus:border-emerald-500 text-center"
+                          />
+                          <span className="text-xs font-mono text-zinc-400 font-bold">grams</span>
+                        </div>
+                      </div>
+
+                      {/* Quick Adjustment Chips */}
+                      <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                        {[50, 100, 150, 200, 250, 350, 500].map((g) => (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => handleUpdatePortion(idx, g, 'g')}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all ${
+                              comp.gramsEstimated === g
+                                ? 'bg-emerald-500 text-black'
+                                : 'bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white'
+                            }`}
+                          >
+                            {g}g
+                          </button>
+                        ))}
+                      </div>
+
+                    </div>
+
+                    {/* Calculated Macro Summary for this portion */}
+                    <div className="flex items-center gap-3 text-[11px] text-zinc-400 font-mono pt-1">
                       <span className="text-white font-bold">{comp.calories} kcal</span>
-                      <span>P: {comp.protein}g</span>
-                      <span>C: {comp.carbs}g</span>
-                      <span>F: {comp.fat}g</span>
+                      <span className="text-sky-400">P: {comp.protein}g</span>
+                      <span className="text-amber-400">C: {comp.carbs}g</span>
+                      <span className="text-rose-400">F: {comp.fat}g</span>
+                      {comp.fiber !== undefined && comp.fiber > 0 && (
+                        <span className="text-emerald-400">Fib: {comp.fiber}g</span>
+                      )}
                     </div>
                   </div>
                 );
@@ -313,30 +531,30 @@ export const NutritionView: React.FC = () => {
             </div>
 
             {/* Total Row & Save Action */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-800">
               <div className="flex items-center gap-4 text-xs font-mono">
                 <div>
-                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.calories')}</span>
-                  <span className="text-base font-black text-white">{estimation.totalCalories} kcal</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.calories', 'Calories')}</span>
+                  <span className="text-lg font-black text-white">{totalCalories} kcal</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.protein')}</span>
-                  <span className="text-sm font-bold text-sky-400">{estimation.totalProtein}g</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.protein', 'Protein')}</span>
+                  <span className="text-sm font-bold text-sky-400">{totalProtein}g</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.carbs')}</span>
-                  <span className="text-sm font-bold text-amber-400">{estimation.totalCarbs}g</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.carbs', 'Carbs')}</span>
+                  <span className="text-sm font-bold text-amber-400">{totalCarbs}g</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.fats')}</span>
-                  <span className="text-sm font-bold text-rose-400">{estimation.totalFat}g</span>
+                  <span className="text-[10px] text-zinc-500 block uppercase">{t('nutrition.fats', 'Fats')}</span>
+                  <span className="text-sm font-bold text-rose-400">{totalFat}g</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleSaveMeal}
-                disabled={saving}
+                disabled={saving || totalGrams <= 0}
                 className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 {saving ? (
@@ -344,7 +562,7 @@ export const NutritionView: React.FC = () => {
                 ) : (
                   <>
                     <Plus className="w-4 h-4 stroke-[3]" />
-                    <span>{t('nutrition.saveMeal')}</span>
+                    <span>{t('nutrition.saveMeal', 'Log This Meal')}</span>
                   </>
                 )}
               </button>
@@ -353,9 +571,9 @@ export const NutritionView: React.FC = () => {
         )}
 
         {saveSuccess && (
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2 animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{t('nutrition.savedSuccess')}</span>
+            <span>{t('nutrition.savedSuccess', 'Meal logged successfully to your daily nutrition log.')}</span>
           </div>
         )}
       </div>
@@ -364,19 +582,19 @@ export const NutritionView: React.FC = () => {
       <div className="space-y-3">
         <h2 className="text-sm font-bold text-zinc-200 flex items-center gap-2">
           <Utensils className="w-4 h-4 text-zinc-400" />
-          <span>{t('nutrition.todayHistory')} ({logs.length})</span>
+          <span>{t('nutrition.todayHistory', "Today's Meal Log")} ({logs.length})</span>
         </h2>
 
         {loading ? (
           <div className="p-12 text-center text-zinc-500 text-xs flex flex-col items-center justify-center space-y-2">
             <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-            <p>{t('nutrition.loadingHistory')}</p>
+            <p>{t('nutrition.loadingHistory', 'Loading meal history...')}</p>
           </div>
         ) : logs.length === 0 ? (
           <div className="p-8 rounded-3xl bg-zinc-900 border border-zinc-800 text-center space-y-2">
-            <p className="text-xs text-zinc-400">{t('nutrition.noMealsYet')}</p>
+            <p className="text-xs text-zinc-400">{t('nutrition.noMealsYet', 'No meals logged yet today.')}</p>
             <p className="text-[11px] text-zinc-500">
-              {t('nutrition.noMealsDesc')}
+              {t('nutrition.noMealsDesc', 'Type your breakfast, lunch, dinner or snack above to keep track of your daily calories & macros.')}
             </p>
           </div>
         ) : (
@@ -394,6 +612,11 @@ export const NutritionView: React.FC = () => {
                     <span className="text-xs font-bold text-white truncate">
                       {log.description}
                     </span>
+                    {log.amount_grams ? (
+                      <span className="text-[10px] font-mono text-zinc-500">
+                        ({log.amount_grams}g)
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-3 text-[11px] text-zinc-400 font-mono">
                     <span className="text-white font-bold">{log.calories} kcal</span>
