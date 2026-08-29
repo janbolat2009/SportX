@@ -348,121 +348,148 @@ ALTER TABLE public.ai_messages ENABLE ROW LEVEL SECURITY;
 
 -- Profiles Policies
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles
     FOR SELECT USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles
     FOR UPDATE USING (auth.uid() = id);
 
 -- Exercise Catalogs (Public Read)
 DROP POLICY IF EXISTS "Anyone can view exercise categories" ON public.exercise_categories;
+DROP POLICY IF EXISTS "Anyone can view exercise categories" ON exercise_categories;
 CREATE POLICY "Anyone can view exercise categories" ON public.exercise_categories
     FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Anyone can view exercises" ON public.exercises;
+DROP POLICY IF EXISTS "Anyone can view exercises" ON exercises;
 CREATE POLICY "Anyone can view exercises" ON public.exercises
     FOR SELECT USING (true);
 
 -- Workout Sessions Policies
 DROP POLICY IF EXISTS "Users can view own workout sessions" ON public.workout_sessions;
+DROP POLICY IF EXISTS "Users can view own workout sessions" ON workout_sessions;
 CREATE POLICY "Users can view own workout sessions" ON public.workout_sessions
     FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can insert own workout sessions" ON public.workout_sessions;
+DROP POLICY IF EXISTS "Users can insert own workout sessions" ON workout_sessions;
 CREATE POLICY "Users can insert own workout sessions" ON public.workout_sessions
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can update own workout sessions" ON public.workout_sessions;
+DROP POLICY IF EXISTS "Users can update own workout sessions" ON workout_sessions;
 CREATE POLICY "Users can update own workout sessions" ON public.workout_sessions
     FOR UPDATE USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can delete own workout sessions" ON public.workout_sessions;
+DROP POLICY IF EXISTS "Users can delete own workout sessions" ON workout_sessions;
 CREATE POLICY "Users can delete own workout sessions" ON public.workout_sessions
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Exercise Sessions Policies
 DROP POLICY IF EXISTS "Users can view own exercise sessions" ON public.exercise_sessions;
+DROP POLICY IF EXISTS "Users can view own exercise sessions" ON exercise_sessions;
 CREATE POLICY "Users can view own exercise sessions" ON public.exercise_sessions
     FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can insert own exercise sessions" ON public.exercise_sessions;
+DROP POLICY IF EXISTS "Users can insert own exercise sessions" ON exercise_sessions;
 CREATE POLICY "Users can insert own exercise sessions" ON public.exercise_sessions
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can update own exercise sessions" ON public.exercise_sessions;
+DROP POLICY IF EXISTS "Users can update own exercise sessions" ON exercise_sessions;
 CREATE POLICY "Users can update own exercise sessions" ON public.exercise_sessions
     FOR UPDATE USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can delete own exercise sessions" ON public.exercise_sessions;
+DROP POLICY IF EXISTS "Users can delete own exercise sessions" ON exercise_sessions;
 CREATE POLICY "Users can delete own exercise sessions" ON public.exercise_sessions
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Technique Analysis Policies
 DROP POLICY IF EXISTS "Users can view own technique analysis" ON public.technique_analysis;
+DROP POLICY IF EXISTS "Users can view own technique analysis" ON technique_analysis;
 CREATE POLICY "Users can view own technique analysis" ON public.technique_analysis
     FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can insert own technique analysis" ON public.technique_analysis;
+DROP POLICY IF EXISTS "Users can insert own technique analysis" ON technique_analysis;
 CREATE POLICY "Users can insert own technique analysis" ON public.technique_analysis
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can delete own technique analysis" ON public.technique_analysis;
+DROP POLICY IF EXISTS "Users can delete own technique analysis" ON technique_analysis;
 CREATE POLICY "Users can delete own technique analysis" ON public.technique_analysis
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Technique Issues Policies
 DROP POLICY IF EXISTS "Users can view own technique issues" ON public.technique_issues;
+DROP POLICY IF EXISTS "Users can view own technique issues" ON technique_issues;
 CREATE POLICY "Users can view own technique issues" ON public.technique_issues
     FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can insert own technique issues" ON public.technique_issues;
+DROP POLICY IF EXISTS "Users can insert own technique issues" ON technique_issues;
 CREATE POLICY "Users can insert own technique issues" ON public.technique_issues
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Meal Logs Policies
 DROP POLICY IF EXISTS "Users can view own meal logs" ON public.meal_logs;
+DROP POLICY IF EXISTS "Users can view own meal logs" ON meal_logs;
 CREATE POLICY "Users can view own meal logs" ON public.meal_logs
     FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can insert own meal logs" ON public.meal_logs;
+DROP POLICY IF EXISTS "Users can insert own meal logs" ON meal_logs;
 CREATE POLICY "Users can insert own meal logs" ON public.meal_logs
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can delete own meal logs" ON public.meal_logs;
+DROP POLICY IF EXISTS "Users can delete own meal logs" ON meal_logs;
 CREATE POLICY "Users can delete own meal logs" ON public.meal_logs
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Sleep Records Policies
 DROP POLICY IF EXISTS "Users can view own sleep records" ON public.sleep_records;
+DROP POLICY IF EXISTS "Users can view own sleep records" ON sleep_records;
 CREATE POLICY "Users can view own sleep records" ON public.sleep_records
     FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can insert own sleep records" ON public.sleep_records;
+DROP POLICY IF EXISTS "Users can insert own sleep records" ON sleep_records;
 CREATE POLICY "Users can insert own sleep records" ON public.sleep_records
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can delete own sleep records" ON public.sleep_records;
+DROP POLICY IF EXISTS "Users can delete own sleep records" ON sleep_records;
 CREATE POLICY "Users can delete own sleep records" ON public.sleep_records
     FOR DELETE USING (auth.uid() = user_id);
 
 -- Goals Policies
 DROP POLICY IF EXISTS "Users can manage own goals" ON public.goals;
+DROP POLICY IF EXISTS "Users can manage own goals" ON goals;
 CREATE POLICY "Users can manage own goals" ON public.goals
     FOR ALL USING (auth.uid() = user_id);
 
 -- Notifications Policies
 DROP POLICY IF EXISTS "Users can view and update own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can view and update own notifications" ON notifications;
 CREATE POLICY "Users can view and update own notifications" ON public.notifications
     FOR ALL USING (auth.uid() = user_id);
 
 -- AI Conversations Policies
 DROP POLICY IF EXISTS "Users can manage own AI conversations" ON public.ai_conversations;
+DROP POLICY IF EXISTS "Users can manage own AI conversations" ON ai_conversations;
 CREATE POLICY "Users can manage own AI conversations" ON public.ai_conversations
     FOR ALL USING (auth.uid() = user_id);
 
 -- AI Messages Policies
 DROP POLICY IF EXISTS "Users can manage own AI messages" ON public.ai_messages;
+DROP POLICY IF EXISTS "Users can manage own AI messages" ON ai_messages;
 CREATE POLICY "Users can manage own AI messages" ON public.ai_messages
     FOR ALL USING (auth.uid() = user_id);
 
