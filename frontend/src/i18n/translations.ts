@@ -292,21 +292,51 @@ export const translations: TranslationDictionary = {
     kk: 'Техниканы тексеру',
   },
 
-  // Muscle Categories
+  // Muscle Categories (All 26 requested muscle groups)
   'muscle.chest': {
     en: 'Chest',
-    ru: 'Грудь',
-    kk: 'Кеуде',
+    ru: 'Грудные мышцы',
+    kk: 'Кеуде бұлшықеттері',
   },
   'muscle.back': {
     en: 'Back',
     ru: 'Спина',
     kk: 'Арқа',
   },
+  'muscle.lats': {
+    en: 'Lats',
+    ru: 'Широчайшие мышцы',
+    kk: 'Жалпақ бұлшықеттер',
+  },
+  'muscle.upper_back': {
+    en: 'Upper Back',
+    ru: 'Верх спины',
+    kk: 'Арқаның жоғарғы бөлігі',
+  },
+  'muscle.lower_back': {
+    en: 'Lower Back',
+    ru: 'Поясница',
+    kk: 'Бел бұлшықеттері',
+  },
   'muscle.shoulders': {
     en: 'Shoulders',
     ru: 'Плечи',
     kk: 'Иық',
+  },
+  'muscle.front_delts': {
+    en: 'Front Delts',
+    ru: 'Передние дельты',
+    kk: 'Алдыңғы дельталар',
+  },
+  'muscle.lateral_delts': {
+    en: 'Lateral Delts',
+    ru: 'Средние дельты',
+    kk: 'Ортаңғы дельталар',
+  },
+  'muscle.rear_delts': {
+    en: 'Rear Delts',
+    ru: 'Задние дельты',
+    kk: 'Артқы дельталар',
   },
   'muscle.biceps': {
     en: 'Biceps',
@@ -323,14 +353,9 @@ export const translations: TranslationDictionary = {
     ru: 'Предплечья',
     kk: 'Білек',
   },
-  'muscle.core': {
-    en: 'Core',
-    ru: 'Кор и пресс',
-    kk: 'Кор және баспасөз',
-  },
   'muscle.traps': {
     en: 'Traps',
-    ru: 'Трапеция',
+    ru: 'Трапеции',
     kk: 'Трапеция',
   },
   'muscle.neck': {
@@ -338,10 +363,25 @@ export const translations: TranslationDictionary = {
     ru: 'Шея',
     kk: 'Мойын',
   },
+  'muscle.abs': {
+    en: 'Abs',
+    ru: 'Пресс',
+    kk: 'Іш бұлшықеттері',
+  },
+  'muscle.obliques': {
+    en: 'Obliques',
+    ru: 'Косые мышцы живота',
+    kk: 'Қиғаш іш бұлшықеттері',
+  },
+  'muscle.core': {
+    en: 'Core',
+    ru: 'Кор и стабилизаторы',
+    kk: 'Кор және тұрақтандырғыштар',
+  },
   'muscle.glutes': {
     en: 'Glutes',
     ru: 'Ягодицы',
-    kk: 'Бөксе',
+    kk: 'Бөксе бұлшықеттері',
   },
   'muscle.quadriceps': {
     en: 'Quadriceps',
@@ -351,17 +391,22 @@ export const translations: TranslationDictionary = {
   'muscle.hamstrings': {
     en: 'Hamstrings',
     ru: 'Бицепс бедра',
-    kk: 'Санның артқы жағы',
+    kk: 'Санның артқы бұлшықеті',
+  },
+  'muscle.adductors': {
+    en: 'Adductors',
+    ru: 'Приводящие мышцы',
+    kk: 'Жанастырушы бұлшықеттер',
   },
   'muscle.calves': {
     en: 'Calves',
     ru: 'Икры',
     kk: 'Балтыр',
   },
-  'muscle.adductors': {
-    en: 'Adductors',
-    ru: 'Приводящие',
-    kk: 'Жанастырушы',
+  'muscle.tibialis': {
+    en: 'Tibialis',
+    ru: 'Большеберцовая мышца',
+    kk: 'Асықты жілік бұлшықеті',
   },
   'muscle.full_body': {
     en: 'Full Body',
@@ -375,65 +420,216 @@ export const translations: TranslationDictionary = {
   },
   'muscle.mobility': {
     en: 'Mobility',
-    ru: 'Мобильность',
-    kk: 'Ұтқырлық',
+    ru: 'Мобильность и гибкость',
+    kk: 'Ұтқырлық және икемділік',
   },
 
-  // Exercise Detail Modal
+  // Equipment Types
+  'equipment.all': {
+    en: 'All Equipment',
+    ru: 'Весь инвентарь',
+    kk: 'Барлық жабдықтар',
+  },
+  'equipment.bodyweight': {
+    en: 'Bodyweight',
+    ru: 'Свой вес',
+    kk: 'Өз салмағы',
+  },
+  'equipment.dumbbells': {
+    en: 'Dumbbells',
+    ru: 'Гантели',
+    kk: 'Гантельдер',
+  },
+  'equipment.barbell': {
+    en: 'Barbell',
+    ru: 'Штанга',
+    kk: 'Штанга',
+  },
+  'equipment.cables': {
+    en: 'Cables',
+    ru: 'Блочный тренажер',
+    kk: 'Блоктық тренажер',
+  },
+  'equipment.machines': {
+    en: 'Machines',
+    ru: 'Тренажеры',
+    kk: 'Тренажерлер',
+  },
+  'equipment.kettlebells': {
+    en: 'Kettlebells',
+    ru: 'Гири',
+    kk: 'Гирлер',
+  },
+  'equipment.resistance_bands': {
+    en: 'Resistance Bands',
+    ru: 'Фитнес-резинки',
+    kk: 'Резеңке таспалар',
+  },
+
+  // Difficulty Levels
+  'difficulty.all': {
+    en: 'All Levels',
+    ru: 'Все уровни',
+    kk: 'Барлық деңгейлер',
+  },
+  'difficulty.beginner': {
+    en: 'Beginner',
+    ru: 'Начинающий',
+    kk: 'Бастаушы',
+  },
+  'difficulty.intermediate': {
+    en: 'Intermediate',
+    ru: 'Средний',
+    kk: 'Орташа',
+  },
+  'difficulty.advanced': {
+    en: 'Advanced',
+    ru: 'Продвинутый',
+    kk: 'Жоғары',
+  },
+  'difficulty.elite': {
+    en: 'Elite',
+    ru: 'Элитный',
+    kk: 'Кәсіби',
+  },
+
+  // Train Library Filter Labels
+  'train.filterByEquipment': {
+    en: 'Equipment',
+    ru: 'Инвентарь',
+    kk: 'Жабдық',
+  },
+  'train.filterByDifficulty': {
+    en: 'Difficulty',
+    ru: 'Сложность',
+    kk: 'Күрделілігі',
+  },
+  'train.filterAiOnly': {
+    en: 'AI Vision Ready',
+    ru: 'С ИИ-анализом',
+    kk: 'ЖИ қолдауымен',
+  },
+  'train.showingExercises': {
+    en: 'Showing exercises',
+    ru: 'Отображено упражнений',
+    kk: 'Көрсетілген жаттығулар',
+  },
+
+  // Exercise Detail Modal Complete Sections
   'detail.target': {
-    en: 'Target',
-    ru: 'Целевые',
-    kk: 'Мақсатты',
+    en: 'Target Muscles',
+    ru: 'Целевые мышцы',
+    kk: 'Негізгі бұлшықеттер',
   },
   'detail.secondary': {
-    en: 'Secondary',
-    ru: 'Вторичные',
-    kk: 'Қосымша',
+    en: 'Secondary Muscles',
+    ru: 'Вторичные мышцы',
+    kk: 'Қосымша бұлшықеттер',
+  },
+  'detail.equipment': {
+    en: 'Equipment',
+    ru: 'Инвентарь',
+    kk: 'Жабдық',
+  },
+  'detail.difficulty': {
+    en: 'Difficulty Level',
+    ru: 'Уровень сложности',
+    kk: 'Күрделілік деңгейі',
   },
   'detail.demonstration': {
-    en: 'Technique Demonstration',
-    ru: 'Демонстрация техники',
-    kk: 'Техниканы көрсету',
+    en: 'Correct Technique Video',
+    ru: 'Видео правильной техники',
+    kk: 'Дұрыс техника бейнебаяны',
   },
   'detail.videoComingSoon': {
-    en: 'Demonstration video coming soon.',
-    ru: 'Видео-демонстрация скоро появится.',
-    kk: 'Бейне нұсқаулық жақында қосылады.',
+    en: 'Video Demonstration Unavailable',
+    ru: 'Видео-демонстрация временно недоступна',
+    kk: 'Бейне нұсқаулық уақытша қолжетімсіз',
   },
   'detail.videoComingSoonDesc': {
-    en: 'Follow the verified biomechanical steps below or launch the AI camera to check your form.',
-    ru: 'Следуйте шагам ниже или запустите ИИ-камеру для анализа формы.',
-    kk: 'Төмендегі биомеханикалық қадамдарды орындаңыз немесе пішінді тексеру үшін ЖИ камерасын іске қосыңыз.',
+    en: 'Follow the step-by-step biomechanical guide below or launch the AI Camera to check your form.',
+    ru: 'Следуйте пошаговому руководству по биомеханике ниже или запустите ИИ-камеру.',
+    kk: 'Төмендегі қадамдық биомеханикалық нұсқаулықты орындаңыз немесе ЖИ камерасын қосыңыз.',
+  },
+  'detail.startingPosition': {
+    en: 'Starting Position & Posture',
+    ru: 'Исходное положение и осанка',
+    kk: 'Бастапқы қалып және дене түзулігі',
   },
   'detail.howToPerform': {
-    en: 'How to Perform',
-    ru: 'Как выполнять',
-    kk: 'Қалай орындау керек',
+    en: 'Step-by-Step Instructions',
+    ru: 'Пошаговое выполнение',
+    kk: 'Қадамдық орындау тәртібі',
+  },
+  'detail.breathing': {
+    en: 'Breathing & Range of Motion',
+    ru: 'Дыхание и амплитуда (ROM)',
+    kk: 'Тыныс алу және қозғалыс ауқымы',
   },
   'detail.commonMistakes': {
-    en: 'Common Mistakes to Avoid',
-    ru: 'Типичные ошибки',
-    kk: 'Жиі кездесетін қателіктер',
+    en: 'Common Mistakes & What to Avoid',
+    ru: 'Типичные ошибки и чего избегать',
+    kk: 'Жиі кездесетін қателер және нені болдырмау керек',
+  },
+  'detail.cameraSetupTitle': {
+    en: 'How to Position Your Camera',
+    ru: 'Как установить камеру',
+    kk: 'Камераны қалай орналастыру керек',
+  },
+  'detail.cameraSetupSubtitle': {
+    en: 'Optimal camera placement ensures high computer vision joint detection accuracy.',
+    ru: 'Правильный ракурс камеры обеспечивает максимальную точность распознавания суставов ИИ.',
+    kk: 'Камераның дұрыс бұрышы ЖИ арқылы буындарды дәл анықтауды қамтамасыз етеді.',
+  },
+  'detail.cameraAngle': {
+    en: 'Angle',
+    ru: 'Ракурс',
+    kk: 'Бұрыш',
+  },
+  'detail.cameraHeight': {
+    en: 'Height',
+    ru: 'Высота',
+    kk: 'Биіктік',
+  },
+  'detail.cameraDistance': {
+    en: 'Distance',
+    ru: 'Дистанция',
+    kk: 'Қашықтық',
+  },
+  'detail.bodyVisibility': {
+    en: 'Body Visibility',
+    ru: 'Видимость тела',
+    kk: 'Дене көрінуі',
+  },
+  'detail.cameraAdvice': {
+    en: 'Setup Instructions',
+    ru: 'Инструкции по установке',
+    kk: 'Орнату нұсқаулары',
   },
   'detail.aiMetrics': {
-    en: 'AI Technique Metrics',
-    ru: 'Метрики ИИ-анализа',
-    kk: 'ЖИ техникалық көрсеткіштері',
+    en: 'AI Computer Vision Metrics',
+    ru: 'Метрики компьютерного зрения ИИ',
+    kk: 'ЖИ компьютерлік көру метрикалары',
   },
   'detail.targetRom': {
-    en: 'Target ROM',
-    ru: 'Целевая амплитуда',
-    kk: 'Мақсатты амплитуда',
+    en: 'Target ROM Angle',
+    ru: 'Целевой угол амплитуды',
+    kk: 'Мақсатты бұрыш амплитудасы',
+  },
+  'detail.normCadence': {
+    en: 'Normative Cadence',
+    ru: 'Нормативный темп',
+    kk: 'Нормативті қарқын',
   },
   'detail.symmetry': {
-    en: 'Bilateral Symmetry',
-    ru: 'Симметрия сторон',
-    kk: 'Екі жақты симметрия',
+    en: 'Bilateral Joint Symmetry',
+    ru: 'Симметрия суставов',
+    kk: 'Буындар симметриясы',
   },
   'detail.checkMyTechnique': {
-    en: 'CHECK MY TECHNIQUE',
-    ru: 'ПРОВЕРИТЬ МОЮ ТЕХНИКУ',
-    kk: 'ТЕХНИКАМДЫ ТЕКСЕРУ',
+    en: 'Check My Technique with AI Camera',
+    ru: 'Проверить технику через ИИ-Камеру',
+    kk: 'Техниканы ЖИ Камерамен тексеру',
   },
 
   // Live Camera Studio
@@ -675,6 +871,51 @@ export const translations: TranslationDictionary = {
     en: 'Top reached! Lower with control into full extension',
     ru: 'Верхняя точка! Опускайтесь плавно до полного виса',
     kk: 'Жоғарғы нүкте! Толық созылуға дейін бірқалыпты түсіңіз',
+  },
+  'cue.plankAlign': {
+    en: 'Hold a rigid straight line from head to heels',
+    ru: 'Держите прямую линию от головы до пяток',
+    kk: 'Бастан өкшеге дейін түзу сызықты сақтаңыз',
+  },
+  'cue.plankHipSag': {
+    en: 'Squeeze glutes and raise hips — avoid sagging in lower back',
+    ru: 'Напрягите ягодицы — не прогибайтесь в пояснице',
+    kk: 'Бөксені қатайтыңыз — белді салбыратпаңыз',
+  },
+  'cue.plankHipPike': {
+    en: 'Lower hips down into a flat neutral line',
+    ru: 'Опустите таз до ровной линии',
+    kk: 'Жамбасты түзу сызыққа дейін түсіріңіз',
+  },
+  'cue.lungeDescend': {
+    en: 'Descend smoothly until front thigh reaches parallel',
+    ru: 'Опускайтесь в выпад до параллели бедра с полом',
+    kk: 'Алдыңғы сан еденге параллель болғанша отырыңыз',
+  },
+  'cue.lungeKneeAlign': {
+    en: 'Keep front knee tracked over toes without caving in',
+    ru: 'Колено передней ноги смотрит строго на носок',
+    kk: 'Алдыңғы тізені ішке майыстырмай ұстаңыз',
+  },
+  'cue.lungeDrive': {
+    en: 'Drive through front midfoot and heel',
+    ru: 'Толкайтесь пяткой передней ноги',
+    kk: 'Алдыңғы аяқтың өкшесімен күшпен итеріліңіз',
+  },
+  'cue.lateralRaiseAscent': {
+    en: 'Raise arms laterally to shoulder level',
+    ru: 'Поднимайте руки через стороны до уровня плеч',
+    kk: 'Қолды жан-жақпен иық деңгейіне дейін көтеріңіз',
+  },
+  'cue.lateralRaiseNoTrap': {
+    en: 'Top reach — hold and squeeze lateral delts',
+    ru: 'Пик подъема — прожмите средние дельты',
+    kk: 'Жоғарғы нүкте — ортаңғы дельталарды қатайтыңыз',
+  },
+  'cue.lateralRaiseControl': {
+    en: 'Lower weights slowly under eccentric control',
+    ru: 'Опускайте плавно за 2-3 секунды под контролем',
+    kk: '2-3 секунд ішінде баяу түсіріңіз',
   },
 
   // Nutrition

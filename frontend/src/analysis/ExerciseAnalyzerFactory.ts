@@ -4,6 +4,9 @@ import { PushupAnalyzer } from './exercises/pushup';
 import { PullupAnalyzer } from './exercises/pullup';
 import { BicepCurlAnalyzer } from './exercises/bicepCurl';
 import { ShoulderPressAnalyzer } from './exercises/shoulderPress';
+import { PlankAnalyzer } from './exercises/plank';
+import { LungeAnalyzer } from './exercises/lunge';
+import { LateralRaiseAnalyzer } from './exercises/lateralRaise';
 
 export interface IExerciseAnalyzer {
   reset(): void;
@@ -21,6 +24,7 @@ export class ExerciseAnalyzerFactory {
       case 'pushup':
       case 'push_up':
       case 'push-up':
+      case 'resistance_band_pushup':
         return new PushupAnalyzer();
 
       case 'pullup':
@@ -33,12 +37,33 @@ export class ExerciseAnalyzerFactory {
       case 'bicep_curl':
       case 'bicep-curl':
       case 'dumbbell_curl':
+      case 'barbell_bicep_curl':
+      case 'hammer_curl':
         return new BicepCurlAnalyzer();
 
       case 'shoulder_press':
       case 'overhead_press':
       case 'military_press':
+      case 'arnold_press':
         return new ShoulderPressAnalyzer();
+
+      case 'plank':
+      case 'forearm_plank':
+      case 'side_plank':
+      case 'copenhagen_plank':
+        return new PlankAnalyzer();
+
+      case 'lunge':
+      case 'bulgarian_split_squat':
+      case 'walking_lunges':
+      case 'split_squat':
+        return new LungeAnalyzer();
+
+      case 'lateral_raise':
+      case 'dumbbell_lateral_raise':
+      case 'cable_lateral_raise':
+      case 'side_lateral_raise':
+        return new LateralRaiseAnalyzer();
 
       default:
         // Default to squat analyzer for general lower body / kinetic chain movements
@@ -46,3 +71,4 @@ export class ExerciseAnalyzerFactory {
     }
   }
 }
+

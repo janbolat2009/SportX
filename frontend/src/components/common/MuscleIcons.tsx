@@ -136,13 +136,34 @@ export const FullBodyIcon: React.FC<MuscleIconProps> = ({ className = '', size =
   </svg>
 );
 
+export const CardioIcon: React.FC<MuscleIconProps> = ({ className = '', size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M16 28S4 20 4 11C4 6.5 7.5 3 12 3C14.5 3 16 4.5 16 4.5S17.5 3 20 3C24.5 3 28 6.5 28 11C28 20 16 28 16 28Z" stroke="#52525B" strokeWidth="1.5" fill="#18181B" />
+    <path d="M7 13H12L14.5 8L17.5 18L20 13H25" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const MobilityIcon: React.FC<MuscleIconProps> = ({ className = '', size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="16" cy="16" r="12" stroke="#52525B" strokeWidth="1.5" fill="#18181B" />
+    <path d="M16 7V25M7 16H25M10 10L22 22M22 10L10 22" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
 export const getMuscleIcon = (slug?: string, size = 24, className = '') => {
-  switch (slug?.toLowerCase()) {
+  const s = slug?.toLowerCase() || '';
+  switch (s) {
     case 'chest':
       return <ChestIcon size={size} className={className} />;
     case 'back':
+    case 'lats':
+    case 'upper_back':
+    case 'lower_back':
       return <BackIcon size={size} className={className} />;
     case 'shoulders':
+    case 'front_delts':
+    case 'lateral_delts':
+    case 'rear_delts':
       return <ShouldersIcon size={size} className={className} />;
     case 'biceps':
       return <BicepsIcon size={size} className={className} />;
@@ -151,6 +172,8 @@ export const getMuscleIcon = (slug?: string, size = 24, className = '') => {
     case 'forearms':
       return <ForearmsIcon size={size} className={className} />;
     case 'core':
+    case 'abs':
+    case 'obliques':
       return <CoreIcon size={size} className={className} />;
     case 'traps':
       return <TrapsIcon size={size} className={className} />;
@@ -160,11 +183,17 @@ export const getMuscleIcon = (slug?: string, size = 24, className = '') => {
       return <GlutesIcon size={size} className={className} />;
     case 'quadriceps':
     case 'legs':
+    case 'adductors':
       return <QuadricepsIcon size={size} className={className} />;
     case 'hamstrings':
       return <HamstringsIcon size={size} className={className} />;
     case 'calves':
+    case 'tibialis':
       return <CalvesIcon size={size} className={className} />;
+    case 'cardio':
+      return <CardioIcon size={size} className={className} />;
+    case 'mobility':
+      return <MobilityIcon size={size} className={className} />;
     default:
       return <FullBodyIcon size={size} className={className} />;
   }
