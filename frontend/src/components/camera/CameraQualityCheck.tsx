@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { CheckCircle2, AlertCircle, RefreshCw, ArrowRight, ShieldCheck, Sun, Maximize2, User } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 
 interface Props {
   videoElement: HTMLVideoElement | null;
@@ -9,11 +10,12 @@ interface Props {
 }
 
 export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, onQualityPass, onCancel }) => {
+  const { t } = useTranslation();
   const [personVisible, setPersonVisible] = useState(false);
   const [fullBodyVisible, setFullBodyVisible] = useState(false);
   const [distanceStatus, setDistanceStatus] = useState<'too_close' | 'too_far' | 'optimal'>('optimal');
   const [lightingStatus, setLightingStatus] = useState<'too_dark' | 'optimal'>('optimal');
-  const [feedbackPrompt, setFeedbackPrompt] = useState('Position yourself in front of the camera.');
+  const [feedbackPromptKey, setFeedbackPromptKey] = useState('camera.promptPosition');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -73,20 +75,20 @@ export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, o
 
         if (bodyHeightRatio > 0.92) {
           setDistanceStatus('too_close');
-          setFeedbackPrompt('Step back 2–3 steps so your entire body is in frame.');
+          setFeedbackPromptKey('camera.promptStepBack');
         } else if (bodyHeightRatio < 0.35) {
           setDistanceStatus('too_far');
-          setFeedbackPrompt('Move slightly closer to the camera.');
+          setFeedbackPromptKey('camera.promptMoveCloser');
         } else if (!isFull) {
-          setFeedbackPrompt('Ensure your hips, knees, and feet are clearly visible.');
+          setFeedbackPromptKey('camera.promptEnsureJoints');
         } else {
           setDistanceStatus('optimal');
-          setFeedbackPrompt('Framing is optimal. You are ready to start training.');
+          setFeedbackPromptKey('camera.promptReady');
         }
       } else {
         setPersonVisible(false);
         setFullBodyVisible(false);
-        setFeedbackPrompt('Stand in front of the camera so AI can detect your pose.');
+        setFeedbackPromptKey('camera.promptStandInFront');
       }
     }, 250);
 
@@ -100,8 +102,8 @@ export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, o
       <div className="flex items-center gap-2.5 pb-3 border-b border-surface-border">
         <ShieldCheck className="w-5 h-5 text-brand-400" />
         <div>
-          <h3 className="text-sm font-bold text-white">Camera Readiness Check</h3>
-          <p className="text-xs text-zinc-400">Ensures accurate kinematic tracking</p>
+          <h3 className="text-sm font-bold text-white">{t('camera.readinessCheck')}</h3>
+          <p className="text-xs text-zinc-400">{t('camera.readinessDesc')}</p>
         </div>
       </div>
 
@@ -110,15 +112,15 @@ export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, o
         <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-subtle border border-surface-border">
           <div className="flex items-center gap-2.5">
             <User className="w-4 h-4 text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-200">Person Detected</span>
+            <span className="text-xs font-medium text-zinc-200">{t('camera.personDetected')}</span>
           </div>
           {personVisible ? (
             <span className="text-[11px] font-semibold text-status-good flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Detected
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('camera.detected')}
             </span>
           ) : (
             <span className="text-[11px] font-medium text-zinc-500 flex items-center gap-1">
-              <RefreshCw className="w-3 h-3 animate-spin" /> Searching...
+              <RefreshCw className="w-3 h-3 animate-spin" /> {t('camera.searching')}
             </span>
           )}
         </div>
@@ -127,15 +129,15 @@ export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, o
         <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-subtle border border-surface-border">
           <div className="flex items-center gap-2.5">
             <Maximize2 className="w-4 h-4 text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-200">Full Body Framing</span>
+            <span className="text-xs font-medium text-zinc-200">{t('camera.fullBodyFraming')}</span>
           </div>
           {fullBodyVisible ? (
             <span className="text-[11px] font-semibold text-status-good flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> In Frame
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('camera.inFrame')}
             </span>
           ) : (
             <span className="text-[11px] font-medium text-status-attention flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" /> Step Back
+              <AlertCircle className="w-3.5 h-3.5" /> {t('camera.stepBackPrompt')}
             </span>
           )}
         </div>
@@ -144,15 +146,15 @@ export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, o
         <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-subtle border border-surface-border">
           <div className="flex items-center gap-2.5">
             <Sun className="w-4 h-4 text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-200">Environment Lighting</span>
+            <span className="text-xs font-medium text-zinc-200">{t('camera.envLighting')}</span>
           </div>
           {lightingStatus === 'optimal' ? (
             <span className="text-[11px] font-semibold text-status-good flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Good Light
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('camera.goodLight')}
             </span>
           ) : (
             <span className="text-[11px] font-medium text-status-attention flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" /> Low Light
+              <AlertCircle className="w-3.5 h-3.5" /> {t('camera.lowLight')}
             </span>
           )}
         </div>
@@ -165,7 +167,7 @@ export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, o
           : 'bg-zinc-800/80 text-zinc-300 border border-zinc-700'
       }`}>
         {allChecksPass ? <CheckCircle2 className="w-4 h-4 text-brand-400 shrink-0" /> : <AlertCircle className="w-4 h-4 text-status-attention shrink-0" />}
-        <span>{feedbackPrompt}</span>
+        <span>{t(feedbackPromptKey)}</span>
       </div>
 
       {/* Actions */}
@@ -174,16 +176,17 @@ export const CameraQualityCheck: React.FC<Props> = ({ videoElement, landmarks, o
           onClick={onCancel}
           className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 hover:bg-zinc-700 text-xs font-semibold transition-colors"
         >
-          Cancel
+          {t('camera.cancel')}
         </button>
         <button
           onClick={onQualityPass}
           className="flex-[2] py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold transition-all shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 active:scale-95"
         >
-          <span>Start Workout</span>
+          <span>{t('camera.startTraining')}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
     </div>
   );
 };
+

@@ -1120,16 +1120,292 @@ export const translations: TranslationDictionary = {
     kk: 'Талдау деректері әзірге жоқ.',
   },
 
-  // Coach
-  'coach.title': {
-    en: 'Coach Supervision Hub',
-    ru: 'Панель тренера',
-    kk: 'Бапкер орталығы',
+  // Dashboard
+  'dashboard.readyTitle': {
+    en: 'Ready to train with real-time AI technique feedback?',
+    ru: 'Готовы к тренировке с мгновенным ИИ-анализом техники?',
+    kk: 'Нақты уақыттағы ЖИ бапкерімен жаттығуға дайынсыз ба?',
   },
-  'coach.noAthletes': {
-    en: 'No athletes connected yet.',
-    ru: 'Пока нет подключенных атлетов.',
-    kk: 'Әзірге байланысқан спортшылар жоқ.',
+  'dashboard.readySubtitle': {
+    en: 'Position your phone, start the camera, and receive instant biomechanical form coaching.',
+    ru: 'Установите телефон, включите камеру и получайте мгновенные подсказки по технике.',
+    kk: 'Телефонды қойып, камераны қосыңыз және техника бойынша бірден нұсқаулар алыңыз.',
+  },
+  'dashboard.startCameraWorkout': {
+    en: 'Start Camera Workout',
+    ru: 'Начать с камерой',
+    kk: 'Камерамен бастау',
+  },
+  'dashboard.uploadVideo': {
+    en: 'Upload Video',
+    ru: 'Загрузить видео',
+    kk: 'Бейне жүктеу',
+  },
+  'dashboard.readiness': {
+    en: 'Readiness',
+    ru: 'Готовность',
+    kk: 'Дайындық',
+  },
+  'dashboard.primeCondition': {
+    en: 'Prime Condition',
+    ru: 'Отличная форма',
+    kk: 'Тамаша бап',
+  },
+  'dashboard.assignedWorkouts': {
+    en: 'Assigned Workouts',
+    ru: 'Назначенные тренировки',
+    kk: 'Тағайындалған жаттығулар',
+  },
+  'dashboard.noAssignedWorkouts': {
+    en: 'No assigned workouts from your coach today.',
+    ru: 'На сегодня нет тренировок от тренера.',
+    kk: 'Бүгінге бапкерден тағайындалған жаттығулар жоқ.',
+  },
+  'dashboard.recentActivity': {
+    en: 'Recent Sessions',
+    ru: 'Недавние тренировки',
+    kk: 'Соңғы жаттығулар',
+  },
+  'dashboard.noRecentActivity': {
+    en: 'No recorded sessions yet. Start your first camera workout!',
+    ru: 'Пока нет записей тренировок. Начните свою первую тренировку с камерой!',
+    kk: 'Әзірге жаттығу жазбалары жоқ. Камерамен алғашқы жаттығуыңызды бастаңыз!',
+  },
+  'dashboard.quickStart': {
+    en: 'Quick Start Exercises',
+    ru: 'Быстрый старт',
+    kk: 'Жылдам бастау',
+  },
+
+  // Post-Workout Report
+  'report.workoutCompleted': {
+    en: 'Workout Completed',
+    ru: 'Тренировка завершена',
+    kk: 'Жаттығу аяқталды',
+  },
+  'report.duration': {
+    en: 'Duration',
+    ru: 'Длительность',
+    kk: 'Ұзақтығы',
+  },
+  'report.model': {
+    en: 'Model',
+    ru: 'Модель',
+    kk: 'Модель',
+  },
+  'report.techniqueScore': {
+    en: 'Technique Score',
+    ru: 'Оценка техники',
+    kk: 'Техника бағасы',
+  },
+  'report.repetitions': {
+    en: 'Repetitions',
+    ru: 'Повторения',
+    kk: 'Қайталаулар',
+  },
+  'report.allValid': {
+    en: 'All reps valid',
+    ru: 'Все повторы зачтены',
+    kk: 'Барлық қайталаулар есептелді',
+  },
+  'report.incompleteRom': {
+    en: 'incomplete ROM',
+    ru: 'неполная амплитуда',
+    kk: 'толық емес амплитуда',
+  },
+  'report.kinematicBreakdown': {
+    en: 'Kinematic Breakdown',
+    ru: 'Биомеханический анализ',
+    kk: 'Биомеханикалық талдау',
+  },
+  'report.alignment': {
+    en: 'Alignment',
+    ru: 'Выравнивание',
+    kk: 'Түзулік',
+  },
+  'report.rom': {
+    en: 'Range of Motion',
+    ru: 'Амплитуда (ROM)',
+    kk: 'Қозғалыс ауқымы',
+  },
+  'report.symmetry': {
+    en: 'Symmetry',
+    ru: 'Симметрия',
+    kk: 'Симметрия',
+  },
+  'report.tempo': {
+    en: 'Tempo Cadence',
+    ru: 'Темп движения',
+    kk: 'Қозғалыс қарқыны',
+  },
+  'report.saveAndClose': {
+    en: 'Save & Continue',
+    ru: 'Сохранить и продолжить',
+    kk: 'Сақтау және жалғастыру',
+  },
+  'report.excellent': {
+    en: 'Excellent Technique',
+    ru: 'Отличная техника',
+    kk: 'Керемет техника',
+  },
+  'report.solid': {
+    en: 'Solid Movement Form',
+    ru: 'Хорошая форма',
+    kk: 'Жақсы техника',
+  },
+  'report.minorAdjustments': {
+    en: 'Minor Adjustments Needed',
+    ru: 'Требуются небольшие правки',
+    kk: 'Шағын түзетулер қажет',
+  },
+  'report.deviationsDetected': {
+    en: 'Technique Deviations Detected',
+    ru: 'Обнаружены отклонения в технике',
+    kk: 'Техникалық ауытқулар анықталды',
+  },
+
+  // Camera Readiness Check
+  'camera.readinessCheck': {
+    en: 'Camera Readiness Check',
+    ru: 'Проверка готовности камеры',
+    kk: 'Камера дайындығын тексеру',
+  },
+  'camera.readinessDesc': {
+    en: 'Ensures accurate kinematic tracking',
+    ru: 'Обеспечивает точный трекинг суставов',
+    kk: 'Буындарды дәл қадағалауды қамтамасыз етеді',
+  },
+  'camera.personDetected': {
+    en: 'Person Detected',
+    ru: 'Человек в кадре',
+    kk: 'Адам анықталды',
+  },
+  'camera.searching': {
+    en: 'Searching...',
+    ru: 'Поиск...',
+    kk: 'Іздеуде...',
+  },
+  'camera.detected': {
+    en: 'Detected',
+    ru: 'Обнаружен',
+    kk: 'Анықталды',
+  },
+  'camera.fullBodyFraming': {
+    en: 'Full Body Framing',
+    ru: 'Полный рост в кадре',
+    kk: 'Толық бой көрінісі',
+  },
+  'camera.inFrame': {
+    en: 'In Frame',
+    ru: 'В кадре',
+    kk: 'Кадрда',
+  },
+  'camera.stepBackPrompt': {
+    en: 'Step Back',
+    ru: 'Отойдите назад',
+    kk: 'Артқа шегініңіз',
+  },
+  'camera.envLighting': {
+    en: 'Environment Lighting',
+    ru: 'Освещение',
+    kk: 'Жарықтандыру',
+  },
+  'camera.goodLight': {
+    en: 'Good Light',
+    ru: 'Хороший свет',
+    kk: 'Жақсы жарық',
+  },
+  'camera.lowLight': {
+    en: 'Low Light',
+    ru: 'Слабый свет',
+    kk: 'Әлсіз жарық',
+  },
+  'camera.startTraining': {
+    en: 'Start Workout',
+    ru: 'Начать тренировку',
+    kk: 'Жаттығуды бастау',
+  },
+  'camera.cancel': {
+    en: 'Cancel',
+    ru: 'Отмена',
+    kk: 'Бас тарту',
+  },
+  'camera.promptPosition': {
+    en: 'Position yourself in front of the camera.',
+    ru: 'Встаньте перед камерой.',
+    kk: 'Камераның алдына тұрыңыз.',
+  },
+  'camera.promptStepBack': {
+    en: 'Step back 2–3 steps so your entire body is in frame.',
+    ru: 'Отойдите на 2–3 шага назад, чтобы все тело было в кадре.',
+    kk: 'Бүкіл денеңіз көрінуі үшін 2-3 қадам артқа шегініңіз.',
+  },
+  'camera.promptMoveCloser': {
+    en: 'Move slightly closer to the camera.',
+    ru: 'Подойдите немного ближе к камере.',
+    kk: 'Камераға сәл жақындаңыз.',
+  },
+  'camera.promptEnsureJoints': {
+    en: 'Ensure your hips, knees, and feet are clearly visible.',
+    ru: 'Убедитесь, что бедра, колени и стопы четко видны.',
+    kk: 'Жамбас, тізе және аяқтарыңыз анық көрінетініне көз жеткізіңіз.',
+  },
+  'camera.promptReady': {
+    en: 'Framing is optimal. You are ready to start training.',
+    ru: 'Расположение оптимально. Можно начинать тренировку.',
+    kk: 'Орналасу өте жақсы. Жаттығуды бастауға болады.',
+  },
+  'camera.promptStandInFront': {
+    en: 'Stand in front of the camera so AI can detect your pose.',
+    ru: 'Встаньте перед камерой для распознавания позы.',
+    kk: 'ЖИ сіздің қалпыңызды тану үшін камера алдына тұрыңыз.',
+  },
+
+  // AI Assistant
+  'ai.title': {
+    en: 'SportX AI Assistant',
+    ru: 'ИИ Ассистент SportX',
+    kk: 'SportX ЖИ Бапкері',
+  },
+  'ai.subtitle': {
+    en: 'Specialized strictly in exercise biomechanics, training, sets, reps, mobility, and recovery.',
+    ru: 'Специализируется исключительно на биомеханике упражнений, тренировках, сетах, повторах, мобильности и восстановлении.',
+    kk: 'Тек жаттығулар биомеханикасы, жаттығу бағдарламалары, қайталаулар, созылу және қалпына келу бойынша көмектеседі.',
+  },
+  'ai.placeholder': {
+    en: 'Ask about exercise technique, sets & reps, warm-ups, or form cues...',
+    ru: 'Спросите о технике, сетах, повторах, разминке или ошибках...',
+    kk: 'Техника, сетиялар, қайталаулар, қыздырыну немесе қателіктер туралы сұраңыз...',
+  },
+  'ai.send': {
+    en: 'Send',
+    ru: 'Отправить',
+    kk: 'Жіберу',
+  },
+  'ai.clearChat': {
+    en: 'Clear Chat',
+    ru: 'Очистить чат',
+    kk: 'Чатты тазалау',
+  },
+  'ai.offTopicNotice': {
+    en: 'Note: Off-topic questions will be politely refused.',
+    ru: 'Примечание: Вопросы не о фитнесе будут отклонены.',
+    kk: 'Ескерту: Фитнеске қатысы жоқ сұрақтар қабылданбайды.',
+  },
+  'ai.errorApiKey': {
+    en: 'OpenAI API key is not configured on the server. Please add OPENAI_API_KEY to environment variables.',
+    ru: 'API ключ OpenAI не настроен на сервере. Добавьте OPENAI_API_KEY в переменные окружения.',
+    kk: 'OpenAI API кілті серверде бапталмаған. OPENAI_API_KEY орта айнымалыларына қосыңыз.',
+  },
+  'ai.errorNetwork': {
+    en: 'Unable to connect to AI server. Please check your internet connection.',
+    ru: 'Не удалось подключиться к серверу ИИ. Проверьте соединение.',
+    kk: 'ЖИ серверіне қосылу мүмкін болмады. Интернет байланысын тексеріңіз.',
+  },
+  'ai.defaultGreeting': {
+    en: 'Hello! I am your SportX AI Fitness Coach. Ask me anything about exercise technique, workout programming, sets, reps, mobility, or recovery!',
+    ru: 'Здравствуйте! Я ваш ИИ-тренер SportX. Спросите меня о технике упражнений, программах тренировок, сетах, повторениях, мобильности или восстановлении!',
+    kk: 'Сәлеметсіз бе! Мен сіздің SportX ЖИ Бапкеріңізбін. Жаттығу техникасы, жаттығу жоспары, сетиялар, қайталаулар, созылу немесе қалпына келу туралы кез келген сұрақ қойыңыз!',
   },
 };
 
@@ -1138,3 +1414,4 @@ export const getTranslation = (key: string, lang: Language): string => {
   if (!item) return key;
   return item[lang] || item['en'] || key;
 };
+

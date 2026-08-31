@@ -20,10 +20,12 @@ export interface LocalizedExercise {
   breathing: string;
   common_mistakes: string;
   camera_angle: string;
+  default_camera_angle?: string;
   camera_height: string;
   camera_distance: string;
   body_visibility: string;
   camera_instructions: string;
+  camera_setup_instructions?: string;
   youtube_id?: string;
   video_url?: string;
   ideal_rom_degrees?: number;
@@ -34,6 +36,9 @@ export interface LocalizedExercise {
 
 export function getLocalizedExercise(exercise: Exercise, lang: string): LocalizedExercise {
   const l = lang === 'kk' ? 'kk' : lang === 'ru' ? 'ru' : 'en';
+  const cameraAngle = (l === 'kk' ? exercise.camera_angle_kk : l === 'ru' ? exercise.camera_angle_ru : exercise.camera_angle_en) || exercise.camera_angle || exercise.default_camera_angle || 'Side View';
+  const cameraInstructions = (l === 'kk' ? exercise.camera_instructions_kk : l === 'ru' ? exercise.camera_instructions_ru : exercise.camera_instructions_en) || exercise.camera_instructions || exercise.camera_setup_instructions || '';
+
   return {
     id: exercise.id || 0,
     category_id: exercise.category_id,
@@ -49,17 +54,19 @@ export function getLocalizedExercise(exercise: Exercise, lang: string): Localize
     instructions: (l === 'kk' ? exercise.instructions_kk : l === 'ru' ? exercise.instructions_ru : exercise.instructions_en) || exercise.instructions || '',
     breathing: (l === 'kk' ? exercise.breathing_kk : l === 'ru' ? exercise.breathing_ru : exercise.breathing_en) || exercise.breathing || '',
     common_mistakes: (l === 'kk' ? exercise.common_mistakes_kk : l === 'ru' ? exercise.common_mistakes_ru : exercise.common_mistakes_en) || exercise.common_mistakes || '',
-    camera_angle: (l === 'kk' ? exercise.camera_angle_kk : l === 'ru' ? exercise.camera_angle_ru : exercise.camera_angle_en) || exercise.default_camera_angle || '',
-    camera_height: (l === 'kk' ? exercise.camera_height_kk : l === 'ru' ? exercise.camera_height_ru : exercise.camera_height_en) || '',
-    camera_distance: (l === 'kk' ? exercise.camera_distance_kk : l === 'ru' ? exercise.camera_distance_ru : exercise.camera_distance_en) || '',
-    body_visibility: (l === 'kk' ? exercise.body_visibility_kk : l === 'ru' ? exercise.body_visibility_ru : exercise.body_visibility_en) || '',
-    camera_instructions: (l === 'kk' ? exercise.camera_instructions_kk : l === 'ru' ? exercise.camera_instructions_ru : exercise.camera_instructions_en) || exercise.camera_setup_instructions || '',
+    camera_angle: cameraAngle,
+    default_camera_angle: cameraAngle,
+    camera_height: (l === 'kk' ? exercise.camera_height_kk : l === 'ru' ? exercise.camera_height_ru : exercise.camera_height_en) || exercise.camera_height || '',
+    camera_distance: (l === 'kk' ? exercise.camera_distance_kk : l === 'ru' ? exercise.camera_distance_ru : exercise.camera_distance_en) || exercise.camera_distance || '',
+    body_visibility: (l === 'kk' ? exercise.body_visibility_kk : l === 'ru' ? exercise.body_visibility_ru : exercise.body_visibility_en) || exercise.body_visibility || '',
+    camera_instructions: cameraInstructions,
+    camera_setup_instructions: cameraInstructions,
     youtube_id: exercise.youtube_id || undefined,
     video_url: exercise.video_url || undefined,
     ideal_rom_degrees: exercise.ideal_rom_degrees,
     normative_cadence_seconds: exercise.normative_cadence_seconds,
-    analysis_supported: !!(exercise.analysis_supported || exercise.analysis_available),
-    analysis_available: !!(exercise.analysis_supported || exercise.analysis_available),
+    analysis_supported: exercise.analysis_supported ?? false,
+    analysis_available: exercise.analysis_supported ?? false,
   };
 }
 

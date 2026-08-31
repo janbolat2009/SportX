@@ -6,6 +6,7 @@ import { LanguageSelector } from '../common/LanguageSelector';
 import { workoutService } from '../../services/workoutService';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Exercise, Repetition } from '../../types';
+import { getLocalizedExercise } from '../../services/exerciseService';
 import { PostWorkoutReport } from '../athlete/PostWorkoutReport';
 import { LandmarkSmoother } from '../../analysis/smoothing';
 import { ExerciseAnalyzerFactory, IExerciseAnalyzer } from '../../analysis/ExerciseAnalyzerFactory';
@@ -79,7 +80,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
   onSessionComplete
 }) => {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>(initialExerciseSlug);
   
@@ -144,7 +145,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
     loadEx();
   }, []);
 
-  const selectedExercise = exercises.find((e) => e.slug === selectedSlug) || {
+  const rawExercise = exercises.find((e) => e.slug === selectedSlug) || {
     name: selectedSlug.replace('_', ' ').toUpperCase(),
     slug: selectedSlug,
     target_muscles: 'Kinetic Chain & Core',
@@ -152,6 +153,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
     default_camera_angle: 'Side View (90 deg)',
     ideal_rom_degrees: 90
   };
+  const selectedExercise = getLocalizedExercise(rawExercise as Exercise, language);
 
   const playBeep = (freq = 880, durationMs = 150) => {
     if (!soundEnabled) return;
@@ -568,11 +570,14 @@ export const LiveCameraStudio: React.FC<Props> = ({
             }}
             className="bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-brand-500"
           >
-            <option value="squat">Squat</option>
-            <option value="pushup">Push-up</option>
-            <option value="pullup">Pull-up</option>
-            <option value="bicep_curl">Bicep Curl</option>
-            <option value="shoulder_press">Shoulder Press</option>
+            <option value="squat">{language === 'ru' ? 'Приседания' : language === 'kk' ? 'Отырып-тұру' : 'Squat'}</option>
+            <option value="pushup">{language === 'ru' ? 'Отжимания' : language === 'kk' ? 'Еденнен сығылу' : 'Push-up'}</option>
+            <option value="pullup">{language === 'ru' ? 'Подтягивания' : language === 'kk' ? 'Турникке тартылу' : 'Pull-up'}</option>
+            <option value="bicep_curl">{language === 'ru' ? 'Сгибания на бицепс' : language === 'kk' ? 'Бицепсті бүгу' : 'Bicep Curl'}</option>
+            <option value="shoulder_press">{language === 'ru' ? 'Армейский жим' : language === 'kk' ? 'Иықтан сығу' : 'Shoulder Press'}</option>
+            <option value="plank">{language === 'ru' ? 'Планка на локтях' : language === 'kk' ? 'Шынтақтағы планка' : 'Plank'}</option>
+            <option value="lunge">{language === 'ru' ? 'Выпады' : language === 'kk' ? 'Алға қадаммен отыру' : 'Lunge'}</option>
+            <option value="lateral_raise">{language === 'ru' ? 'Махи через стороны' : language === 'kk' ? 'Гантельдерді жанға көтеру' : 'Lateral Raise'}</option>
           </select>
 
           {/* Central Language Switcher */}

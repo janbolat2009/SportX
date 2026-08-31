@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { useTranslation } from '../../i18n/LanguageContext';
+import { useTranslation } from '../../i18n';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
-  Bot, Send, User as UserIcon, Sparkles, Loader2,
-  Dumbbell, Apple, Moon, ShieldAlert, Trash2, ArrowRight, CheckCircle2
+  Bot, Send, User as UserIcon, Loader2,
+  AlertTriangle, Trash2, Info, RefreshCw
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -17,29 +17,30 @@ interface ChatMessage {
 export const AIAssistantView: React.FC = () => {
   const { user, athleteProfile } = useAuth();
   const { language, t } = useTranslation();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content:
-        language === 'ru'
-          ? 'Привет! Я спортивный ИИ-ассистент SportX. Могу ответить на вопросы по технике упражнений, тренировочным программам, питанию и восстановлению. Чем я могу помочь?'
-          : language === 'kk'
-          ? 'Сәлем! Мен SportX жасанды интеллект бапкерімін. Жаттығу техникасы, тамақтану, ұйқы және қалпына келу бойынша сұрақтарыңызға жауап бере аламын. Не көмек керек?'
-          : 'Hello! I am your SportX AI Fitness Assistant. I can help evaluate your exercise technique, design training routines, or optimize your nutrition and sleep. How can I help today?',
-      created_at: new Date().toISOString(),
-    },
-  ]);
-
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputQuery, setInputQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Set default localized greeting on mount or language change if chat is empty
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([
+        {
+          role: 'assistant',
+          content: t('ai.defaultGreeting'),
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
+  }, [language]);
+
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, loading, errorMessage]);
 
   // Load active conversation from Supabase
   useEffect(() => {
@@ -107,7 +108,9 @@ export const AIAssistantView: React.FC = () => {
           activeConvId = newConv.id;
           setConversationId(newConv.id);
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Supabase conversation creation error:', err);
+      }
     }
 
     // Save user message to Supabase
@@ -120,7 +123,9 @@ export const AIAssistantView: React.FC = () => {
           content: userMsg.content,
           created_at: userMsg.created_at,
         });
-      } catch {}
+      } catch (err) {
+        console.warn('Supabase user message save notice:', err);
+      }
     }
 
     // Get Auth token if available
@@ -156,43 +161,53 @@ export const AIAssistantView: React.FC = () => {
         }),
       });
 
-      let assistantContent = '';
       if (response.ok) {
         const data = await response.json();
-        assistantContent = data.content;
+        const assistantContent = data.content || '';
+
+        const assistantMsg: ChatMessage = {
+          role: 'assistant',
+          content: assistantContent,
+          created_at: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+
+        // Save assistant message to Supabase
+        if (isSupabaseConfigured() && activeConvId && user?.id) {
+          try {
+            await supabase.from('ai_messages').insert({
+              conversation_id: activeConvId,
+              user_id: String(user.id),
+              role: 'assistant',
+              content: assistantMsg.content,
+              created_at: assistantMsg.created_at,
+            });
+          } catch (err) {
+            console.warn('Supabase assistant message save notice:', err);
+          }
+        }
       } else {
-        const fallbackContent = generateClientKnowledgeResponse(textToSend, language);
-        assistantContent = fallbackContent;
-      }
-
-      const assistantMsg: ChatMessage = {
-        role: 'assistant',
-        content: assistantContent,
-        created_at: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      // Save assistant message to Supabase
-      if (isSupabaseConfigured() && activeConvId && user?.id) {
+        let errJson: any = null;
         try {
-          await supabase.from('ai_messages').insert({
-            conversation_id: activeConvId,
-            user_id: String(user.id),
-            role: 'assistant',
-            content: assistantMsg.content,
-            created_at: assistantMsg.created_at,
-          });
+          errJson = await response.json();
         } catch {}
+        
+        let errMsg = errJson?.error;
+        if (!errMsg) {
+          if (response.status === 401) {
+            errMsg = t('ai.errorApiKey');
+          } else if (response.status === 429) {
+            errMsg = 'OpenAI rate limit reached. Please wait a few moments and try again.';
+          } else {
+            errMsg = `AI service returned error ${response.status}.`;
+          }
+        }
+        setErrorMessage(errMsg);
       }
-    } catch {
-      const fallbackContent = generateClientKnowledgeResponse(textToSend, language);
-      const assistantMsg: ChatMessage = {
-        role: 'assistant',
-        content: fallbackContent,
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (netErr) {
+      console.error('AI chat network error:', netErr);
+      setErrorMessage(t('ai.errorNetwork'));
     } finally {
       setLoading(false);
     }
@@ -207,36 +222,32 @@ export const AIAssistantView: React.FC = () => {
     setMessages([
       {
         role: 'assistant',
-        content:
-          language === 'ru'
-            ? 'История сообщений очищена. Чем я могу помочь по вашим тренировкам сегодня?'
-            : language === 'kk'
-            ? 'Хабарламалар тарихы тазартылды. Жаттығуларыңыз бойынша қалай көмектесе аламын?'
-            : 'Conversation history cleared. How can I help with your training today?',
+        content: t('ai.defaultGreeting'),
         created_at: new Date().toISOString(),
       },
     ]);
+    setErrorMessage(null);
   };
 
   return (
     <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24 space-y-4 animate-in fade-in flex flex-col h-[calc(100vh-100px)] min-h-[580px]">
       
       {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-zinc-800 shrink-0">
+      <div className="flex items-center justify-between pb-2 border-b border-surface-border shrink-0">
         <div className="space-y-0.5">
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <Bot className="w-5 h-5 text-sky-400" />
-            <span>{t('assistant.title', 'SportX AI Assistant')}</span>
+            <Bot className="w-5 h-5 text-brand-400" />
+            <span>{t('ai.title')}</span>
           </h1>
           <p className="text-xs text-zinc-400">
-            {t('assistant.subtitle', 'Biomechanical analysis, training advice, and recovery guidance.')}
+            {t('ai.subtitle')}
           </p>
         </div>
 
         <button
           onClick={handleClearHistory}
           className="p-2 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors"
-          title="Clear Chat"
+          title={t('ai.clearChat')}
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -247,14 +258,14 @@ export const AIAssistantView: React.FC = () => {
         {[
           language === 'ru' ? 'Как делать приседания?' : language === 'kk' ? 'Отырып-тұруды қалай дұрыс жасау керек?' : 'How to improve squat depth?',
           language === 'ru' ? 'Техника отжиманий' : language === 'kk' ? 'Еденнен сығылу техникасы' : 'Push-up biomechanics & elbow path',
-          language === 'ru' ? 'Питание после тренировки' : language === 'kk' ? 'Жаттығудан кейінгі тамақтану' : 'Post-workout protein intake',
+          language === 'ru' ? 'Питание после тренировки' : language === 'kk' ? 'Жаттығудан кейінгі тамақтану' : 'Post-workout protein timing',
           language === 'ru' ? 'Советы по сну и восстановлению' : language === 'kk' ? 'Ұйқы және қалпына келу' : 'Optimal sleep for recovery',
         ].map((prompt, idx) => (
           <button
             key={idx}
             type="button"
             onClick={() => handleSendMessage(prompt)}
-            className="px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-medium text-zinc-300 hover:text-white transition-colors"
+            className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-surface-cardHover border border-surface-border text-[11px] font-medium text-zinc-300 hover:text-white transition-colors"
           >
             {prompt}
           </button>
@@ -273,7 +284,7 @@ export const AIAssistantView: React.FC = () => {
               }`}
             >
               {isAssistant && (
-                <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0 mt-0.5">
+                <div className="w-8 h-8 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 shrink-0 mt-0.5">
                   <Bot className="w-4 h-4" />
                 </div>
               )}
@@ -281,7 +292,7 @@ export const AIAssistantView: React.FC = () => {
               <div
                 className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-md ${
                   isAssistant
-                    ? 'bg-zinc-900 border border-zinc-800 text-zinc-200'
+                    ? 'bg-surface-card border border-surface-border text-zinc-200'
                     : 'bg-brand-500 text-black font-semibold shadow-brand-500/10'
                 }`}
               >
@@ -311,17 +322,34 @@ export const AIAssistantView: React.FC = () => {
 
         {loading && (
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 shrink-0">
               <Bot className="w-4 h-4" />
             </div>
-            <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center gap-2 text-zinc-400 text-xs">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
-              <span>{t('assistant.analyzing', 'SportX AI is thinking...')}</span>
+            <div className="p-3.5 rounded-2xl bg-surface-card border border-surface-border flex items-center gap-2 text-zinc-400 text-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+              <span>{language === 'ru' ? 'ИИ думает...' : language === 'kk' ? 'ЖИ талдауда...' : 'SportX AI is thinking...'}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Real Error Feedback Banner */}
+        {errorMessage && (
+          <div className="p-3.5 rounded-2xl bg-status-deviation/10 border border-status-deviation/30 flex items-start gap-3 text-status-deviation animate-in fade-in">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs">
+              <p className="font-bold">{language === 'ru' ? 'Ошибка ответа ИИ' : language === 'kk' ? 'ЖИ қатесі' : 'AI Request Notice'}</p>
+              <p className="mt-0.5 text-zinc-300">{errorMessage}</p>
             </div>
           </div>
         )}
 
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* Off-Topic Notice */}
+      <div className="flex items-center gap-1.5 px-1 text-[11px] text-zinc-500">
+        <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+        <span>{t('ai.offTopicNotice')}</span>
       </div>
 
       {/* Input Form */}
@@ -330,20 +358,20 @@ export const AIAssistantView: React.FC = () => {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="pt-2 border-t border-zinc-800 shrink-0 flex items-center gap-2"
+        className="pt-2 border-t border-surface-border shrink-0 flex items-center gap-2"
       >
         <input
           type="text"
           value={inputQuery}
           onChange={(e) => setInputQuery(e.target.value)}
-          placeholder={t('assistant.placeholder', 'Ask about squat form, push-up depth, protein timing, or recovery...')}
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-sky-500 transition-colors"
+          placeholder={t('ai.placeholder')}
+          className="flex-1 bg-surface-card border border-surface-border rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
           disabled={loading}
         />
         <button
           type="submit"
           disabled={!inputQuery.trim() || loading}
-          className="p-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black font-black transition-all shadow-md shadow-sky-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shrink-0"
+          className="p-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black font-black transition-all shadow-md shadow-brand-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shrink-0"
           aria-label="Send message"
         >
           <Send className="w-4 h-4 fill-current" />
@@ -354,37 +382,3 @@ export const AIAssistantView: React.FC = () => {
   );
 };
 
-function generateClientKnowledgeResponse(query: string, lang: string): string {
-  const q = query.toLowerCase();
-
-  // Strict off-topic refusal
-  const offTopics = ['python', 'code', 'javascript', 'math', 'calc', 'history', 'movie', 'game', 'president', 'war', 'crypto'];
-  if (offTopics.some((t) => q.includes(t))) {
-    return 'I can only help with exercise technique, training, workouts, and fitness-related questions.';
-  }
-
-  if (q.includes('squat') || q.includes('присед') || q.includes('отырып')) {
-    if (lang === 'ru') {
-      return 'Для идеальной техники приседаний:\n1. Поставьте стопы на ширине плеч, носки разверните на 15–30 градусов.\n2. На вдохе напрягите мышцы кора и начинайте движение с одновременного сгибания таза и коленей.\n3. Опускайтесь до параллели бедер с полом (угол в коленях ~90-100°).\n4. Направляйте колени строго по линии носков, не допуская завала внутрь.\n5. Толкайтесь всей поверхностью стопы при подъеме.';
-    } else if (lang === 'kk') {
-      return 'Отырып-тұрудың дұрыс техникасы:\n1. Аяқты иық еніне қойып, башайларды 15–30 градусқа сыртқа бұрыңыз.\n2. Терең дем алып, іш бұлшықеттерін қатайтып, жамбас пен тізені бірге бүгіңіз.\n3. Жамбас тізе деңгейіне дейін түсуі керек (~90-100°).\n4. Тізелерді ішке құлатпай, сыртқа қарай бағыттаңыз.\n5. Көтерілген кезде толық табанмен итеріліңіз.';
-    }
-    return 'Squat Technique Guidelines:\n1. Set feet shoulder-width apart with toes flared 15-30 degrees.\n2. Inhale, brace core, and initiate by hinging hips back and bending knees.\n3. Descend until thighs are parallel with floor (~90-100° knee angle).\n4. Track knees in line with second and third toes to prevent inward collapse.\n5. Drive through midfoot and heels to full standing lockout.';
-  }
-
-  if (q.includes('push') || q.includes('отжиман') || q.includes('сығылу')) {
-    if (lang === 'ru') {
-      return 'Техника идеальных отжиманий:\n1. Руки чуть шире плеч, пальцы направлены вперед.\n2. Локти держите под углом 45° к корпусу, избегая разведения в стороны.\n3. Держите тело в одной прямой линии от макушки до пяток, напрягая пресс и ягодицы.\n4. Опускайтесь до расстояния 5-7 см от пола, затем мощно выжимайте себя вверх.';
-    } else if (lang === 'kk') {
-      return 'Еденнен сығылу техникасы:\n1. Қолдарды иықтан сәл кеңірек қойыңыз.\n2. Шынтақты денеге 45° бұрышта ұстаңыз, жан-жаққа жаймаңыз.\n3. Денені бастан өкшеге дейін түзу тақтайдай ұстаңыз.\n4. Кеудені еденге 5-7 см қалғанша түсіріп, күшпен жоғары итеріңіз.';
-    }
-    return 'Push-up Biomechanics:\n1. Hands slightly wider than shoulder-width.\n2. Angle elbows at ~45° to your torso (avoid 90° flaring).\n3. Squeeze glutes and core to keep a rigid straight plank line.\n4. Lower until chest is 2-3 inches from floor, then press to full extension.';
-  }
-
-  if (lang === 'ru') {
-    return 'Я могу проанализировать вашу технику упражнений, подобрать количество повторений и подходов, а также рассчитать питание и рекомендации по сну. Какой вопрос вас интересует?';
-  } else if (lang === 'kk') {
-    return 'Мен жаттығу техникасын талдап, қайталау мен тәсілдер санын есептеп, тамақтану мен ұйқы бойынша кеңес бере аламын. Сізді қандай сұрақ қызықтырады?';
-  }
-  return 'I can analyze your movement biomechanics, suggest sets and repetitions, and provide science-backed nutrition and recovery recommendations. How can I assist your workout today?';
-}
