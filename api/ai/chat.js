@@ -61,9 +61,9 @@ export default async function handler(req, res) {
     if (Array.isArray(messages) && messages.length > 0) {
       const history = messages.slice(-10).map((m) => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: String(m.content || '%).slice(0, 3000)
+        content: String(m.content || '').slice(0, 3000)
       }));
-      chatMessages.push(.history);
+      chatMessages.push(...history);
     } else if (message) {
       chatMessages.push({
         role: 'user',
