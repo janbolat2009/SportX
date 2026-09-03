@@ -3,10 +3,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { Logo } from '../common/Logo';
 import { LanguageSelector } from '../common/LanguageSelector';
+import { ThemeToggle } from '../common/ThemeToggle';
 import { UserRole } from '../../types';
 import {
   X, Mail, Lock, User as UserIcon, Activity,
-  Dumbbell, AlertCircle, CheckCircle2, Loader2, ArrowRight
+  Dumbbell, AlertCircle, CheckCircle2, Loader2, ArrowRight, Users
 } from 'lucide-react';
 
 interface Props {
@@ -75,8 +76,9 @@ export const AuthModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden max-h-[95vh] overflow-y-auto">
         
-        {/* Top bar with Language Selector and Close */}
-        <div className="absolute top-4 right-4 flex items-center gap-2">
+        {/* Top bar with Theme Toggle, Language Selector and Close */}
+        <div className="absolute top-4 right-4 flex items-center gap-1.5 sm:gap-2">
+          <ThemeToggle compact={true} />
           <LanguageSelector compact={true} />
           {onClose && (
             <button
@@ -207,9 +209,9 @@ export const AuthModal: React.FC<Props> = ({
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <Dumbbell className="w-4 h-4 text-brand-400 shrink-0" />
+                    <Users className="w-4 h-4 text-brand-400 shrink-0" />
                     <div>
-                      <p className="text-xs font-bold">{t('auth.coach')}</p>
+                      <p className="text-xs font-bold">{t('auth.trainer', 'Trainer')}</p>
                     </div>
                   </button>
                 </div>

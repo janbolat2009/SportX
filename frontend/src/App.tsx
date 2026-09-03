@@ -1,44 +1,55 @@
-import React, { useState } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { LanguageProvider, useTranslation } from './i18n/LanguageContext';
-import { Navbar } from './components/layout/Navbar';
-import { MobileNav } from './components/layout/MobileNav';
-import { AthleteDashboard } from './components/athlete/AthleteDashboard';
-import { TrainLibraryView } from './components/exercise/TrainLibraryView';
-import { ProgressView } from './components/athlete/ProgressView';
-import { NutritionView } from './components/athlete/NutritionView';
-import { SleepView } from './components/athlete/SleepView';
-import { AIAssistantView } from './components/athlete/AIAssistantView';
-import { LiveCameraStudio } from './components/camera/LiveCameraStudio';
-import { VideoUploadStudio } from './components/video/VideoUploadStudio';
-import { CoachDashboard } from './components/coach/CoachDashboard';
-import { ProfileView } from './components/profile/ProfileView';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { AthleteRoute } from './components/auth/AthleteRoute';
-import { CoachRoute } from './components/auth/CoachRoute';
-import { NightlightModal } from './components/common/NightlightModal';
+import React, { useState, useEffect } from "react";
+import { ThemeProvider } from "./context/ThemeContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
+import { Navbar } from "./components/layout/Navbar";
+import { MobileNav } from "./components/layout/MobileNav";
+import { AthleteDashboard } from "./components/athlete/AthleteDashboard";
+import { TrainLibraryView } from "./components/exercise/TrainLibraryView";
+import { ProgressView } from "./components/athlete/ProgressView";
+import { NutritionView } from "./components/athlete/NutritionView";
+import { SleepView } from "./components/athlete/SleepView";
+import { AIAssistantView } from "./components/athlete/AIAssistantView";
+import { LiveCameraStudio } from "./components/camera/LiveCameraStudio";
+import { VideoUploadStudio } from "./components/video/VideoUploadStudio";
+import { CoachDashboard } from "./components/coach/CoachDashboard";
+import { ProfileView } from "./components/profile/ProfileView";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { CoachRoute } from "./components/auth/CoachRoute";
+import { NightlightModal } from "./components/common/NightlightModal";
 
 const MainAppContent: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { t } = useTranslation();
   // Default to train tab for new unauthenticated visitors
-  const [currentTab, setCurrentTab] = useState<string>('train');
-  const [activeExerciseSlug, setActiveExerciseSlug] = useState<string>('squat');
+  const [currentTab, setCurrentTab] = useState<string>("train");
+  const [activeExerciseSlug, setActiveExerciseSlug] = useState<string>("squat");
   const [showNightlight, setShowNightlight] = useState(false);
 
-  const handleStartLiveCamera = (exerciseSlug: string = 'squat') => {
+  const isTrainer = user?.role === "coach" || user?.role === "trainer";
+
+  // Automatically land trainer on coach dashboard when logging in
+  useEffect(() => {
+    if (isAuthenticated && isTrainer) {
+      if (currentTab === "train" || currentTab === "home") {
+        setCurrentTab("coach");
+      }
+    }
+  }, [isAuthenticated, isTrainer]);
+
+  const handleStartLiveCamera = (exerciseSlug: string = "squat") => {
     setActiveExerciseSlug(exerciseSlug);
-    setCurrentTab('live-camera');
+    setCurrentTab("live-camera");
   };
 
   const handleStartVideoUpload = () => {
-    setCurrentTab('video-upload');
+    setCurrentTab("video-upload");
   };
 
-  const isCameraStudioActive = currentTab === 'live-camera';
+  const isCameraStudioActive = currentTab === "live-camera";
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-brand-500 selection:text-black overflow-x-hidden">
+    <div className="min-h-screen bg-surface-bg text-surface-text flex flex-col font-sans selection:bg-brand-500 selection:text-black overflow-x-hidden transition-colors duration-200">
       
       {/* Top Desktop & Mobile Header (Hidden in Live Camera Studio for maximum viewport) */}
       {!isCameraStudioActive && (
@@ -49,10 +60,10 @@ const MainAppContent: React.FC = () => {
       )}
 
       {/* Main View Router */}
-      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${!isCameraStudioActive ? 'pb-20 md:pb-8' : ''}`}>
+      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${!isCameraStudioActive ? "pb-20 md:pb-8" : ""}`}>
         
         {/* Train Tab (Publicly accessible muscle selector & exercise library) */}
-        {currentTab === 'train' && (
+        {currentTab === "train" && (
           <TrainLibraryView
             onStartLiveCamera={handleStartLiveCamera}
             onStartVideoUpload={handleStartVideoUpload}
@@ -60,7 +71,7 @@ const MainAppContent: React.FC = () => {
         )}
 
         {/* Home Tab (Dashboard for logged in athletes) */}
-        {currentTab === 'home' && (
+        {currentTab === "home" && (
           <ProtectedRoute>
             <AthleteDashboard
               onStartLiveCamera={handleStartLiveCamera}
@@ -70,66 +81,66 @@ const MainAppContent: React.FC = () => {
         )}
 
         {/* Live Camera Studio (Direct real-time technique analysis) */}
-        {currentTab === 'live-camera' && (
+        {currentTab === "live-camera" && (
           <LiveCameraStudio
             initialExerciseSlug={activeExerciseSlug}
-            onBack={() => setCurrentTab('train')}
+            onBack={() => setCurrentTab("train")}
             onSessionComplete={() => {
               if (isAuthenticated) {
-                setCurrentTab('progress');
+                setCurrentTab("progress");
               } else {
-                setCurrentTab('train');
+                setCurrentTab("train");
               }
             }}
           />
         )}
 
         {/* Video Upload Studio */}
-        {currentTab === 'video-upload' && (
+        {currentTab === "video-upload" && (
           <ProtectedRoute>
             <VideoUploadStudio
-              onBack={() => setCurrentTab('train')}
+              onBack={() => setCurrentTab("train")}
             />
           </ProtectedRoute>
         )}
 
-        {/* Progress & History Tab */}
-        {currentTab === 'progress' && (
-          <AthleteRoute>
+        {/* Progress & History Tab (Available for athletes & trainers) */}
+        {currentTab === "progress" && (
+          <ProtectedRoute>
             <ProgressView />
-          </AthleteRoute>
+          </ProtectedRoute>
         )}
 
         {/* Nutrition Tracking Tab */}
-        {currentTab === 'nutrition' && (
+        {currentTab === "nutrition" && (
           <ProtectedRoute>
             <NutritionView />
           </ProtectedRoute>
         )}
 
         {/* Sleep Insights Tab */}
-        {currentTab === 'sleep' && (
+        {currentTab === "sleep" && (
           <ProtectedRoute>
             <SleepView />
           </ProtectedRoute>
         )}
 
         {/* AI Assistant Tab */}
-        {currentTab === 'assistant' && (
+        {currentTab === "assistant" && (
           <ProtectedRoute>
             <AIAssistantView />
           </ProtectedRoute>
         )}
 
-        {/* Coach Hub */}
-        {currentTab === 'coach' && (
+        {/* Trainer Hub / Coach Center */}
+        {currentTab === "coach" && (
           <CoachRoute>
             <CoachDashboard />
           </CoachRoute>
         )}
 
         {/* Profile & Settings Tab */}
-        {currentTab === 'profile' && (
+        {currentTab === "profile" && (
           <ProfileView />
         )}
 
@@ -145,11 +156,11 @@ const MainAppContent: React.FC = () => {
 
       {/* Minimal Footer */}
       {!isCameraStudioActive && (
-        <footer className="hidden md:block border-t border-zinc-800 bg-zinc-950 py-5 px-4">
-          <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
-            <p>{t('brand.footer')}</p>
+        <footer className="hidden md:block border-t border-surface-border bg-surface-card py-6 px-4 transition-colors">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
+            <p>{t("brand.footer")}</p>
             <p className="text-[11px] text-zinc-500">
-              <span className="text-brand-400 font-semibold">{t('brand.principle')}</span>
+              <span className="text-brand-400 font-semibold">{t("brand.principle")}</span>
             </p>
           </div>
         </footer>
@@ -159,7 +170,7 @@ const MainAppContent: React.FC = () => {
       <NightlightModal
         isOpen={showNightlight}
         onClose={() => setShowNightlight(false)}
-        onNavigateToSleep={() => setCurrentTab('sleep')}
+        onNavigateToSleep={() => setCurrentTab("sleep")}
       />
 
     </div>
@@ -168,11 +179,13 @@ const MainAppContent: React.FC = () => {
 
 export function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <MainAppContent />
-      </AuthProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <MainAppContent />
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
 

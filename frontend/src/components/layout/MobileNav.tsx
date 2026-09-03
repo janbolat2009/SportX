@@ -1,7 +1,7 @@
-import React from 'react';
-import { Home, Dumbbell, TrendingUp, Users, User as UserIcon, LogIn } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useTranslation } from '../../i18n/LanguageContext';
+import React from "react";
+import { Home, Dumbbell, TrendingUp, Users, User as UserIcon, LogIn, Apple } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useTranslation } from "../../i18n/LanguageContext";
 
 interface Props {
   currentTab: string;
@@ -11,17 +11,36 @@ interface Props {
 export const MobileNav: React.FC<Props> = ({ currentTab, onSelectTab }) => {
   const { user, isAuthenticated } = useAuth();
   const { t } = useTranslation();
+  const isTrainer = user?.role === "coach" || user?.role === "trainer";
 
-  const tabs = [
-    { id: 'train', label: t('nav.train'), icon: Dumbbell, highlight: true },
-    { id: 'home', label: t('nav.home'), icon: Home },
-    { id: 'progress', label: t('nav.progress'), icon: TrendingUp },
-    { id: 'coach', label: t('nav.coach'), icon: Users },
-    { id: 'profile', label: isAuthenticated ? t('nav.profile') : t('nav.login'), icon: isAuthenticated ? UserIcon : LogIn },
-  ];
+  const tabs = React.useMemo(() => {
+    if (!isAuthenticated) {
+      return [
+        { id: "home", label: t("nav.home", "Home"), icon: Home },
+        { id: "train", label: t("nav.train", "Train"), icon: Dumbbell, highlight: true },
+        { id: "profile", label: t("nav.login", "Log In"), icon: LogIn },
+      ];
+    }
+
+    if (isTrainer) {
+      return [
+        { id: "coach", label: t("nav.athletes", "Athletes"), icon: Users, highlight: true },
+        { id: "progress", label: t("nav.progress", "Progress"), icon: TrendingUp },
+        { id: "profile", label: t("nav.profile", "Profile"), icon: UserIcon },
+      ];
+    }
+
+    return [
+      { id: "home", label: t("nav.home", "Home"), icon: Home },
+      { id: "train", label: t("nav.train", "Train"), icon: Dumbbell, highlight: true },
+      { id: "progress", label: t("nav.progress", "Progress"), icon: TrendingUp },
+      { id: "nutrition", label: t("nav.nutrition", "Nutrition"), icon: Apple },
+      { id: "profile", label: t("nav.profile", "Profile"), icon: UserIcon },
+    ];
+  }, [isAuthenticated, isTrainer, t]);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 px-2 py-1.5 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 dark:bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/80 px-2 py-1.5 safe-area-bottom shadow-lg">
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -35,16 +54,20 @@ export const MobileNav: React.FC<Props> = ({ currentTab, onSelectTab }) => {
                 className="flex flex-col items-center justify-center -mt-5 relative group"
                 aria-label={tab.label}
               >
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 ${
-                  isActive
-                    ? 'bg-brand-500 text-black shadow-brand-500/25 ring-4 ring-zinc-950'
-                    : 'bg-brand-600 text-black hover:bg-brand-500 ring-4 ring-zinc-950'
-                }`}>
+                <div
+                  className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 ${
+                    isActive
+                      ? "bg-brand-500 text-black shadow-brand-500/25 ring-4 ring-zinc-950"
+                      : "bg-brand-600 text-black hover:bg-brand-500 ring-4 ring-zinc-950"
+                  }`}
+                >
                   <Icon className="w-6 h-6 stroke-[2.5]" />
                 </div>
-                <span className={`text-[11px] font-bold mt-1 ${
-                  isActive ? 'text-brand-400' : 'text-zinc-400'
-                }`}>
+                <span
+                  className={`text-[11px] font-bold mt-1 ${
+                    isActive ? "text-brand-400" : "text-zinc-400"
+                  }`}
+                >
                   {tab.label}
                 </span>
               </button>
@@ -56,10 +79,10 @@ export const MobileNav: React.FC<Props> = ({ currentTab, onSelectTab }) => {
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
               className={`flex flex-col items-center justify-center py-1.5 px-3 min-w-[56px] min-h-[48px] rounded-xl transition-all ${
-                isActive ? 'text-brand-400 font-bold' : 'text-zinc-400 hover:text-zinc-200'
+                isActive ? "text-brand-400 font-bold" : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.2]' : 'stroke-[1.75]'}`} />
+              <Icon className={`w-5 h-5 ${isActive ? "stroke-[2.2]" : "stroke-[1.75]"}`} />
               <span className="text-[11px] mt-1 tracking-tight">{tab.label}</span>
             </button>
           );

@@ -301,15 +301,15 @@ export const NutritionView: React.FC = () => {
           {/* Quick Macro Badges */}
           <div className="flex items-center gap-2 sm:gap-3 text-right">
             <div className="px-2.5 py-1 rounded-xl bg-zinc-800/80 border border-zinc-700/40">
-              <span className="text-[10px] text-zinc-400 block font-medium">Protein</span>
+              <span className="text-[10px] text-zinc-400 block font-medium">{t('nutrition.protein', 'Protein')}</span>
               <span className="text-xs font-semibold text-sky-400">{todayProtein}g</span>
             </div>
             <div className="px-2.5 py-1 rounded-xl bg-zinc-800/80 border border-zinc-700/40">
-              <span className="text-[10px] text-zinc-400 block font-medium">Carbs</span>
+              <span className="text-[10px] text-zinc-400 block font-medium">{t('nutrition.carbs', 'Carbs')}</span>
               <span className="text-xs font-semibold text-amber-400">{todayCarbs}g</span>
             </div>
             <div className="px-2.5 py-1 rounded-xl bg-zinc-800/80 border border-zinc-700/40">
-              <span className="text-[10px] text-zinc-400 block font-medium">Fat</span>
+              <span className="text-[10px] text-zinc-400 block font-medium">{t('nutrition.fat', 'Fat')}</span>
               <span className="text-xs font-semibold text-rose-400">{todayFat}g</span>
             </div>
           </div>
@@ -371,14 +371,33 @@ export const NutritionView: React.FC = () => {
         {/* Quick Suggestion Chips */}
         {components.length === 0 && (
           <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {[
-              '200g Chicken breast & rice',
-              '2 eggs + toast',
-              '150g Salmon with veggies',
-              'Овсянка с бананом',
-              'Борщ с говядиной',
-              'Бесбармақ',
-            ].map((chip, idx) => (
+            {(language === 'ru'
+              ? [
+                  '200г Куриная грудка с рисом',
+                  '2 яйца + тост',
+                  '150г Лосось с овощами',
+                  'Овсянка с бананом',
+                  'Борщ с говядиной',
+                  'Бешбармак',
+                ]
+              : language === 'kk'
+              ? [
+                  '200г Тауық еті мен күріш',
+                  '2 жұмыртқа + тост',
+                  '150г Қызыл балық көкөніспен',
+                  'Сұлы ботқасы бананмен',
+                  'Ет қосылған борщ',
+                  'Бесбармақ',
+                ]
+              : [
+                  '200g Chicken breast & rice',
+                  '2 eggs + toast',
+                  '150g Salmon with veggies',
+                  'Oatmeal with banana',
+                  'Beef soup & bread',
+                  'Traditional pasta with beef',
+                ]
+            ).map((chip, idx) => (
               <button
                 key={idx}
                 type="button"
@@ -523,11 +542,11 @@ export const NutritionView: React.FC = () => {
         {loading ? (
           <div className="py-8 text-center text-zinc-500 text-xs flex flex-col items-center justify-center space-y-1.5">
             <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-            <span>Loading...</span>
+            <span>{t('trainer.loading', 'Loading...')}</span>
           </div>
         ) : logs.length === 0 ? (
           <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-center text-xs text-zinc-500">
-            {t('nutrition.noMealsYet', 'No meals logged yet today.')}
+            {t('nutrition.noLogs', 'No meals logged yet today.')}
           </div>
         ) : (
           <div className="space-y-2">

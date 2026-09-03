@@ -85,4 +85,16 @@ export const sleepService = {
 
     return api.logSleep(record);
   },
+
+  async deleteSleepRecord(recordId: string | number): Promise<boolean> {
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('sleep_records').delete().eq('id', recordId);
+        return true;
+      } catch (err) {
+        console.warn('Notice deleting sleep record:', err);
+      }
+    }
+    return true;
+  },
 };

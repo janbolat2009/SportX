@@ -4,10 +4,11 @@ import { workoutService } from '../../services/workoutService';
 import { recoveryService } from '../../services/recoveryService';
 import { getLocalizedExercise } from '../../services/exerciseService';
 import { useTranslation } from '../../i18n';
-import { Exercise, WorkoutSession, AssignedWorkout } from '../../types';
+import { Exercise, WorkoutSession, AssignedWorkout, TrainerFeedback } from '../../types';
+import { coachService } from '../../services/coachService';
 import {
   Play, Upload, Flame, Moon, Utensils, Award, TrendingUp,
-  ChevronRight, ArrowRight, ShieldCheck, Dumbbell, Clock, Activity, Loader2
+  ChevronRight, ArrowRight, ShieldCheck, Dumbbell, Clock, Activity, Loader2, MessageSquare
 } from 'lucide-react';
 import { HolisticTrackingModal } from './HolisticTrackingModal';
 
@@ -23,6 +24,7 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
   const [assignedWorkouts, setAssignedWorkouts] = useState<AssignedWorkout[]>([]);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [readiness, setReadiness] = useState<any>(null);
+  const [trainerFeedbacks, setTrainerFeedbacks] = useState<TrainerFeedback[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showHolisticModal, setShowHolisticModal] = useState(false);
@@ -31,16 +33,18 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
   const loadDashboardData = async () => {
     try {
       const userIdStr = user?.id ? String(user.id) : undefined;
-      const [exData, assignData, sessData, readData] = await Promise.all([
+      const [exData, assignData, sessData, readData, feedbackData] = await Promise.all([
         workoutService.getExercises(),
         workoutService.getAssignedWorkouts(userIdStr),
         workoutService.getWorkoutSessions(userIdStr),
-        recoveryService.getReadinessScore(userIdStr)
+        recoveryService.getReadinessScore(userIdStr),
+        coachService.getAthleteTrainerFeedback(userIdStr || 'athlete-1')
       ]);
       setExercises(exData);
       setAssignedWorkouts(assignData);
       setRecentSessions(sessData);
       setReadiness(readData);
+      setTrainerFeedbacks(feedbackData);
     } catch (e) {
       console.error('Failed to load athlete dashboard data:', e);
     } finally {
@@ -247,7 +251,55 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
         </div>
       </div>
 
-      {/* 5. Recent Workout Sessions Feed */}
+      {/* 5. Trainer Feedback & Recommendations Feed */}
+      {trainerFeedbacks.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-brand-400" />
+              <span>{t('athleteFeedback.title', 'Trainer Feedback & Notes')} ({trainerFeedbacks.length})</span>
+            </h3>
+          </div>
+
+          <div className="space-y-2.5">
+            {trainerFeedbacks.slice(0, 3).map((fb) => (
+              <div
+                key={fb.id}
+                className="p-4 rounded-2xl bg-surface-card border border-surface-border space-y-1.5 shadow-sm transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md uppercase font-semibold ${
+                      fb.type === 'recommendation'
+                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                        : fb.type === 'note'
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    }`}>
+                      {fb.type === 'recommendation'
+                        ? t('athleteFeedback.recBadge', 'Recommendation')
+                        : fb.type === 'note'
+                        ? t('athleteFeedback.noteBadge', 'Note')
+                        : t('athleteFeedback.feedbackBadge', 'Feedback')}
+                    </span>
+                    <span className="text-xs font-bold text-white">
+                      {fb.trainer_name || 'Trainer'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 font-mono">
+                    {new Date(fb.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-300 leading-relaxed font-medium pl-0.5">
+                  "{fb.content}"
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Recent Workout Sessions Feed */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">

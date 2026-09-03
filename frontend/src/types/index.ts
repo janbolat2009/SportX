@@ -1,4 +1,4 @@
-export type UserRole = 'athlete' | 'coach' | 'researcher' | 'admin';
+export type UserRole = 'athlete' | 'coach' | 'trainer' | 'researcher' | 'admin';
 
 export interface User {
   id: number | string;
@@ -389,4 +389,21 @@ export interface HumanAiAgreementStats {
     human_error?: string | null;
     ai_error?: string | null;
   }>;
+}
+
+export type FeedbackType = 'feedback' | 'note' | 'recommendation';
+
+export interface TrainerFeedback {
+  id: string;
+  trainer_id: string;
+  athlete_id: string;
+  trainer_name?: string;
+  athlete_name?: string;
+  session_id?: string | number | null;
+  exercise_name?: string | null;
+  type: FeedbackType;
+  title?: string;
+  content: string;
+  created_at: string;
+  is_read?: boolean;
 }

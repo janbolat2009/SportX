@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { LanguageSelector } from '../common/LanguageSelector';
+import { ThemeToggle } from '../common/ThemeToggle';
 import { profileService } from '../../services/profileService';
 import { storageService } from '../../services/storageService';
 import { UserRole } from '../../types';
@@ -259,7 +260,7 @@ export const ProfileView: React.FC = () => {
                           : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      {t('auth.coach')}
+                      {t('auth.trainer', 'Trainer')}
                     </button>
                   </div>
                 </div>
@@ -553,6 +554,34 @@ export const ProfileView: React.FC = () => {
                   <span>{t('profile.saveChanges')}</span>
                 )}
               </button>
+            </div>
+          </div>
+
+          {/* Appearance & Language Settings */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 sm:p-7 space-y-4 shadow-sm">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Globe className="w-4 h-4 text-brand-400" />
+              <span>{t('theme.title', 'Appearance & Preferences')}</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Theme Switcher */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  {t('theme.title', 'Theme')}
+                </span>
+                <ThemeToggle compact={false} />
+              </div>
+
+              {/* Language Selector */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  {t('profile.language', 'Language')}
+                </span>
+                <div className="p-1 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center h-12">
+                  <LanguageSelector compact={false} />
+                </div>
+              </div>
             </div>
           </div>
 

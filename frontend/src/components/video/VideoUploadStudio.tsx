@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from '../../i18n/LanguageContext';
 import { api } from '../../services/api';
 import { Exercise } from '../../types';
 import {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export const VideoUploadStudio: React.FC<Props> = ({ onBack, onViewSessionDetail }) => {
+  const { t } = useTranslation();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>('squat');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -62,9 +64,9 @@ export const VideoUploadStudio: React.FC<Props> = ({ onBack, onViewSessionDetail
           className="flex items-center gap-2 text-sm text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
+          {t('video.back', 'Back to Dashboard')}
         </button>
-        <h2 className="text-lg font-extrabold text-white">Video Technique Analysis Studio</h2>
+        <h2 className="text-lg font-extrabold text-white">{t('video.studioTitle', 'Video Technique Analysis Studio')}</h2>
       </div>
 
       {!report ? (
@@ -73,7 +75,7 @@ export const VideoUploadStudio: React.FC<Props> = ({ onBack, onViewSessionDetail
           {/* Exercise Selection */}
           <div className="glass-panel p-5 rounded-3xl border border-slate-800">
             <label className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider block mb-2">
-              Select Exercise to Analyze
+              {t('video.selectExercise', 'Select Exercise to Analyze')}
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {exercises.map((ex) => (
@@ -115,10 +117,10 @@ export const VideoUploadStudio: React.FC<Props> = ({ onBack, onViewSessionDetail
                 <UploadCloud className="w-8 h-8" />
               </div>
               <h3 className="text-base font-bold text-white">
-                {selectedFile ? selectedFile.name : 'Drag & drop exercise video'}
+                {selectedFile ? selectedFile.name : t('video.dragDrop', 'Drag & drop exercise video')}
               </h3>
               <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                Supports MP4, MOV, or WEBM format (recommended max duration: 60 seconds).
+                {t('video.formats', 'Supports MP4, MOV, or WEBM format (recommended max duration: 60s).')}
               </p>
             </label>
 
@@ -150,12 +152,12 @@ export const VideoUploadStudio: React.FC<Props> = ({ onBack, onViewSessionDetail
             {isUploading ? (
               <>
                 <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
-                Analyzing Kinematics & Pose Estimation...
+                {t('video.analyzing', 'Analyzing Kinematics & Pose Estimation...')}
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Run AI Technique Analysis
+                {t('video.runAnalysis', 'Run AI Technique Analysis')}
               </>
             )}
           </button>
@@ -175,7 +177,7 @@ export const VideoUploadStudio: React.FC<Props> = ({ onBack, onViewSessionDetail
                   </span>
                   <span className="text-xs text-slate-400 font-medium">Video Processing Complete</span>
                 </div>
-                <h3 className="text-2xl font-extrabold text-white mt-1">Biomechanical Assessment Report</h3>
+                <h3 className="text-2xl font-extrabold text-white mt-1">{t('video.reportTitle', 'Biomechanical Assessment Report')}</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Analyzed {report.total_frames_processed} frames ({report.video_duration_seconds}s) at {report.processing_fps} FPS.
                 </p>
@@ -197,7 +199,7 @@ export const VideoUploadStudio: React.FC<Props> = ({ onBack, onViewSessionDetail
             <div className="mt-5 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-slate-200 leading-relaxed flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-emerald-300 mb-0.5">Automated Biomechanical Feedback:</p>
+                <p className="font-bold text-emerald-300 mb-0.5">{t('video.aiFeedback', 'Automated Biomechanical Feedback')}:</p>
                 <p>{report.feedback_summary}</p>
               </div>
             </div>

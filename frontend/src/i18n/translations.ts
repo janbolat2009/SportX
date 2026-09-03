@@ -144,6 +144,11 @@ export const translations: TranslationDictionary = {
     ru: 'Тренер / Наставник',
     kk: 'Жаттықтырушы',
   },
+  'auth.trainer': {
+    en: 'Trainer',
+    ru: 'Тренер',
+    kk: 'Бапкер',
+  },
   'auth.fullName': {
     en: 'Full Name',
     ru: 'Полное имя',
@@ -1407,6 +1412,434 @@ export const translations: TranslationDictionary = {
     ru: 'Здравствуйте! Я ваш ИИ-тренер SportX. Спросите меня о технике упражнений, программах тренировок, сетах, повторениях, мобильности или восстановлении!',
     kk: 'Сәлеметсіз бе! Мен сіздің SportX ЖИ Бапкеріңізбін. Жаттығу техникасы, жаттығу жоспары, сетиялар, қайталаулар, созылу немесе қалпына келу туралы кез келген сұрақ қойыңыз!',
   },
+
+  // Navigation additions
+  'nav.athletes': {
+    en: 'Athletes',
+    ru: 'Атлеты',
+    kk: 'Спортшылар',
+  },
+
+  // Theme support
+  'theme.title': {
+    en: 'Appearance',
+    ru: 'Оформление',
+    kk: 'Сыртқы түрі',
+  },
+  'theme.light': {
+    en: 'Light Mode',
+    ru: 'Светлая тема',
+    kk: 'Ашық тақырып',
+  },
+  'theme.dark': {
+    en: 'Dark Mode',
+    ru: 'Тёмная тема',
+    kk: 'Күңгірт тақырып',
+  },
+  'theme.switchToLight': {
+    en: 'Switch to light mode',
+    ru: 'Переключить на светлую тему',
+    kk: 'Ашық тақырыпқа ауысу',
+  },
+  'theme.switchToDark': {
+    en: 'Switch to dark mode',
+    ru: 'Переключить на тёмную тему',
+    kk: 'Күңгірт тақырыпқа ауысу',
+  },
+
+  // Trainer & Coach Hub
+  'trainer.title': {
+    en: 'Trainer Dashboard',
+    ru: 'Кабинет тренера',
+    kk: 'Бапкер кабинеті',
+  },
+  'trainer.subtitle': {
+    en: 'Supervised athletes, movement telemetry & technique feedback',
+    ru: 'Спортсмены, биомеханика движений и персональные отзывы',
+    kk: 'Спортшылар, қозғалыс биомеханикасы және жеке пікірлер',
+  },
+  'trainer.activeAthletes': {
+    en: 'Active Athletes',
+    ru: 'Активные атлеты',
+    kk: 'Белсенді спортшылар',
+  },
+  'trainer.searchPlaceholder': {
+    en: 'Search athlete or sport...',
+    ru: 'Поиск спортсмена или спорта...',
+    kk: 'Спортшыны немесе спорт түрін іздеу...',
+  },
+  'trainer.noAthletes': {
+    en: 'No connected athletes yet',
+    ru: 'Подключённых атлетов пока нет',
+    kk: 'Әзірге қосылған спортшылар жоқ',
+  },
+  'trainer.noAthletesDesc': {
+    en: 'When athletes connect to your trainer account, their technique telemetry and workout history will appear here.',
+    ru: 'Когда спортсмены подключатся к вашему аккаунту тренера, их тренировки и анализ техники появятся здесь.',
+    kk: 'Спортшылар сіздің бапкерлік аккаунтыңызға қосылғанда, олардың жаттығулары мен техникалық талдауы осында шығады.',
+  },
+  'trainer.avgScore': {
+    en: 'Avg Score',
+    ru: 'Средний балл',
+    kk: 'Орташа балл',
+  },
+  'trainer.assign': {
+    en: 'Assign Workout',
+    ru: 'Назначить',
+    kk: 'Жаттығу тағайындау',
+  },
+  'trainer.viewDetails': {
+    en: 'View Telemetry',
+    ru: 'Подробнее',
+    kk: 'Толығырақ',
+  },
+  'trainer.techniqueAlerts': {
+    en: 'Technique Alerts',
+    ru: 'Предупреждения по технике',
+    kk: 'Техникалық ескертулер',
+  },
+  'trainer.noAlerts': {
+    en: 'No active technique warnings.',
+    ru: 'Нет активных предупреждений по технике.',
+    kk: 'Белсенді техникалық ескертулер жоқ.',
+  },
+  'trainer.loading': {
+    en: 'Loading supervised athlete roster & technique telemetry...',
+    ru: 'Загрузка списка спортсменов и биомеханики...',
+    kk: 'Спортшылар тізімі мен биомеханиканы жүктеу...',
+  },
+  'trainer.addFeedbackTab': {
+    en: 'Add Feedback',
+    ru: 'Добавить отзыв',
+    kk: 'Пікір қосу',
+  },
+  'trainer.addNoteTab': {
+    en: 'Add Note',
+    ru: 'Добавить заметку',
+    kk: 'Жазба қосу',
+  },
+  'trainer.addRecommendationTab': {
+    en: 'Add Recommendation',
+    ru: 'Добавить рекомендацию',
+    kk: 'Ұсыныс қосу',
+  },
+  'trainer.feedbackPlaceholder': {
+    en: 'Write personal observation, technique advice or recommendation (e.g. Keep your knees aligned with your feet during squats)...',
+    ru: 'Напишите персональные наблюдения или совет (напр., Держите колени сонаправленно стопам во время приседаний)...',
+    kk: 'Жеке бақылауыңызды немесе кеңесіңізді жазыңыз (мыс., Отырып-тұру кезінде тізелерді аяқ бағытымен тура ұстаңыз)...',
+  },
+  'trainer.sendFeedback': {
+    en: 'Send to Athlete',
+    ru: 'Отправить атлету',
+    kk: 'Спортшыға жіберу',
+  },
+  'trainer.feedbackSaved': {
+    en: 'Feedback successfully delivered to athlete',
+    ru: 'Отзыв успешно передан спортсмену',
+    kk: 'Пікір спортшыға сәтті жеткізілді',
+  },
+  'trainer.history': {
+    en: 'Training History',
+    ru: 'История тренировок',
+    kk: 'Жаттығулар тарихы',
+  },
+  'trainer.deviations': {
+    en: 'Detected Technique Problems',
+    ru: 'Выявленные ошибки техники',
+    kk: 'Анықталған техникалық қателер',
+  },
+  'trainer.noDeviations': {
+    en: 'No frequent deviations detected. Form is consistent.',
+    ru: 'Частых отклонений не обнаружено. Техника стабильна.',
+    kk: 'Жиі қателер анықталмады. Техника тұрақты.',
+  },
+
+  // Athlete Trainer Feedback View
+  'athleteFeedback.title': {
+    en: 'Trainer Feedback & Notes',
+    ru: 'Отзывы и рекомендации тренера',
+    kk: 'Бапкердің пікірлері мен ұсыныстары',
+  },
+  'athleteFeedback.empty': {
+    en: 'No notes from your trainer yet. Complete a workout to receive guidance!',
+    ru: 'Заметок от тренера пока нет. Завершите тренировку, чтобы получить обратную связь!',
+    kk: 'Бапкеріңізден әлі жазбалар жоқ. Пікір алу үшін жаттығуды орындаңыз!',
+  },
+  'athleteFeedback.noteBadge': {
+    en: 'Note',
+    ru: 'Заметка',
+    kk: 'Жазба',
+  },
+  'athleteFeedback.recBadge': {
+    en: 'Recommendation',
+    ru: 'Рекомендация',
+    kk: 'Ұсыныс',
+  },
+  'athleteFeedback.feedbackBadge': {
+    en: 'Feedback',
+    ru: 'Отзыв',
+    kk: 'Пікір',
+  },
+
+  // Progress View
+  'progress.subtitle': {
+    en: 'Biomechanics and holistic readiness metrics',
+    ru: 'Биомеханика и показатели готовности',
+    kk: 'Биомеханика және дайындық көрсеткіштері',
+  },
+  'progress.avgScore': {
+    en: 'Average Score',
+    ru: 'Средний балл',
+    kk: 'Орташа балл',
+  },
+  'progress.analyzedReps': {
+    en: 'Analyzed Reps',
+    ru: 'Проанализировано повторений',
+    kk: 'Талданған қайталаулар',
+  },
+  'progress.acrossSessions': {
+    en: 'Across sessions',
+    ru: 'За все сессии',
+    kk: 'Барлық сессиялар бойынша',
+  },
+  'progress.avgSymmetry': {
+    en: 'Avg Symmetry',
+    ru: 'Средняя симметрия',
+    kk: 'Орташа симметрия',
+  },
+  'progress.optimalBalance': {
+    en: 'Optimal Balance',
+    ru: 'Оптимальный баланс',
+    kk: 'Оңтайлы теңгерім',
+  },
+  'progress.readinessScore': {
+    en: 'Readiness Score',
+    ru: 'Индекс готовности',
+    kk: 'Дайындық индексі',
+  },
+  'progress.readyHighLoad': {
+    en: 'Ready for High Load',
+    ru: 'Готов к нагрузкам',
+    kk: 'Жоғары жүктемеге дайын',
+  },
+  'progress.techniqueTrend': {
+    en: 'Technique Score Trend',
+    ru: 'Динамика качества техники',
+    kk: 'Техника сапасының динамикасы',
+  },
+  'progress.target': {
+    en: 'Target: 85%+',
+    ru: 'Цель: 85%+',
+    kk: 'Мақсат: 85%+',
+  },
+  'progress.sessionHistory': {
+    en: 'Session History',
+    ru: 'История тренировок',
+    kk: 'Жаттығулар тарихы',
+  },
+  'progress.noSessions': {
+    en: 'No completed workouts yet. Start an exercise session to track technique progress!',
+    ru: 'Пока нет завершённых тренировок. Начните упражнение для отслеживания прогресса техники!',
+    kk: 'Әзірге аяқталған жаттығулар жоқ. Техника прогресін бақылау үшін жаттығуды бастаңыз!',
+  },
+  'progress.solidForm': {
+    en: 'Solid Form',
+    ru: 'Отличная техника',
+    kk: 'Жақсы техника',
+  },
+  'progress.needsWork': {
+    en: 'Needs Work',
+    ru: 'Требует внимания',
+    kk: 'Назар аудару керек',
+  },
+  'progress.vsLastWeek': {
+    en: 'vs last week',
+    ru: 'по сравнению с прошлой неделей',
+    kk: 'өткен аптамен салыстырғанда',
+  },
+
+  // Nutrition View
+  'nutrition.today': {
+    en: 'Today\x27s Nutrition',
+    ru: 'Питание за сегодня',
+    kk: 'Бүгінгі тамақтану',
+  },
+  'nutrition.fat': {
+    en: 'Fat',
+    ru: 'Жиры',
+    kk: 'Майлар',
+  },
+  'nutrition.fiber': {
+    en: 'Fiber',
+    ru: 'Клетчатка',
+    kk: 'Талшық',
+  },
+  'nutrition.mealSaved': {
+    en: 'Meal logged successfully!',
+    ru: 'Приём пищи успешно записан!',
+    kk: 'Тағам сәтті жазылды!',
+  },
+  'nutrition.history': {
+    en: 'Recent Food Logs',
+    ru: 'История питания',
+    kk: 'Тамақтану тарихы',
+  },
+  'nutrition.noLogs': {
+    en: 'No meals logged yet today.',
+    ru: 'За сегодня пока нет записей о питании.',
+    kk: 'Бүгінге әлі тағам жазбалары жоқ.',
+  },
+
+  // Sleep View
+  'sleep.logTitle': {
+    en: 'Log Sleep Session',
+    ru: 'Записать сон',
+    kk: 'Ұйқыны жазу',
+  },
+  'sleep.bedtime': {
+    en: 'Bedtime',
+    ru: 'Отход ко сну',
+    kk: 'Ұйықтау уақыты',
+  },
+  'sleep.wakeUp': {
+    en: 'Wake Up',
+    ru: 'Подъём',
+    kk: 'Ояну уақыты',
+  },
+  'sleep.quality': {
+    en: 'Quality Rating',
+    ru: 'Качество сна',
+    kk: 'Ұйқы сапасы',
+  },
+  'sleep.feeling': {
+    en: 'Morning Feeling',
+    ru: 'Самочувствие утром',
+    kk: 'Таңертеңгі сезім',
+  },
+  'sleep.refreshed': {
+    en: 'Refreshed',
+    ru: 'Бодрый',
+    kk: 'Сергек',
+  },
+  'sleep.normal': {
+    en: 'Normal',
+    ru: 'Нормальное',
+    kk: 'Қалыпты',
+  },
+  'sleep.tired': {
+    en: 'Tired',
+    ru: 'Уставший',
+    kk: 'Шаршаған',
+  },
+  'sleep.saveSleep': {
+    en: 'Log Sleep Record',
+    ru: 'Сохранить запись сна',
+    kk: 'Ұйқыны сақтау',
+  },
+  'sleep.savedSuccess': {
+    en: 'Sleep record saved successfully!',
+    ru: 'Сон успешно сохранён!',
+    kk: 'Ұйқы сәтті сақталды!',
+  },
+  'sleep.pastHistory': {
+    en: 'Past Sleep History',
+    ru: 'История сна',
+    kk: 'Ұйқы тарихы',
+  },
+  'sleep.noHistory': {
+    en: 'No sleep logs recorded yet.',
+    ru: 'Записей о сне пока нет.',
+    kk: 'Ұйқы жазбалары әлі жоқ.',
+  },
+  'sleep.optimalRecovery': {
+    en: 'Optimal Recovery',
+    ru: 'Оптимальное восстановление',
+    kk: 'Оңтайлы қалпына келу',
+  },
+  'sleep.needsRest': {
+    en: 'Needs Rest',
+    ru: 'Нужен отдых',
+    kk: 'Демалыс қажет',
+  },
+  'sleep.goodRecovery': {
+    en: 'Good Recovery',
+    ru: 'Хорошее восстановление',
+    kk: 'Жақсы қалпына келу',
+  },
+  'sleep.insightsNotice': {
+    en: 'Insights & Tips',
+    ru: 'Советы и рекомендации',
+    kk: 'Кеңестер мен ұсыныстар',
+  },
+  'sleep.hoursShort': {
+    en: 'h',
+    ru: 'ч',
+    kk: 'сағ',
+  },
+  'sleep.minsShort': {
+    en: 'm',
+    ru: 'мин',
+    kk: 'мин',
+  },
+
+  // Auth additions
+  'auth.trainerDesc': {
+    en: 'Manage athletes, analyze biomechanics and send feedback',
+    ru: 'Курируйте атлетов, анализируйте технику и давайте обратную связь',
+    kk: 'Спортшыларды бақылау, техниканы талдау және кері байланыс беру',
+  },
+  'auth.athleteDesc': {
+    en: 'Workout with AI camera, track nutrition, sleep and progress',
+    ru: 'Тренируйтесь с ИИ камерой, следите за сном, питанием и прогрессом',
+    kk: 'ЖИ камерасымен жаттығу, ұйқы, тамақтану және прогресті бақылау',
+  },
+
+  // Video Upload additions
+  'video.back': {
+    en: 'Back to Dashboard',
+    ru: 'Назад на главную',
+    kk: 'Басты бетке қайту',
+  },
+  'video.studioTitle': {
+    en: 'Video Technique Analysis Studio',
+    ru: 'Студия видеоанализа техники',
+    kk: 'Техниканы бейнетаңдау студиясы',
+  },
+  'video.selectExercise': {
+    en: 'Select Exercise to Analyze',
+    ru: 'Выберите упражнение для анализа',
+    kk: 'Талдау үшін жаттығуды таңдаңыз',
+  },
+  'video.dragDrop': {
+    en: 'Drag & drop exercise video',
+    ru: 'Перетащите видео с упражнением',
+    kk: 'Жаттығу бейнесін осында сүйреңіз',
+  },
+  'video.formats': {
+    en: 'Supports MP4, MOV, or WEBM format (recommended max duration: 60s).',
+    ru: 'Поддерживаются форматы MP4, MOV или WEBM (рекомендуется до 60 сек).',
+    kk: 'MP4, MOV немесе WEBM пішімдері (ұсынылатын ұзақтық: 60 сек дейін).',
+  },
+  'video.runAnalysis': {
+    en: 'Run AI Technique Analysis',
+    ru: 'Запустить ИИ анализ техники',
+    kk: 'ЖИ техникалық талдауын бастау',
+  },
+  'video.analyzing': {
+    en: 'Analyzing Kinematics & Pose Estimation...',
+    ru: 'Анализ кинематики и скелетных точек...',
+    kk: 'Кинематика мен дене нүктелерін талдау...',
+  },
+  'video.reportTitle': {
+    en: 'Biomechanical Assessment Report',
+    ru: 'Отчёт биомеханического анализа',
+    kk: 'Биомеханикалық бағалау есебі',
+  },
+  'video.aiFeedback': {
+    en: 'Automated Biomechanical Feedback',
+    ru: 'Автоматический анализ техники от ИИ',
+    kk: 'ЖИ автоматтандырылған техникалық пікірі',
+  },
 };
 
 export const getTranslation = (key: string, lang: Language): string => {
@@ -1414,4 +1847,3 @@ export const getTranslation = (key: string, lang: Language): string => {
   if (!item) return key;
   return item[lang] || item['en'] || key;
 };
-
