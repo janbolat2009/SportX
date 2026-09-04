@@ -170,9 +170,9 @@ async def chat_with_assistant(
     """
     Secure backend proxy for SportX AI Assistant.
     - Validates user rate limits.
-    - Uses server-side OPENAI_API_KEY without exposing it to the frontend.
+    - Uses server-side GEMINI_API_KEY without exposing it to the frontend.
     - Enforces strict fitness-only scope via dedicated system prompt.
-    - Seamlessly falls back to deterministic biomechanical knowledge engine if OpenAI is unavailable.
+    - Seamlessly falls back to deterministic biomechanical knowledge engine if Gemini is unavailable.
     """
     # 1. Rate Limiting Check
     client_ip = raw_req.client.host if raw_req.client else "unknown"
@@ -215,44 +215,59 @@ async def chat_with_assistant(
         if issues:
             context_str += f"\n- Recent Detected Technique Flaws: {issues}"
 
-    # 4. Query OpenAI if configured
-    api_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
-    model_name = settings.OPENAI_MODEL or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    # 4. Query Google Gemini if configured
+    api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
+    model_name = settings.GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
-    if api_key and not api_key.startswith("your-") and len(api_key) > 15:
+    if api_key and not api_key.startswith("your-") and len(api_key) > 10:
         try:
             full_system = SPORTX_SYSTEM_PROMPT + context_str
-            openai_payload_messages = [{"role": "system", "content": full_system}]
+            gemini_contents = []
             
-            # Add up to 6 recent history messages to preserve conversation flow
+            # Add up to 6 recent history messages formatted for Gemini
             for h in history_messages[-6:]:
-                openai_payload_messages.append(h)
+                role = "model" if h.get("role") == "assistant" else "user"
+                gemini_contents.append({
+                    "role": role,
+                    "parts": [{"text": str(h.get("content", ""))[:3000]}]
+                })
             
-            openai_payload_messages.append({"role": "user", "content": user_query})
+            gemini_contents.append({
+                "role": "user",
+                "parts": [{"text": user_query[:3000]}]
+            })
+
+            gemini_payload = {
+                "system_instruction": {
+                    "parts": [{"text": full_system}]
+                },
+                "contents": gemini_contents,
+                "generationConfig": {
+                    "temperature": 0.4,
+                    "maxOutputTokens": 800
+                }
+            }
 
             async with httpx.AsyncClient(timeout=25.0) as client:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                 resp = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": model_name,
-                        "messages": openai_payload_messages,
-                        "temperature": 0.5,
-                        "max_tokens": 800,
-                    },
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json=gemini_payload,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    ai_content = data["choices"][0]["message"]["content"].strip()
-                    return AssistantChatResponse(
-                        role="assistant",
-                        content=ai_content,
-                        conversationId=request.conversationId,
-                        sources_used=["SportX OpenAI Biomechanics Engine"]
-                    )
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        ai_content = "".join([p.get("text", "") for p in parts]).strip()
+                        if ai_content:
+                            return AssistantChatResponse(
+                                role="assistant",
+                                content=ai_content,
+                                conversationId=request.conversationId,
+                                sources_used=["SportX Gemini Biomechanics Engine"]
+                            )
         except Exception as e:
             # Fallback to local rules engine on upstream network/API issue
             pass

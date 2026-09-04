@@ -60,13 +60,13 @@ def seed_initial_data():
     Seeds essential exercise definitions, model version metadata, dataset registry,
     and demo accounts for seamless evaluation.
     """
-    # Log OpenAI key presence for debugging
-    api_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+    # Log Google Gemini key presence for debugging
+    api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     if api_key and not api_key.startswith("your-") and len(api_key) > 10:
-        mask = api_key[:8] + "..." + api_key[-4:] if len(api_key) > 12 else "..."
-        print(f"INFO: OpenAI API Key loaded successfully on backend: {mask}")
+        mask = api_key[:6] + "..." + api_key[-4:] if len(api_key) > 10 else "..."
+        print(f"INFO: Google Gemini API Key loaded successfully on backend: {mask}")
     else:
-        print("WARNING: OpenAI API Key is empty or placeholder. AI Assistant will run in deterministic offline mode.")
+        print("WARNING: Google Gemini API Key is empty or placeholder. AI Assistant will run in deterministic offline mode.")
 
     db = SessionLocal()
     try:

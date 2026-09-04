@@ -165,31 +165,63 @@ html.light .text-slate-400 {
   color: #78716c !important;
 }
 
-/* Brand text in light mode for readability */
-html.light .text-brand-400 {
-  color: #059669 !important;
+/* Brand text and accents in light mode for readability & harmony */
+html.light .text-brand-400,
+html.light .text-emerald-400 {
+  color: #047857 !important;
 }
 
-/* Preserve bright text for colored badges, camera HUD, and action buttons */
+/* Harmonious athletic deep emerald for buttons and chips in Light Mode */
+html.light .bg-brand-500,
+html.light .bg-brand-400 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+}
+html.light .bg-brand-500:hover,
+html.light .bg-brand-400:hover {
+  background-color: #047857 !important;
+}
+html.light .bg-brand-500\/10,
+html.light .bg-emerald-500\/10 {
+  background-color: rgba(5, 150, 105, 0.08) !important;
+}
+html.light .border-brand-500\/20,
+html.light .border-brand-500\/30,
+html.light .border-emerald-500\/20 {
+  border-color: rgba(5, 150, 105, 0.22) !important;
+}
+
+/* Ensure leftover white text from dark mode is high-contrast dark in Light Mode */
+html.light .text-white:not(.keep-white-text):not(.text-white-force):not(.bg-black *):not(.bg-zinc-950 *):not(.bg-emerald-600 *):not(.bg-emerald-700 *):not(.bg-brand-500 *):not(.bg-rose-600 *):not(.bg-rose-500 *):not(.bg-indigo-600 *) {
+  color: #1c1917 !important;
+}
+html.light .text-gray-100,
+html.light .text-gray-200,
+html.light .text-stone-100,
+html.light .text-neutral-100 {
+  color: #1c1917 !important;
+}
+
+/* Preserve crisp white text for colored action buttons, camera HUD, and badges */
+html.light .bg-black,
 html.light .bg-black *,
+html.light .bg-zinc-950,
 html.light .bg-zinc-950 *,
+html.light .bg-rose-600,
 html.light .bg-rose-600 *,
+html.light .bg-rose-500,
 html.light .bg-rose-500 *,
+html.light .bg-emerald-600,
 html.light .bg-emerald-600 *,
+html.light .bg-emerald-700,
+html.light .bg-emerald-700 *,
+html.light .bg-brand-500,
+html.light .bg-brand-500 *,
+html.light .bg-indigo-600,
 html.light .bg-indigo-600 *,
 html.light .keep-white-text,
 html.light .text-white-force {
   color: #ffffff !important;
-}
-
-/* Keep high contrast on brand buttons */
-html.light .bg-brand-500,
-html.light .bg-brand-400 {
-  color: #000000 !important;
-}
-html.light .bg-brand-500 *,
-html.light .bg-brand-400 * {
-  color: #000000 !important;
 }
 
 /* Light Mode Input, Textarea & Select */

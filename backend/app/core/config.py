@@ -47,10 +47,10 @@ class Settings(BaseSettings):
     DEFAULT_FEATURE_VERSION: str = "pose-kinematics-v1.0"
     DEFAULT_SCORING_VERSION: str = "biomech-scoring-v1.0"
     
-    # OpenAI Backend Assistant Settings
-    # Reads OPENAI_API_KEY from environment or .env file
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    # Google Gemini Backend Assistant Settings
+    # Reads GEMINI_API_KEY from environment or .env file
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-flash"
     AI_MAX_REQUESTS_PER_MINUTE: int = 20
 
     # Supabase Server Verification

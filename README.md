@@ -72,7 +72,7 @@
 - Python 3.10+
 - Node.js 18+ and npm
 
-### 1. Backend Setup & OpenAI Configuration
+### 1. Backend Setup & Google Gemini Configuration
 ```bash
 # Navigate to backend directory
 cd backend
@@ -80,16 +80,17 @@ cd backend
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure OpenAI API Key (Backend Only)
+# Configure Google Gemini API Key (Backend Only)
 # Create or edit .env in the project root or backend/.env:
-# OPENAI_API_KEY=sk-proj-your-actual-openai-api-key
+# GEMINI_API_KEY=AIzaSy...your-actual-gemini-api-key
+# GEMINI_MODEL=gemini-1.5-flash
 
 # Start FastAPI backend server
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 API Documentation will be available at `http://127.0.0.1:8000/docs`.
 
-> 🔒 **Security Notice**: `OPENAI_API_KEY` is loaded exclusively on the FastAPI backend server. It is never exposed in client JavaScript bundles or client `.env` files. If you update the key, restart the backend server with `uvicorn app.main:app --reload`.
+> 🔒 **Security Notice**: `GEMINI_API_KEY` is loaded exclusively on the FastAPI backend server. It is never exposed in client JavaScript bundles or client `.env` files. If you update the key, restart the backend server with `uvicorn app.main:app --reload`.
 
 ### 2. Frontend Setup
 ```bash

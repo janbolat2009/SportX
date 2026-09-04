@@ -1428,9 +1428,9 @@ export const translations: TranslationDictionary = {
     kk: 'Ескерту: Фитнеске қатысы жоқ сұрақтар қабылданбайды.',
   },
   'ai.errorApiKey': {
-    en: 'OpenAI API key is not configured on the server. Please add OPENAI_API_KEY to environment variables.',
-    ru: 'API ключ OpenAI не настроен на сервере. Добавьте OPENAI_API_KEY в переменные окружения.',
-    kk: 'OpenAI API кілті серверде бапталмаған. OPENAI_API_KEY орта айнымалыларына қосыңыз.',
+    en: 'Google Gemini API key is not configured on the server. Please add GEMINI_API_KEY to environment variables.',
+    ru: 'API ключ Google Gemini не настроен на сервере. Добавьте GEMINI_API_KEY в переменные окружения.',
+    kk: 'Google Gemini API кілті серверде бапталмаған. GEMINI_API_KEY орта айнымалыларына қосыңыз.',
   },
   'ai.errorNetwork': {
     en: 'Unable to connect to AI server. Please check your internet connection.',

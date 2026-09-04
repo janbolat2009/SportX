@@ -62,10 +62,10 @@ export const ProgressView: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white tracking-tight">
             {t("progress.title", "Athlete Progress")}
           </h1>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-stone-600 dark:text-zinc-400">
             {t("progress.subtitle", "Biomechanics and holistic readiness metrics")}
           </p>
         </div>
@@ -75,23 +75,23 @@ export const ProgressView: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         
         <div className="p-4 rounded-2xl bg-surface-card border border-surface-border shadow-xs">
-          <span className="text-[11px] font-semibold text-zinc-400 block">
+          <span className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400 block">
             {t("progress.avgScore", "Average Score")}
           </span>
-          <p className="text-2xl sm:text-3xl font-black text-white mt-1">
-            {avgScore}<span className="text-xs text-zinc-500 font-normal">/100</span>
+          <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1">
+            {avgScore}<span className="text-xs text-stone-400 dark:text-zinc-500 font-normal">/100</span>
           </p>
-          <span className="text-[10px] text-brand-400 font-medium flex items-center gap-0.5 mt-1">
+          <span className="text-[10px] text-emerald-600 dark:text-brand-400 font-medium flex items-center gap-0.5 mt-1">
             <ArrowUpRight className="w-3 h-3" /> +4% {t("progress.vsLastWeek", "vs last week")}
           </span>
         </div>
 
         <div className="p-4 rounded-2xl bg-surface-card border border-surface-border shadow-xs">
-          <span className="text-[11px] font-semibold text-zinc-400 block">
+          <span className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400 block">
             {t("progress.analyzedReps", "Analyzed Reps")}
           </span>
-          <p className="text-2xl sm:text-3xl font-black text-white mt-1 font-mono">{totalRepsCount}</p>
-          <span className="text-[10px] text-zinc-500 font-medium mt-1 block">
+          <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1 font-mono">{totalRepsCount}</p>
+          <span className="text-[10px] text-stone-400 dark:text-zinc-500 font-medium mt-1 block">
             {language === "ru"
               ? `За ${sessions.length} сессий`
               : language === "kk"
@@ -101,24 +101,24 @@ export const ProgressView: React.FC = () => {
         </div>
 
         <div className="p-4 rounded-2xl bg-surface-card border border-surface-border shadow-xs">
-          <span className="text-[11px] font-semibold text-zinc-400 block">
+          <span className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400 block">
             {t("progress.avgSymmetry", "Avg Symmetry")}
           </span>
-          <p className="text-2xl sm:text-3xl font-black text-white mt-1 font-mono">94%</p>
-          <span className="text-[10px] text-brand-400 font-medium flex items-center gap-0.5 mt-1">
+          <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1 font-mono">94%</p>
+          <span className="text-[10px] text-emerald-600 dark:text-brand-400 font-medium flex items-center gap-0.5 mt-1">
             <CheckCircle2 className="w-3 h-3" /> {t("progress.optimalBalance", "Optimal Balance")}
           </span>
         </div>
 
         <div className="p-4 rounded-2xl bg-surface-card border border-surface-border shadow-xs">
-          <span className="text-[11px] font-semibold text-zinc-400 block">
+          <span className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400 block">
             {t("progress.readinessScore", "Readiness Score")}
           </span>
-          <p className="text-2xl sm:text-3xl font-black text-white mt-1 font-mono">
+          <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1 font-mono">
             {readiness?.readiness_score || 88}%
           </p>
-          <span className="text-[10px] text-brand-400 font-medium flex items-center gap-0.5 mt-1">
-            <Flame className="w-3 h-3 text-brand-400" /> {t("progress.readyHighLoad", "Ready for High Load")}
+          <span className="text-[10px] text-emerald-600 dark:text-brand-400 font-medium flex items-center gap-0.5 mt-1">
+            <Flame className="w-3 h-3 text-emerald-600 dark:text-brand-400" /> {t("progress.readyHighLoad", "Ready for High Load")}
           </span>
         </div>
 
@@ -128,12 +128,12 @@ export const ProgressView: React.FC = () => {
       <div className="p-5 rounded-2xl bg-surface-card border border-surface-border space-y-4 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-brand-400" />
-            <h3 className="text-sm font-bold text-white">
+            <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-brand-400" />
+            <h3 className="text-sm font-bold text-stone-900 dark:text-white">
               {t("progress.techniqueTrend", "Technique Score Trend")}
             </h3>
           </div>
-          <span className="text-xs font-mono text-zinc-400">{t("progress.target", "Target: 85%+")}</span>
+          <span className="text-xs font-mono text-stone-500 dark:text-zinc-400">{t("progress.target", "Target: 85%+")}</span>
         </div>
 
         {/* CSS Bar Chart */}
@@ -166,12 +166,12 @@ export const ProgressView: React.FC = () => {
 
       {/* Completed Sessions Feed */}
       <div className="space-y-3">
-        <h3 className="text-sm font-bold text-white px-1">
+        <h3 className="text-sm font-bold text-stone-900 dark:text-white px-1">
           {t("progress.sessionHistory", "Session History")}
         </h3>
 
         {sessions.length === 0 ? (
-          <div className="p-8 rounded-2xl bg-surface-card border border-surface-border text-center text-zinc-400 text-xs">
+          <div className="p-8 rounded-2xl bg-surface-card border border-surface-border text-center text-stone-500 dark:text-zinc-400 text-xs shadow-xs">
             {t("progress.noSessions", "No completed workouts yet. Start an exercise session to track technique progress!")}
           </div>
         ) : (
@@ -182,14 +182,14 @@ export const ProgressView: React.FC = () => {
               className="p-4 rounded-2xl bg-surface-card border border-surface-border hover:border-surface-borderLight cursor-pointer transition-all active:scale-[0.99] flex items-center justify-between gap-4 shadow-xs"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-center font-bold text-xs text-brand-400 font-mono">
+                <div className="w-10 h-10 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-center font-bold text-xs text-emerald-600 dark:text-brand-400 font-mono shadow-xs">
                   {Math.round(sess.overall_score)}
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white capitalize">
+                  <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white capitalize">
                     {sess.exercise_name || sess.exercise_slug}
                   </h4>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-[11px] text-stone-500 dark:text-zinc-400">
                     {sess.total_reps} {language === "ru" ? "повторов" : language === "kk" ? "қайталау" : "reps"} • {Math.round(sess.duration_seconds || 0)}s • {new Date(sess.created_at).toLocaleDateString()}
                   </p>
                 </div>

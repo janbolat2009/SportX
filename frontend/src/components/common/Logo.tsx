@@ -31,20 +31,26 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true, classN
         className="shrink-0"
       >
         {/* Precision Kinetic Track */}
-        <rect width="36" height="36" rx="10" fill="#0A0A0C" stroke="#27272A" strokeWidth="1.5" />
+        <rect
+          width="36"
+          height="36"
+          rx="10"
+          className="fill-white dark:fill-[#0A0A0C] stroke-stone-300 dark:stroke-[#27272A] transition-colors"
+          strokeWidth="1.5"
+        />
         
         {/* Abstract Dynamic Kinetic Form Line (Biomechanical Angle & Vector) */}
         <path
           d="M9 25L15 13L21 21L27 10"
-          stroke="#10B981"
+          className="stroke-emerald-600 dark:stroke-brand-500 transition-colors"
           strokeWidth="3.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         
         {/* Focal Motion Node */}
-        <circle cx="27" cy="10" r="2.5" fill="#38BDF8" />
-        <circle cx="15" cy="13" r="2" fill="#10B981" />
+        <circle cx="27" cy="10" r="2.5" className="fill-sky-600 dark:fill-[#38BDF8]" />
+        <circle cx="15" cy="13" r="2" className="fill-emerald-600 dark:fill-[#10B981]" />
       </svg>
 
       {showText && (

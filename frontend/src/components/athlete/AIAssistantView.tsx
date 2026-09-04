@@ -198,7 +198,7 @@ export const AIAssistantView: React.FC = () => {
           if (response.status === 401) {
             errMsg = t('ai.errorApiKey');
           } else if (response.status === 429) {
-            errMsg = 'OpenAI rate limit reached. Please wait a few moments and try again.';
+            errMsg = t('ai.errorRateLimit', 'AI rate limit reached. Please wait a few moments and try again.');
           } else {
             errMsg = `AI service returned error ${response.status}.`;
           }
@@ -235,18 +235,18 @@ export const AIAssistantView: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between pb-2 border-b border-surface-border shrink-0">
         <div className="space-y-0.5">
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <Bot className="w-5 h-5 text-brand-400" />
+          <h1 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Bot className="w-5 h-5 text-emerald-600 dark:text-brand-400" />
             <span>{t('ai.title')}</span>
           </h1>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-stone-500 dark:text-zinc-400">
             {t('ai.subtitle')}
           </p>
         </div>
 
         <button
           onClick={handleClearHistory}
-          className="p-2 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors"
+          className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:text-zinc-500 dark:hover:text-zinc-300 hover:bg-stone-100 dark:hover:bg-zinc-900 transition-colors"
           title={t('ai.clearChat')}
         >
           <Trash2 className="w-4 h-4" />
@@ -265,7 +265,7 @@ export const AIAssistantView: React.FC = () => {
             key={idx}
             type="button"
             onClick={() => handleSendMessage(prompt)}
-            className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-surface-cardHover border border-surface-border text-[11px] font-medium text-zinc-300 hover:text-white transition-colors"
+            className="px-2.5 py-1 rounded-xl bg-surface-card hover:bg-surface-cardHover border border-surface-border text-[11px] font-medium text-stone-700 dark:text-zinc-300 hover:text-emerald-700 dark:hover:text-white transition-colors"
           >
             {prompt}
           </button>
@@ -290,17 +290,17 @@ export const AIAssistantView: React.FC = () => {
               )}
 
               <div
-                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-md ${
+                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-xs ${
                   isAssistant
-                    ? 'bg-surface-card border border-surface-border text-zinc-200'
-                    : 'bg-brand-500 text-black font-semibold shadow-brand-500/10'
+                    ? 'bg-surface-card border border-surface-border text-stone-800 dark:text-zinc-200'
+                    : 'bg-emerald-600 text-white font-medium shadow-emerald-600/10'
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
                 {msg.created_at && (
                   <div
                     className={`text-[9px] font-mono mt-1 text-right ${
-                      isAssistant ? 'text-zinc-500' : 'text-zinc-800'
+                      isAssistant ? 'text-stone-400 dark:text-zinc-500' : 'text-emerald-100'
                     }`}
                   >
                     {new Date(msg.created_at).toLocaleTimeString([], {
@@ -312,7 +312,7 @@ export const AIAssistantView: React.FC = () => {
               </div>
 
               {!isAssistant && (
-                <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0 mt-0.5 font-bold text-xs">
+                <div className="w-8 h-8 rounded-xl bg-stone-200 dark:bg-zinc-800 border border-stone-300 dark:border-zinc-700 flex items-center justify-center text-stone-700 dark:text-zinc-300 shrink-0 mt-0.5 font-bold text-xs">
                   {user?.full_name?.charAt(0).toUpperCase() || <UserIcon className="w-4 h-4" />}
                 </div>
               )}
@@ -322,11 +322,11 @@ export const AIAssistantView: React.FC = () => {
 
         {loading && (
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-brand-400 shrink-0">
               <Bot className="w-4 h-4" />
             </div>
-            <div className="p-3.5 rounded-2xl bg-surface-card border border-surface-border flex items-center gap-2 text-zinc-400 text-xs">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+            <div className="p-3.5 rounded-2xl bg-surface-card border border-surface-border flex items-center gap-2 text-stone-500 dark:text-zinc-400 text-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-brand-400" />
               <span>{language === 'ru' ? 'ИИ думает...' : language === 'kk' ? 'ЖИ талдауда...' : 'SportX AI is thinking...'}</span>
             </div>
           </div>
@@ -338,7 +338,7 @@ export const AIAssistantView: React.FC = () => {
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <div className="flex-1 text-xs">
               <p className="font-bold">{language === 'ru' ? 'Ошибка ответа ИИ' : language === 'kk' ? 'ЖИ қатесі' : 'AI Request Notice'}</p>
-              <p className="mt-0.5 text-zinc-300">{errorMessage}</p>
+              <p className="mt-0.5 text-stone-700 dark:text-zinc-300">{errorMessage}</p>
             </div>
           </div>
         )}
@@ -347,8 +347,8 @@ export const AIAssistantView: React.FC = () => {
       </div>
 
       {/* Off-Topic Notice */}
-      <div className="flex items-center gap-1.5 px-1 text-[11px] text-zinc-500">
-        <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+      <div className="flex items-center gap-1.5 px-1 text-[11px] text-stone-500 dark:text-zinc-500">
+        <Info className="w-3.5 h-3.5 text-stone-400 dark:text-zinc-400 shrink-0" />
         <span>{t('ai.offTopicNotice')}</span>
       </div>
 
@@ -365,13 +365,13 @@ export const AIAssistantView: React.FC = () => {
           value={inputQuery}
           onChange={(e) => setInputQuery(e.target.value)}
           placeholder={t('ai.placeholder')}
-          className="flex-1 bg-surface-card border border-surface-border rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors"
+          className="flex-1 bg-surface-card border border-surface-border rounded-2xl px-4 py-3 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-zinc-500 focus:outline-none focus:border-emerald-600 dark:focus:border-brand-500 transition-colors"
           disabled={loading}
         />
         <button
           type="submit"
           disabled={!inputQuery.trim() || loading}
-          className="p-3 rounded-2xl bg-brand-500 hover:bg-brand-400 text-black font-black transition-all shadow-md shadow-brand-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shrink-0"
+          className="p-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-all shadow-md shadow-emerald-600/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shrink-0"
           aria-label="Send message"
         >
           <Send className="w-4 h-4 fill-current" />

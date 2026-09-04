@@ -187,14 +187,14 @@ export const SleepView: React.FC = () => {
       {/* 1. Minimalist Recovery Overview Card */}
       <div className="bg-surface-card rounded-2xl p-4 sm:p-5 border border-surface-border shadow-xs flex items-center justify-between">
         <div className="space-y-0.5">
-          <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider block">
+          <span className="text-[11px] font-medium text-stone-500 dark:text-zinc-400 uppercase tracking-wider block">
             {t("sleep.title", "Sleep & Readiness")}
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            <span className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white tracking-tight">
               {calculatedDuration.hours}{t("sleep.hoursShort", "h")} {calculatedDuration.minutes}{t("sleep.minsShort", "m")}
             </span>
-            <span className="text-xs text-zinc-400">{t("sleep.duration", "Duration")}</span>
+            <span className="text-xs text-stone-500 dark:text-zinc-400">{t("sleep.duration", "Duration")}</span>
           </div>
         </div>
 
@@ -211,36 +211,36 @@ export const SleepView: React.FC = () => {
 
       {/* 2. Sleek Sleep Logger Box */}
       <div className="bg-surface-card rounded-2xl p-4 sm:p-5 border border-surface-border shadow-xs space-y-4">
-        <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-          <Moon className="w-4 h-4 text-indigo-400" />
+        <h2 className="text-sm font-semibold text-stone-900 dark:text-white flex items-center gap-2">
+          <Moon className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
           <span>{t("sleep.logTitle", "Log Sleep Session")}</span>
         </h2>
 
         {/* Time Inputs */}
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border space-y-1">
-            <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-              <Moon className="w-3 h-3 text-indigo-400" />
+            <span className="text-[10px] font-medium text-stone-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+              <Moon className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
               <span>{t("sleep.bedtime", "Bedtime")}</span>
             </span>
             <input
               type="time"
               value={bedtime}
               onChange={(e) => setBedtime(e.target.value)}
-              className="w-full bg-transparent text-sm font-semibold text-white focus:outline-none"
+              className="w-full bg-transparent text-sm font-semibold text-stone-900 dark:text-white focus:outline-none"
             />
           </div>
 
           <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border space-y-1">
-            <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-              <Sun className="w-3 h-3 text-amber-400" />
+            <span className="text-[10px] font-medium text-stone-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+              <Sun className="w-3 h-3 text-amber-500 dark:text-amber-400" />
               <span>{t("sleep.wakeUp", "Wake Up")}</span>
             </span>
             <input
               type="time"
               value={wakeTime}
               onChange={(e) => setWakeTime(e.target.value)}
-              className="w-full bg-transparent text-sm font-semibold text-white focus:outline-none"
+              className="w-full bg-transparent text-sm font-semibold text-stone-900 dark:text-white focus:outline-none"
             />
           </div>
         </div>
@@ -281,8 +281,8 @@ export const SleepView: React.FC = () => {
                 onClick={() => setMorningFeeling(feel)}
                 className={`py-2 rounded-xl text-xs font-medium border transition-all duration-150 active:scale-95 ${
                   morningFeeling === feel
-                    ? "bg-zinc-800 border-zinc-600 text-white shadow-xs"
-                    : "bg-surface-subtle border-surface-border text-zinc-400 hover:text-zinc-200"
+                    ? "bg-stone-200 dark:bg-zinc-800 border-stone-300 dark:border-zinc-600 text-stone-900 dark:text-white shadow-xs font-bold"
+                    : "bg-surface-subtle border-surface-border text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200"
                 }`}
               >
                 {feel === "Refreshed"
@@ -301,7 +301,7 @@ export const SleepView: React.FC = () => {
             type="button"
             onClick={handleSaveSleep}
             disabled={saving}
-            className="px-5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-semibold transition-all duration-150 shadow-sm flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all duration-150 shadow-sm flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -314,7 +314,7 @@ export const SleepView: React.FC = () => {
           </button>
 
           {saveSuccess && (
-            <span className="text-xs text-emerald-400 flex items-center gap-1.5 animate-in fade-in duration-150">
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 animate-in fade-in duration-150">
               <Check className="w-4 h-4" /> {t("sleep.savedSuccess", "Saved successfully!")}
             </span>
           )}
@@ -323,17 +323,17 @@ export const SleepView: React.FC = () => {
 
       {/* 3. Sleep History Timeline */}
       <div className="space-y-2.5">
-        <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider px-1">
+        <h2 className="text-xs font-semibold text-stone-500 dark:text-zinc-400 uppercase tracking-wider px-1">
           {t("sleep.pastHistory", "Past Sleep History")} ({records.length})
         </h2>
 
         {loading ? (
-          <div className="py-8 text-center text-zinc-500 text-xs flex flex-col items-center justify-center space-y-1.5">
-            <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+          <div className="py-8 text-center text-stone-500 dark:text-zinc-500 text-xs flex flex-col items-center justify-center space-y-1.5">
+            <Loader2 className="w-4 h-4 animate-spin text-indigo-500 dark:text-indigo-400" />
             <span>{t("trainer.loading", "Loading...")}</span>
           </div>
         ) : records.length === 0 ? (
-          <div className="p-6 rounded-2xl bg-surface-card border border-surface-border text-center text-xs text-zinc-500">
+          <div className="p-6 rounded-2xl bg-surface-card border border-surface-border text-center text-xs text-stone-500 dark:text-zinc-500 shadow-xs">
             {t("sleep.noHistory", "No sleep logs recorded yet.")}
           </div>
         ) : (
@@ -345,27 +345,27 @@ export const SleepView: React.FC = () => {
               return (
                 <div
                   key={rec.id}
-                  className="p-3.5 rounded-xl bg-surface-card border border-surface-border flex items-center justify-between gap-3 hover:border-surface-borderLight transition-colors"
+                  className="p-3.5 rounded-xl bg-surface-card border border-surface-border flex items-center justify-between gap-3 hover:border-surface-borderLight transition-colors shadow-xs"
                 >
                   <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-white font-mono">
+                      <span className="text-xs font-medium text-stone-900 dark:text-white font-mono">
                         {rec.bedtime || "23:00"} → {rec.wake_time || "07:00"}
                       </span>
-                      <span className="text-xs font-semibold text-indigo-400 font-mono">
+                      <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 font-mono">
                         {hrs}{t("sleep.hoursShort", "h")} {mins}{t("sleep.minsShort", "m")}
                       </span>
                     </div>
-                    <div className="text-[11px] text-zinc-400 flex items-center gap-3">
+                    <div className="text-[11px] text-stone-500 dark:text-zinc-400 flex items-center gap-3">
                       <span>★ {quality}/5</span>
                       <span>{rec.notes || "Good"}</span>
-                      <span className="text-zinc-500">{rec.log_date || (rec.created_at ? new Date(rec.created_at).toLocaleDateString() : "")}</span>
+                      <span className="text-stone-400 dark:text-zinc-500">{rec.log_date || (rec.created_at ? new Date(rec.created_at).toLocaleDateString() : "")}</span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleDeleteRecord(rec.id)}
-                    className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 transition-colors shrink-0"
+                    className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 transition-colors shrink-0"
                     title="Delete"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -379,12 +379,12 @@ export const SleepView: React.FC = () => {
 
       {/* 4. Sleek Insights Modal */}
       {showInsightsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-zinc-800">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-sm font-bold text-white">{t("sleep.insightsNotice", "Insights & Tips")}</h3>
+                <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                <h3 className="text-sm font-bold text-stone-900 dark:text-white">{t("sleep.insightsNotice", "Insights & Tips")}</h3>
               </div>
               <button
                 onClick={() => setShowInsightsModal(false)}
@@ -395,24 +395,24 @@ export const SleepView: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800/80">
-                <span className="text-xs text-zinc-400 font-medium">{t("progress.readinessScore", "Readiness Score")}</span>
-                <span className="text-sm font-bold text-emerald-400 font-mono">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800/80">
+                <span className="text-xs text-stone-500 dark:text-zinc-400 font-medium">{t("progress.readinessScore", "Readiness Score")}</span>
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">
                   {sleepInsight.score} / 100
                 </span>
               </div>
 
-              <p className="text-xs text-zinc-300 leading-relaxed">
+              <p className="text-xs text-stone-700 dark:text-zinc-300 leading-relaxed">
                 {sleepInsight.message}
               </p>
 
               <div className="space-y-1.5 pt-1">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
+                <span className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400 uppercase tracking-wider block">
                   {t("sleep.insightsNotice", "Insights & Tips")}
                 </span>
                 {sleepInsight.tips.map((tip, idx) => (
-                  <div key={idx} className="text-xs text-zinc-400 flex items-start gap-2">
-                    <span className="text-indigo-400 mt-0.5">•</span>
+                  <div key={idx} className="text-xs text-stone-600 dark:text-zinc-400 flex items-start gap-2">
+                    <span className="text-indigo-500 dark:text-indigo-400 mt-0.5">•</span>
                     <span>{tip}</span>
                   </div>
                 ))}
@@ -421,7 +421,7 @@ export const SleepView: React.FC = () => {
 
             <button
               onClick={() => setShowInsightsModal(false)}
-              className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors"
+              className="w-full py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-900 dark:text-white text-xs font-semibold transition-colors shadow-xs"
             >
               {t("common.close", "Close")}
             </button>

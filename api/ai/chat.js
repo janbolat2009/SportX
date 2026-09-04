@@ -1,5 +1,5 @@
 // Vercel Serverless Function: POST /api/ai/chat
-// Secure server-side OpenAI proxy for SportX II Fitness Assistant
+// Secure server-side Google Gemini proxy for SportX II Fitness Assistant
 
 const SPORTX_SYSTEM_PROMPT = `You are the SportX AI Fitness & Biomechanics Assistant, an elite artificial intelligence coach specialized exclusively in exercise technique, athletic biomechanics, strength training, workout recovery, sports nutrition, sets, reps, mobility, and sleep optimization.
 
@@ -32,11 +32,11 @@ export default async function handler(req, res) {
     return res.status(405).json( { error: `Method ${req.method} Not Allowed` });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || !apiKey.trim()) {
-    console.error('OPENAI_API_KEY is not configured on the server.');
+    console.error('GEMINI_API_KEY is not configured on the server.');
     return res.status(500).json({
-      error: 'OpenAI API key is not configured on the server. Please set the OPENAI_API_KEY environment variable in your Vercel Dashboard.'
+      error: 'Google Gemini API key is not configured on the server. Please set the GEMINI_API_KEY environment variable in your Vercel Dashboard.'
     });
   }
 
@@ -47,74 +47,64 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Message or messages array is required.' });
     }
 
-    const chatMessages = [
-      { role: 'system', content: SPORTX_SYSTEM_PROMPT }
-    ];
-
+    let systemContent = SPORTX_SYSTEM_PROMPT;
     if (user_context) {
-      chatMessages.push({
-        role: 'system',
-        content: `User Context: Sport: ${user_context.sport || 'Fitness'}, Level: ${user_context.training_level || 'Intermediate'}, Goal: ${user_context.fitness_goal || 'General Fitness'}`
-      });
+      systemContent += `\n\nATHLETE CONTEXT:\n- Sport: ${user_context.sport || 'Fitness'}\n- Training Level: ${user_context.training_level || 'Intermediate'}\n- Goal: ${user_context.fitness_goal || 'General Fitness'}`;
+      if (user_context.overall_score) systemContent += `\n- Recent Technique Score: ${user_context.overall_score}%`;
+      if (user_context.recent_issues) systemContent += `\n- Recent Detected Flaws: ${user_context.recent_issues}`;
     }
 
+    const geminiContents = [];
     if (Array.isArray(messages) && messages.length > 0) {
       const history = messages.slice(-10).map((m) => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: String(m.content || '').slice(0, 3000)
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: String(m.content || '').slice(0, 3000) }]
       }));
-      chatMessages.push(...history);
+      geminiContents.push(...history);
     } else if (message) {
-      chatMessages.push({
+      geminiContents.push({
         role: 'user',
-        content: String(message).slice(0, 3000)
+        parts: [{ text: String(message).slice(0, 3000) }]
       });
     }
 
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+    
+    const geminiRes = await fetch(geminiUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey.trim()}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: model,
-        messages: chatMessages,
-        temperature: 0.5,
-        max_tokens: 800
+        system_instruction: {
+          parts: [{ text: systemContent }]
+        },
+        contents: geminiContents,
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 800
+        }
       })
     });
 
-    if (!openaiRes.ok) {
-      const errBody = await openaiRes.text();
-      let errJson = null;
-      try { errJson = JSON.parse(errBody); } catch {}
-      console.error(`OpenAI API error (${openaiRes.status}):`, errBody);
+    if (!geminiRes.ok) {
+      const errBody = await geminiRes.text();
+      console.error(`Gemini API error (${geminiRes.status}):`, errBody);
 
-      if (openaiRes.status === 401) {
-        return res.status(401).json({
-          error: 'Неверный API ключ OpenAI (Invalid API Key). Пожалуйста, проверьте переменную OPENAI_API_KEY в Vercel Dashboard.'
+      if (geminiRes.status === 401 || geminiRes.status === 403) {
+        return res.status(geminiRes.status).json({
+          error: 'Неверный API ключ Gemini (Invalid API Key). Пожалуйста, проверьте переменную GEMINI_API_KEY в Vercel Dashboard.'
         });
       }
 
-      if (openaiRes.status === 429) {
-        const isQuota =
-          errJson?.error?.code === 'insufficient_quota' ||
-          errJson?.error?.type === 'insufficient_quota' ||
-          errBody.includes('insufficient_quota') ||
-          errBody.includes('exceeded your current quota');
-
+      if (geminiRes.status === 429) {
         const queryText = message || (Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1].content : '');
         const fallbackAnswer = generateOfflineFitnessResponse(queryText);
 
-        const notice = isQuota
-          ? '⚠️ Внимание: Баланс вашего ключа OpenAI исчерпан ($0 / insufficient_quota). Пополните баланс на platform.openai.com/billing. Сейчас ответ сформирован встроенным биомеханическим движком SportX.'
-          : '⚠️ Внимание: Превышен лимит запросов OpenAI API (Rate Limit). Ответ предоставлен автономным движком SportX.';
-
         return res.status(200).json({
           role: 'assistant',
-          content: `${fallbackAnswer}\n\n---\n*${notice}*`,
+          content: `${fallbackAnswer}\n\n---\n*⚠️ Превышен лимит запросов Gemini API (Rate Limit). Ответ предоставлен встроенным биомеханическим движком SportX.*`,
           conversationId: conversationId || null,
           model: 'sportx-offline-knowledge'
         });
@@ -124,14 +114,15 @@ export default async function handler(req, res) {
       const fallbackAnswer = generateOfflineFitnessResponse(queryText);
       return res.status(200).json({
         role: 'assistant',
-        content: `${fallbackAnswer}\n\n---\n*(Автономный режим SportX: OpenAI API вернул статус ${openaiRes.status})*`,
+        content: `${fallbackAnswer}\n\n---\n*(Автономный режим SportX: Gemini API вернул статус ${geminiRes.status})*`,
         conversationId: conversationId || null,
         model: 'sportx-offline-knowledge'
       });
     }
 
-    const data = await openaiRes.json();
-    const assistantContent = data.choices?.[0]?.message?.content || 'I can only help with exercise technique, training, workouts, and fitness-related questions.';
+    const data = await geminiRes.json();
+    const candidateParts = data.candidates?.[0]?.content?.parts || [];
+    const assistantContent = candidateParts.map((p) => p.text).join('').trim() || 'I can only help with exercise technique, training, workouts, and fitness-related questions.';
 
     return res.status(200).json({
       role: 'assistant',

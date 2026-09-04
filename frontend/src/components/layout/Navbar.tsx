@@ -63,15 +63,16 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-[#f8f7f5]/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-stone-200/90 dark:border-zinc-800/80 shadow-xs transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4 md:gap-8">
+      <header className="sticky top-0 z-30 w-full max-w-full overflow-x-clip bg-[#f8f7f5]/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-stone-200/90 dark:border-zinc-800/80 shadow-xs transition-colors duration-200">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4 md:gap-8">
           
-          {/* Brand Logo - Spacious left anchor */}
+          {/* Brand Logo - Responsive sizing for mobile */}
           <div
             onClick={() => onSelectTab(isTrainer ? "coach" : isAuthenticated ? "home" : "train")}
-            className="cursor-pointer shrink-0 pr-2 sm:pr-4 hover:opacity-95 transition-opacity"
+            className="cursor-pointer shrink-0 pr-1 sm:pr-4 hover:opacity-95 transition-opacity"
           >
-            <Logo size="md" />
+            <Logo size="sm" className="sm:hidden" />
+            <Logo size="md" className="hidden sm:inline-flex" />
           </div>
 
           {/* Desktop Centered Navigation Links with generous spacing */}
@@ -183,7 +184,7 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
 
                 <button
                   onClick={() => handleOpenAuth("signup")}
-                  className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-brand-500/20 active:scale-95"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 active:scale-95"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>{t("nav.signup")}</span>
@@ -193,14 +194,24 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
 
           </div>
 
-          {/* Mobile Right Section: Theme Toggle + Language Selector + Animated 3-Line Hamburger */}
-          <div className="flex md:hidden items-center gap-2">
+          {/* Mobile Right Section: Theme Toggle + Language Selector + User Quick Avatar + Animated 3-Line Hamburger */}
+          <div className="flex md:hidden items-center gap-1.5 sm:gap-2">
             <ThemeToggle compact={true} />
             <LanguageSelector compact={true} />
             
+            {isAuthenticated && (
+              <button
+                onClick={() => onSelectTab("profile")}
+                className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-emerald-600 dark:text-brand-400 border border-stone-200 dark:border-zinc-700 shadow-xs active:scale-95 transition-all"
+                title={user?.full_name || "Profile"}
+              >
+                {user?.full_name?.charAt(0).toUpperCase() || "U"}
+              </button>
+            )}
+
             <button
               onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
-              className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 text-stone-700 dark:text-zinc-300 hover:text-stone-900 dark:hover:text-white active:scale-95 transition-all shadow-xs"
+              className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 text-stone-700 dark:text-zinc-300 hover:text-stone-900 dark:hover:text-white active:scale-95 transition-all shadow-xs"
               aria-label="Toggle navigation menu"
             >
               <div className="w-5 h-4 flex flex-col justify-between items-center relative">
