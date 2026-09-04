@@ -7,6 +7,8 @@ import { ShoulderPressAnalyzer } from './exercises/shoulderPress';
 import { PlankAnalyzer } from './exercises/plank';
 import { LungeAnalyzer } from './exercises/lunge';
 import { LateralRaiseAnalyzer } from './exercises/lateralRaise';
+import { JumpingJackAnalyzer } from './exercises/jumpingJack';
+import { SitupAnalyzer } from './exercises/situp';
 
 export interface IExerciseAnalyzer {
   reset(): void;
@@ -64,6 +66,18 @@ export class ExerciseAnalyzerFactory {
       case 'cable_lateral_raise':
       case 'side_lateral_raise':
         return new LateralRaiseAnalyzer();
+
+      case 'jumping_jack':
+      case 'jumping_jacks':
+      case 'jumpingjack':
+        return new JumpingJackAnalyzer();
+
+      case 'situp':
+      case 'sit_up':
+      case 'sit-up':
+      case 'crunch':
+      case 'crunches':
+        return new SitupAnalyzer();
 
       default:
         // Default to squat analyzer for general lower body / kinetic chain movements

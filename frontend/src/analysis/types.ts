@@ -64,6 +64,38 @@ export interface TechniqueIssue {
   defaultMessage: string;
   metricValue?: number;
   benchmarkValue?: number;
+  errorName?: string;
+  correctiveInstruction?: string;
+  explanation?: string;
+}
+
+export interface StructuredAnalysisFacts {
+  exerciseSlug: string;
+  exerciseName: string;
+  totalReps: number;
+  validReps: number;
+  durationSeconds: number;
+  overallScore: number;
+  symmetryScore: number;
+  romScore: number;
+  alignmentScore: number;
+  tempoScore: number;
+  stabilityScore: number;
+  passedChecks: Array<{
+    id: string;
+    title: string;
+    description: string;
+  }>;
+  detectedErrors: Array<{
+    id: string;
+    title: string;
+    severity: 'low' | 'medium' | 'high';
+    explanation: string;
+    correctiveInstruction: string;
+    metricValue?: number;
+    benchmarkValue?: number;
+  }>;
+  howToImprove: string[];
 }
 
 export interface RepetitionResult {

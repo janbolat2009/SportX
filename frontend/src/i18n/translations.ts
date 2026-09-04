@@ -62,6 +62,11 @@ export const translations: TranslationDictionary = {
     ru: 'ИИ Ассистент',
     kk: 'ЖИ Бапкер',
   },
+  'nav.messages': {
+    en: 'Messages',
+    ru: 'Сообщения',
+    kk: 'Хабарламалар',
+  },
   'nav.coach': {
     en: 'Coach Hub',
     ru: 'Тренер',
@@ -1247,6 +1252,31 @@ export const translations: TranslationDictionary = {
     en: 'Save & Continue',
     ru: 'Сохранить и продолжить',
     kk: 'Сақтау және жалғастыру',
+  },
+  'report.techniqueFeedback': {
+    en: 'Technique Feedback',
+    ru: 'Замечания и оценка техники',
+    kk: 'Техникалық кері байланыс',
+  },
+  'report.howToImprove': {
+    en: 'How to Improve',
+    ru: 'Как исправить технику',
+    kk: 'Техниканы қалай жақсартуға болады',
+  },
+  'report.aiInterpretation': {
+    en: 'AI Coach Interpretation',
+    ru: 'Интерпретация AI-тренера',
+    kk: 'AI-бапкердің қорытындысы',
+  },
+  'report.askAiCoach': {
+    en: 'Ask AI Coach follow-up question',
+    ru: 'Задать вопрос AI-тренеру',
+    kk: 'AI-бапкерге сұрақ қою',
+  },
+  'report.generatingAiSummary': {
+    en: 'Synthesizing kinematic telemetry...',
+    ru: 'Анализ биомеханических данных...',
+    kk: 'Биомеханикалық деректерді өңдеу...',
   },
   'report.excellent': {
     en: 'Excellent Technique',

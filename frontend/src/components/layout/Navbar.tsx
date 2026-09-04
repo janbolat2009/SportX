@@ -8,7 +8,7 @@ import { ThemeToggle } from "../common/ThemeToggle";
 import { MobileDrawer } from "./MobileDrawer";
 import {
   Activity, Dumbbell, Users, Bell, User as UserIcon, LogOut,
-  ChevronDown, TrendingUp, LogIn, UserPlus, Menu, Apple, Moon, Bot
+  ChevronDown, TrendingUp, LogIn, UserPlus, Apple, Moon, Bot, MessageSquare
 } from "lucide-react";
 import { NotificationsDropdown } from "./NotificationsDropdown";
 
@@ -39,6 +39,7 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
     if (isTrainer) {
       return [
         { id: "coach", label: t("nav.athletes", "Athletes"), icon: Users },
+        { id: "messages", label: t("nav.messages", "Messages"), icon: MessageSquare },
         { id: "progress", label: t("nav.progress", "Progress"), icon: TrendingUp },
         { id: "assistant", label: t("nav.assistant", "AI Assistant"), icon: Bot },
       ];
@@ -50,6 +51,7 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
       { id: "progress", label: t("nav.progress", "Progress"), icon: TrendingUp },
       { id: "nutrition", label: t("nav.nutrition", "Nutrition"), icon: Apple },
       { id: "sleep", label: t("nav.sleep", "Sleep"), icon: Moon },
+      { id: "messages", label: t("nav.messages", "Messages"), icon: MessageSquare },
       { id: "assistant", label: t("nav.assistant", "AI Assistant"), icon: Bot },
     ];
   }, [isAuthenticated, isTrainer, t]);
@@ -61,7 +63,7 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-zinc-950/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/80 shadow-xs">
+      <header className="sticky top-0 z-30 bg-[#f8f7f5]/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-stone-200/90 dark:border-zinc-800/80 shadow-xs transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4 md:gap-8">
           
           {/* Brand Logo - Spacious left anchor */}
@@ -73,7 +75,7 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
           </div>
 
           {/* Desktop Centered Navigation Links with generous spacing */}
-          <nav className="hidden lg:flex items-center gap-1.5 bg-zinc-900/80 p-1.5 rounded-2xl border border-zinc-800/80 shadow-xs">
+          <nav className="hidden lg:flex items-center gap-1.5 bg-stone-200/50 dark:bg-zinc-900/80 p-1.5 rounded-2xl border border-stone-300/60 dark:border-zinc-800/80 shadow-xs">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentTab === item.id;
@@ -83,11 +85,11 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
                   onClick={() => onSelectTab(item.id)}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                     isActive
-                      ? "bg-zinc-800 text-white shadow-xs font-bold"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                      ? "bg-white dark:bg-zinc-800 text-stone-900 dark:text-white shadow-xs font-bold"
+                      : "text-stone-600 hover:text-stone-900 hover:bg-white/60 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/50"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-brand-400" : ""}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? "text-emerald-600 dark:text-brand-400" : ""}`} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -105,11 +107,11 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
                 <div className="relative">
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative p-2 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-colors"
+                    className="relative p-2 rounded-xl text-stone-600 hover:text-stone-900 hover:bg-stone-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-900 border border-transparent hover:border-stone-200 dark:hover:border-zinc-800 transition-colors"
                     aria-label="Notifications"
                   >
                     <Bell className="w-5 h-5" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-500" />
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500" />
                   </button>
 
                   {showNotifications && (
@@ -121,27 +123,27 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
                 <div className="relative">
                   <button
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="flex items-center gap-2.5 p-1.5 pr-2.5 rounded-xl hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-all text-left"
+                    className="flex items-center gap-2.5 p-1.5 pr-2.5 rounded-xl hover:bg-stone-100 dark:hover:bg-zinc-900 border border-transparent hover:border-stone-200 dark:hover:border-zinc-800 transition-all text-left"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center font-bold text-xs text-brand-400 border border-zinc-700 shadow-xs">
+                    <div className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-emerald-600 dark:text-brand-400 border border-stone-200 dark:border-zinc-700 shadow-xs">
                       {user?.full_name?.charAt(0).toUpperCase() || "U"}
                     </div>
                     <div className="hidden sm:flex flex-col">
-                      <span className="text-xs font-bold text-zinc-200 leading-tight truncate max-w-[130px]">
+                      <span className="text-xs font-bold text-stone-800 dark:text-zinc-200 leading-tight truncate max-w-[130px]">
                         {user?.full_name || (isTrainer ? "Trainer" : "Athlete")}
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono capitalize">
+                      <span className="text-[10px] text-stone-500 dark:text-zinc-400 font-mono capitalize">
                         {isTrainer ? t("auth.trainer", "Trainer") : (user?.role || "athlete")}
                       </span>
                     </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-zinc-500 hidden sm:block" />
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-400 dark:text-zinc-500 hidden sm:block" />
                   </button>
 
                   {showProfileMenu && (
-                    <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl py-1.5 z-40 animate-in fade-in zoom-in-95">
-                      <div className="px-3.5 py-2.5 border-b border-zinc-800">
-                        <p className="text-xs font-bold text-white truncate">{user?.full_name}</p>
-                        <p className="text-[10px] text-zinc-400 font-mono truncate">{user?.email}</p>
+                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95">
+                      <div className="px-3.5 py-2.5 border-b border-stone-200 dark:border-zinc-800">
+                        <p className="text-xs font-bold text-stone-900 dark:text-white truncate">{user?.full_name}</p>
+                        <p className="text-[10px] text-stone-500 dark:text-zinc-400 font-mono truncate">{user?.email}</p>
                       </div>
 
                       <button
@@ -149,9 +151,9 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
                           setShowProfileMenu(false);
                           onSelectTab("profile");
                         }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-stone-700 hover:bg-stone-100 hover:text-stone-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors"
                       >
-                        <UserIcon className="w-4 h-4 text-zinc-400" />
+                        <UserIcon className="w-4 h-4 text-stone-400 dark:text-zinc-400" />
                         <span>{t("nav.profile")}</span>
                       </button>
 
@@ -160,7 +162,7 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
                           setShowProfileMenu(false);
                           logout();
                         }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-zinc-800/60"
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-rose-500 hover:bg-rose-500/10 transition-colors border-t border-stone-200 dark:border-zinc-800/60"
                       >
                         <LogOut className="w-4 h-4" />
                         <span>{t("nav.logout")}</span>
@@ -173,9 +175,9 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleOpenAuth("login")}
-                  className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-all"
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-stone-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-stone-200 dark:border-zinc-800 text-xs font-semibold text-stone-700 hover:text-stone-900 dark:text-zinc-300 dark:hover:text-white flex items-center gap-1.5 transition-all shadow-xs"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-brand-400" />
+                  <LogIn className="w-3.5 h-3.5 text-emerald-600 dark:text-brand-400" />
                   <span>{t("nav.login")}</span>
                 </button>
 
@@ -191,17 +193,27 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
 
           </div>
 
-          {/* Mobile Right Section: Theme Toggle + Language Selector + 3-Line Hamburger */}
+          {/* Mobile Right Section: Theme Toggle + Language Selector + Animated 3-Line Hamburger */}
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle compact={true} />
             <LanguageSelector compact={true} />
             
             <button
-              onClick={() => setIsMobileDrawerOpen(true)}
-              className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white active:scale-95 transition-all"
-              aria-label="Open navigation menu"
+              onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
+              className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 text-stone-700 dark:text-zinc-300 hover:text-stone-900 dark:hover:text-white active:scale-95 transition-all shadow-xs"
+              aria-label="Toggle navigation menu"
             >
-              <Menu className="w-5 h-5 text-brand-400" />
+              <div className="w-5 h-4 flex flex-col justify-between items-center relative">
+                <span className={`w-5 h-0.5 bg-current rounded-full transition-all duration-300 ease-out origin-center ${
+                  isMobileDrawerOpen ? "rotate-45 translate-y-1.5" : ""
+                }`} />
+                <span className={`w-5 h-0.5 bg-current rounded-full transition-all duration-200 ease-out ${
+                  isMobileDrawerOpen ? "opacity-0 scale-x-0" : "opacity-100"
+                }`} />
+                <span className={`w-5 h-0.5 bg-current rounded-full transition-all duration-300 ease-out origin-center ${
+                  isMobileDrawerOpen ? "-rotate-45 -translate-y-1.5" : ""
+                }`} />
+              </div>
             </button>
           </div>
 

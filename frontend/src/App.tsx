@@ -13,10 +13,12 @@ import { AIAssistantView } from "./components/athlete/AIAssistantView";
 import { LiveCameraStudio } from "./components/camera/LiveCameraStudio";
 import { VideoUploadStudio } from "./components/video/VideoUploadStudio";
 import { CoachDashboard } from "./components/coach/CoachDashboard";
+import { MessagesView } from "./components/chat/MessagesView";
 import { ProfileView } from "./components/profile/ProfileView";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { CoachRoute } from "./components/auth/CoachRoute";
 import { NightlightModal } from "./components/common/NightlightModal";
+import { FloatingAIAssistant } from "./components/common/FloatingAIAssistant";
 
 const MainAppContent: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -139,6 +141,13 @@ const MainAppContent: React.FC = () => {
           </CoachRoute>
         )}
 
+        {/* Direct Messages Tab (Trainer <-> Athlete Communication) */}
+        {currentTab === "messages" && (
+          <ProtectedRoute>
+            <MessagesView />
+          </ProtectedRoute>
+        )}
+
         {/* Profile & Settings Tab */}
         {currentTab === "profile" && (
           <ProfileView />
@@ -152,6 +161,11 @@ const MainAppContent: React.FC = () => {
           currentTab={currentTab}
           onSelectTab={(tab) => setCurrentTab(tab)}
         />
+      )}
+
+      {/* Floating AI Assistant on Mobile / Global (Hidden in active camera studio) */}
+      {!isCameraStudioActive && (
+        <FloatingAIAssistant />
       )}
 
       {/* Minimal Footer */}
