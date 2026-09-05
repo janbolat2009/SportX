@@ -2151,6 +2151,91 @@ export const translations: TranslationDictionary = {
     ru: 'Найти тренера',
     kk: 'Бапкерді табу',
   },
+  'qr.invalidCode': {
+    en: 'Invalid QR code format. Please scan a valid trainer code.',
+    ru: 'Неверный формат QR-кода. Пожалуйста, отсканируйте код тренера.',
+    kk: 'QR-код пішімі жарамсыз. Бапкердің жарамды кодын сканерлеңіз.',
+  },
+  'qr.trainerNotFound': {
+    en: 'Trainer profile not found. The QR code may be obsolete.',
+    ru: 'Профиль тренера не найден. Возможно, QR-код устарел.',
+    kk: 'Бапкер профилі табылмады. QR-код ескірген болуы мүмкін.',
+  },
+  'qr.cannotConnectSelf': {
+    en: 'You cannot connect to yourself as a trainer.',
+    ru: 'Вы не можете подключиться к себе в качестве тренера.',
+    kk: 'Өзіңізге бапкер ретінде қосыла алмайсыз.',
+  },
+  'qr.cameraUnavailable': {
+    en: 'Could not access camera. Try photo upload or manual entry below.',
+    ru: 'Не удалось получить доступ к камере. Попробуйте загрузить фото или ввести код.',
+    kk: 'Камераға қол жеткізілмеді. Фото жүктеп көріңіз немесе кодты төменде енгізіңіз.',
+  },
+  'qr.noCodeInImage': {
+    en: 'No QR code detected in this photo. Please upload a clear photo or enter the code.',
+    ru: 'QR-код не обнаружен на фото. Пожалуйста, загрузите четкое изображение или введите код.',
+    kk: 'Бұл фотосуреттен QR-код табылмады. Анық сурет жүктеңіз немесе кодты енгізіңіз.',
+  },
+  'qr.startingCamera': {
+    en: 'Opening camera...',
+    ru: 'Запуск камеры...',
+    kk: 'Камера қосылуда...',
+  },
+  'qr.pointAtTrainerCode': {
+    en: 'Point camera at trainer’s QR code',
+    ru: 'Наведите камеру на QR-код тренера',
+    kk: 'Камераны бапкердің QR-кодына бағыттаңыз',
+  },
+  'qr.orEnterCode': {
+    en: 'Enter Trainer ID or Connection URL:',
+    ru: 'Введите ID тренера или ссылку подключения:',
+    kk: 'Бапкер ID немесе қосылу сілтемесін енгізіңіз:',
+  },
+  'qr.whatHappens': {
+    en: 'What this connects:',
+    ru: 'Что даст подключение:',
+    kk: 'Бұл нені біріктіреді:',
+  },
+  'qr.sync1': {
+    en: 'Trainer can review your exercise technique & form alerts',
+    ru: 'Тренер сможет оценивать вашу технику и ошибки в упражнениях',
+    kk: 'Бапкер жаттығу техникаңыз бен қателерді бақылай алады',
+  },
+  'qr.sync2': {
+    en: 'Direct messaging and feedback communication becomes active',
+    ru: 'Активируется прямой чат и персональные комментарии',
+    kk: 'Тікелей хат алмасу және кері байланыс қосылады',
+  },
+  'qr.sync3': {
+    en: 'Your workouts & repetition progress will appear in trainer hub',
+    ru: 'Ваши тренировки и прогресс появятся в панели тренера',
+    kk: 'Жаттығуларыңыз бен нәтижелеріңіз бапкер панелінде көрсетіледі',
+  },
+  'qr.connecting': {
+    en: 'Connecting...',
+    ru: 'Подключение...',
+    kk: 'Қосылуда...',
+  },
+  'qr.connectedSuccessDesc': {
+    en: 'You are now connected. You can now chat and receive real-time coaching feedback.',
+    ru: 'Вы успешно подключены! Теперь вы можете общаться в чате и получать персональные советы тренера.',
+    kk: 'Сәтті қосылдыңыз! Енді чатта сөйлесіп, бапкерден кеңестер ала аласыз.',
+  },
+  'qr.connectionFailed': {
+    en: 'Connection Issue',
+    ru: 'Ошибка подключения',
+    kk: 'Қосылу қатесі',
+  },
+  'qr.defaultError': {
+    en: 'Could not establish connection with trainer.',
+    ru: 'Не удалось установить соединение с тренером.',
+    kk: 'Бапкермен байланыс орнату мүмкін болмады.',
+  },
+  'qr.tryAgain': {
+    en: 'Try Again',
+    ru: 'Попробовать снова',
+    kk: 'Қайта көру',
+  },
 };
 
 export const getTranslation = (key: string, lang: Language): string => {
