@@ -5,7 +5,7 @@ import { ExerciseDetailModal } from './ExerciseDetailModal';
 import { getMuscleIcon } from '../common/MuscleIcons';
 import { useTranslation } from '../../i18n/LanguageContext';
 import {
-  Search, Play, Sparkles, ChevronRight, X, Loader2, Filter, Layers, Dumbbell
+  Search, Play, Sparkles, X, Loader2, Filter, Layers, Dumbbell, Info
 } from 'lucide-react';
 
 interface Props {
@@ -339,54 +339,46 @@ export const TrainLibraryView: React.FC<Props> = ({ onStartLiveCamera }) => {
               return (
                 <div
                   key={exercise.id}
-                  onClick={() => setSelectedExercise(exercise)}
-                  className="p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 hover:border-stone-300 dark:hover:border-zinc-700 cursor-pointer transition-all hover:bg-stone-50/80 dark:hover:bg-zinc-850 group flex flex-col justify-between space-y-3 shadow-xs"
+                  className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-stone-200/90 dark:border-zinc-800 hover:border-stone-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between gap-3.5 shadow-xs"
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-stone-100 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 flex items-center justify-center shrink-0">
-                          {getMuscleIcon(exercise.slug || 'squat', 22)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-brand-400 transition-colors truncate">
-                            {loc.name}
-                          </h3>
-                          <p className="text-[11px] text-stone-500 dark:text-zinc-400 truncate">
-                            {loc.target_muscles}
-                          </p>
-                        </div>
-                      </div>
-
-                      <ChevronRight className="w-4 h-4 text-stone-400 group-hover:text-stone-900 dark:text-zinc-500 dark:group-hover:text-white transition-transform group-hover:translate-x-0.5 shrink-0" />
+                  {/* 1. Exercise Name, 2. Target Muscle/Info, 3. Small Muscle Icon */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-stone-900 dark:text-white leading-snug truncate">
+                        {loc.name}
+                      </h3>
+                      <p className="text-xs text-stone-500 dark:text-zinc-400 truncate mt-1">
+                        {loc.target_muscles || exercise.category_name || 'Strength'}
+                        {loc.equipment ? ` • ${loc.equipment}` : ''}
+                      </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${getDifficultyColor(loc.difficulty)}`}>
-                        {loc.difficulty || t('difficulty.intermediate')}
-                      </span>
-                      <span className="text-[10px] text-stone-600 dark:text-zinc-400 px-2 py-0.5 rounded-md bg-stone-100 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800">
-                        {loc.equipment || 'Bodyweight'}
-                      </span>
-                      {loc.analysis_supported && (
-                        <span className="text-[10px] text-emerald-600 dark:text-brand-400 font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-brand-500/10 border border-emerald-500/20 dark:border-brand-500/20 flex items-center gap-1">
-                          <Sparkles className="w-3 h-3" />
-                          <span>{t('train.aiReady')}</span>
-                        </span>
-                      )}
+                    <div className="w-9 h-9 rounded-xl bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-zinc-300 border border-stone-200/80 dark:border-zinc-700/80 flex items-center justify-center shrink-0">
+                      {getMuscleIcon(exercise.slug || 'squat', 20)}
                     </div>
                   </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onStartLiveCamera(exercise.slug);
-                    }}
-                    className="w-full py-2.5 px-3 rounded-xl bg-stone-100 hover:bg-emerald-600 hover:text-white dark:bg-zinc-800 dark:hover:bg-brand-500 dark:hover:text-black text-stone-900 dark:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>{t('train.checkTechnique')}</span>
-                  </button>
+                  {/* 4. Primary: Analyze Technique, 5. Secondary: Details/Video */}
+                  <div className="flex items-center gap-2 pt-1 border-t border-stone-100 dark:border-zinc-800/80">
+                    <button
+                      type="button"
+                      onClick={() => onStartLiveCamera(exercise.slug)}
+                      className="flex-1 py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white dark:bg-brand-500 dark:hover:bg-brand-400 dark:text-black text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{t('train.analyzeTechnique', 'Analyze Technique')}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedExercise(exercise)}
+                      className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-700 dark:text-zinc-300 text-xs font-semibold transition-all flex items-center justify-center gap-1 shrink-0"
+                      title={t('train.viewDetails', 'View Details & Video')}
+                    >
+                      <Info className="w-3.5 h-3.5 text-stone-500 dark:text-zinc-400" />
+                      <span className="text-[11px]">{t('common.details', 'Details')}</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}

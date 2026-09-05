@@ -445,6 +445,16 @@ export const translations: TranslationDictionary = {
     ru: 'Проверить технику',
     kk: 'Техниканы тексеру',
   },
+  'train.analyzeTechnique': {
+    en: 'Analyze Technique',
+    ru: 'Анализировать технику',
+    kk: 'Техниканы талдау',
+  },
+  'train.viewDetails': {
+    en: 'View Details & Video',
+    ru: 'Подробнее и видео',
+    kk: 'Толығырақ және бейне',
+  },
 
   // Muscle Categories (All 26 requested muscle groups)
   'muscle.chest': {
@@ -2013,6 +2023,133 @@ export const translations: TranslationDictionary = {
     en: 'Automated Biomechanical Feedback',
     ru: 'Автоматический анализ техники от ИИ',
     kk: 'ЖИ автоматтандырылған техникалық пікірі',
+  },
+
+  // QR Code Trainer-Athlete Connection
+  'qr.myCode': {
+    en: 'My QR Code',
+    ru: 'Мой QR-код',
+    kk: 'Менің QR-кодым',
+  },
+  'qr.scanToConnect': {
+    en: 'Scan to connect with me',
+    ru: 'Отсканируйте, чтобы подключиться ко мне',
+    kk: 'Маған қосылу үшін сканерлеңіз',
+  },
+  'qr.enlarge': {
+    en: 'Enlarge QR',
+    ru: 'Увеличить QR',
+    kk: 'QR үлкейту',
+  },
+  'qr.shareLink': {
+    en: 'Share Connection Link',
+    ru: 'Поделиться ссылкой',
+    kk: 'Сілтемені бөлісу',
+  },
+  'qr.copied': {
+    en: 'Link Copied!',
+    ru: 'Ссылка скопирована!',
+    kk: 'Сілтеме көшірілді!',
+  },
+  'qr.copySuccess': {
+    en: 'Trainer link copied to clipboard',
+    ru: 'Ссылка на тренера скопирована в буфер обмена',
+    kk: 'Бапкер сілтемесі алмасу буферіне көшірілді',
+  },
+  'qr.instruction': {
+    en: 'Show this QR code to your athletes so they can scan it from their phone and connect directly to your coaching dashboard.',
+    ru: 'Покажите этот QR-код вашим спортсменам: они смогут отсканировать его с телефона и сразу подключиться к вам.',
+    kk: 'Бұл QR-кодты спортшыларыңызға көрсетіңіз: олар телефоннан сканерлеп, сіздің бапкерлік панеліңізге бірден қосылады.',
+  },
+  'qr.connectTitle': {
+    en: 'Connect with Trainer',
+    ru: 'Подключение к тренеру',
+    kk: 'Бапкерге қосылу',
+  },
+  'qr.scanInstruction': {
+    en: 'Point your camera at your trainer’s SportX QR code',
+    ru: 'Наведите камеру на QR-код вашего тренера в SportX',
+    kk: 'Камераны бапкеріңіздің SportX QR-кодына бағыттаңыз',
+  },
+  'qr.manualPrompt': {
+    en: 'Or enter trainer code manually',
+    ru: 'Или введите код тренера вручную',
+    kk: 'Немесе бапкер кодын қолмен енгізіңіз',
+  },
+  'qr.confirmConnect': {
+    en: 'Connect with {name}?',
+    ru: 'Подключиться к тренеру {name}?',
+    kk: '{name} бапкеріне қосылу керек пе?',
+  },
+  'qr.connectBtn': {
+    en: 'Connect',
+    ru: 'Подключиться',
+    kk: 'Қосылу',
+  },
+  'qr.connectedSuccess': {
+    en: 'Connected with Trainer!',
+    ru: 'Вы успешно подключились к тренеру!',
+    kk: 'Бапкерге сәтті қосылдыңыз!',
+  },
+  'qr.viewProfile': {
+    en: 'View Trainer',
+    ru: 'Профиль тренера',
+    kk: 'Бапкер профилі',
+  },
+  'qr.openChat': {
+    en: 'Message Trainer',
+    ru: 'Написать тренеру',
+    kk: 'Бапкерге хат жазу',
+  },
+  'qr.myTrainer': {
+    en: 'My Trainer',
+    ru: 'Мой тренер',
+    kk: 'Менің бапкерім',
+  },
+  'qr.noTrainer': {
+    en: 'No Trainer Connected',
+    ru: 'Тренер не подключен',
+    kk: 'Бапкер қосылмаған',
+  },
+  'qr.connectPrompt': {
+    en: 'Connect with your coach to receive direct biomechanical feedback, video reviews, and customized plans.',
+    ru: 'Подключите личного тренера, чтобы получать персональные замечания по технике, разбор видео и индивидуальные планы.',
+    kk: 'Техника бойынша тікелей пікірлер, бейне талдаулар және жеке бағдарламалар алу үшін бапкеріңізге қосылыңыз.',
+  },
+  'qr.connectNow': {
+    en: 'Connect with Trainer',
+    ru: 'Подключить тренера',
+    kk: 'Бапкерді қосу',
+  },
+  'qr.changeTrainer': {
+    en: 'Change / Connect Another Trainer',
+    ru: 'Сменить / подключить тренера',
+    kk: 'Бапкерді ауыстыру / қосу',
+  },
+  'qr.disconnect': {
+    en: 'Disconnect',
+    ru: 'Отключиться',
+    kk: 'Ажырату',
+  },
+  'qr.confirmDisconnect': {
+    en: 'Are you sure you want to disconnect from this trainer?',
+    ru: 'Вы уверены, что хотите отключиться от этого тренера?',
+    kk: 'Бұл бапкерден ажыратуды растайсыз ба?',
+  },
+  'qr.cameraAccessError': {
+    en: 'Unable to access device camera. Please grant camera permission or enter the code manually.',
+    ru: 'Не удалось получить доступ к камере. Пожалуйста, разрешите доступ к камере или введите код вручную.',
+    kk: 'Камераға қол жеткізу мүмкін болмады. Камераға рұқсат беріңіз немесе кодты қолмен енгізіңіз.',
+  },
+  'qr.enterTrainerIdPlaceholder': {
+    en: 'Paste trainer code or ID here...',
+    ru: 'Вставьте код или ID тренера...',
+    kk: 'Бапкер кодын немесе ID осында жазыңыз...',
+  },
+  'qr.findTrainer': {
+    en: 'Find Trainer',
+    ru: 'Найти тренера',
+    kk: 'Бапкерді табу',
   },
 };
 

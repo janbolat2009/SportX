@@ -44,7 +44,7 @@ export const LanguageSelector: React.FC<{ compact?: boolean }> = ({ compact = fa
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-36 sm:w-40 rounded-2xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95">
+        <div className="absolute right-0 mt-2 w-36 sm:w-40 rounded-2xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 shadow-2xl py-1.5 z-[100] animate-in fade-in zoom-in-95 max-w-[calc(100vw-1rem)]">
           {languages.map((item) => (
             <button
               key={item.code}

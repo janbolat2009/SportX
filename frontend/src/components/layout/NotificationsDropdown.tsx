@@ -42,7 +42,7 @@ export const NotificationsDropdown: React.FC<Props> = ({ onClose }) => {
   return (
     <div
       ref={dropdownRef}
-      className="absolute right-0 mt-2 w-80 sm:w-[380px] rounded-3xl bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border border-stone-200/90 dark:border-zinc-800/90 shadow-2xl p-4 sm:p-5 z-50 animate-in fade-in zoom-in-95 duration-200"
+      className="absolute right-0 mt-2 w-80 sm:w-[380px] rounded-3xl bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border border-stone-200/90 dark:border-zinc-800/90 shadow-2xl p-4 sm:p-5 z-[100] animate-in fade-in zoom-in-95 duration-200"
     >
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-stone-200/90 dark:border-zinc-800/80">

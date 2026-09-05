@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { AssignWorkoutModal } from "./AssignWorkoutModal";
 import { AthleteDetailModal } from "./AthleteDetailModal";
+import { CoachQRCodeCard } from "./CoachQRCodeCard";
 
 export const CoachDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -184,8 +185,11 @@ export const CoachDashboard: React.FC = () => {
 
         </div>
 
-        {/* Right 1 Col: Technique Alerts Feed */}
+        {/* Right 1 Col: Trainer QR Code & Technique Alerts Feed */}
         <div className="space-y-4">
+          {/* Permanent Trainer QR Code Card */}
+          <CoachQRCodeCard />
+
           <div className="p-5 rounded-3xl bg-surface-card border border-surface-border space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">

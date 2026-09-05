@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { Logo } from "../common/Logo";
@@ -8,7 +8,7 @@ import { ThemeToggle } from "../common/ThemeToggle";
 import { MobileDrawer } from "./MobileDrawer";
 import {
   Activity, Dumbbell, Users, Bell, User as UserIcon, LogOut,
-  ChevronDown, TrendingUp, LogIn, UserPlus, Apple, Moon, Bot, MessageSquare
+  TrendingUp, LogIn, UserPlus, Apple, Moon, Bot, MessageSquare
 } from "lucide-react";
 import { NotificationsDropdown } from "./NotificationsDropdown";
 
@@ -25,6 +25,22 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "signup">("login");
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    if (showProfileMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showProfileMenu]);
 
   const isTrainer = user?.role === "coach" || user?.role === "trainer";
 
@@ -63,7 +79,7 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-[#f8f7f5]/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-stone-200/90 dark:border-zinc-800/80 shadow-xs transition-colors duration-200">
+      <header className="sticky top-0 z-50 w-full bg-[#f8f7f5]/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-stone-200/90 dark:border-zinc-800/80 shadow-xs transition-colors duration-200">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4 md:gap-6">
           
           {/* Brand Logo - Responsive sizing */}
@@ -120,54 +136,67 @@ export const Navbar: React.FC<Props> = ({ currentTab, onSelectTab }) => {
                   )}
                 </div>
 
-                {/* User Profile Menu */}
-                <div className="relative shrink-0">
+                {/* User Profile Circular Avatar Menu */}
+                <div className="relative shrink-0" ref={profileMenuRef}>
                   <button
+                    type="button"
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl hover:bg-stone-100 dark:hover:bg-zinc-900 border border-transparent hover:border-stone-200 dark:hover:border-zinc-800 transition-all text-left shrink-0"
+                    className="w-9 h-9 rounded-full bg-emerald-600/10 hover:bg-emerald-600/20 dark:bg-brand-500/15 dark:hover:bg-brand-500/25 border border-emerald-600/30 dark:border-brand-500/30 text-emerald-700 dark:text-brand-300 flex items-center justify-center font-bold text-sm transition-transform active:scale-95 shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/40 shrink-0 cursor-pointer"
+                    aria-label="User Profile"
+                    title={user?.full_name || "Profile"}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-emerald-600 dark:text-brand-400 border border-stone-200 dark:border-zinc-700 shadow-xs shrink-0">
-                      {user?.full_name?.charAt(0).toUpperCase() || "U"}
-                    </div>
-                    <div className="hidden sm:flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-stone-800 dark:text-zinc-200 leading-tight truncate max-w-[85px] lg:max-w-[105px] xl:max-w-[140px]">
-                        {user?.full_name || (isTrainer ? "Trainer" : "Athlete")}
-                      </span>
-                      <span className="text-[10px] text-stone-500 dark:text-zinc-400 font-mono capitalize truncate max-w-[85px] lg:max-w-[105px] xl:max-w-[140px]">
-                        {isTrainer ? t("auth.trainer", "Trainer") : (user?.role || "athlete")}
-                      </span>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-stone-400 dark:text-zinc-500 hidden sm:block shrink-0" />
+                    {user?.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.full_name || "User"}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      user?.full_name?.trim()?.charAt(0).toUpperCase() || "A"
+                    )}
                   </button>
 
                   {showProfileMenu && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95">
-                      <div className="px-3.5 py-2.5 border-b border-stone-200 dark:border-zinc-800">
-                        <p className="text-xs font-bold text-stone-900 dark:text-white truncate">{user?.full_name}</p>
-                        <p className="text-[10px] text-stone-500 dark:text-zinc-400 font-mono truncate">{user?.email}</p>
+                    <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl shadow-2xl py-2 z-[100] animate-in fade-in zoom-in-95">
+                      <div className="px-4 py-2.5 border-b border-stone-100 dark:border-zinc-800">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-xs font-bold text-stone-900 dark:text-white truncate">
+                            {user?.full_name || (isTrainer ? "Trainer" : "Athlete")}
+                          </p>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:bg-brand-500/15 dark:text-brand-400 border border-emerald-500/20 dark:border-brand-500/20 shrink-0">
+                            {isTrainer ? t("auth.trainer", "Trainer") : (user?.role || "athlete")}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 dark:text-zinc-400 font-mono truncate">
+                          {user?.email}
+                        </p>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false);
-                          onSelectTab("profile");
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-stone-700 hover:bg-stone-100 hover:text-stone-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors"
-                      >
-                        <UserIcon className="w-4 h-4 text-stone-400 dark:text-zinc-400 shrink-0" />
-                        <span>{t("nav.profile")}</span>
-                      </button>
+                      <div className="py-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowProfileMenu(false);
+                            onSelectTab("profile");
+                          }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-stone-700 hover:bg-stone-100 hover:text-stone-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors text-left cursor-pointer"
+                        >
+                          <UserIcon className="w-4 h-4 text-stone-400 dark:text-zinc-400 shrink-0" />
+                          <span>{t("nav.profile", "Profile")}</span>
+                        </button>
 
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false);
-                          logout();
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-rose-500 hover:bg-rose-500/10 transition-colors border-t border-stone-200 dark:border-zinc-800/60"
-                      >
-                        <LogOut className="w-4 h-4 shrink-0" />
-                        <span>{t("nav.logout")}</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowProfileMenu(false);
+                            logout();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-stone-100 dark:border-zinc-800 text-left cursor-pointer"
+                        >
+                          <LogOut className="w-4 h-4 shrink-0" />
+                          <span>{t("nav.logout", "Sign Out")}</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
