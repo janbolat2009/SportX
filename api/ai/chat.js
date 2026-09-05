@@ -68,54 +68,112 @@ export default async function handler(req, res) {
       });
     }
 
-    // Sanitize model name: strip 'models/' prefix, remove extra slashes/spaces
+    // Sanitize configured model
     let configuredModel = (process.env.GEMINI_MODEL || 'gemini-1.5-flash').trim().replace(/^models\//, '');
+    
+    // Prioritized candidate list
     const candidateModels = [
-      configuredModel,
-      configuredModel === 'gemini-1.5-flash' ? 'gemini-2.0-flash' : 'gemini-1.5-flash',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro'
+      { name: configuredModel, apiVersion: 'v1beta' },
+      { name: 'gemini-2.0-flash', apiVersion: 'v1beta' },
+      { name: 'gemini-1.5-flash', apiVersion: 'v1beta' },
+      { name: 'gemini-1.5-flash-latest', apiVersion: 'v1beta' },
+      { name: 'gemini-1.5-flash-002', apiVersion: 'v1beta' },
+      { name: 'gemini-1.5-flash-001', apiVersion: 'v1beta' },
+      { name: 'gemini-1.5-flash-8b', apiVersion: 'v1beta' },
+      { name: 'gemini-1.5-pro', apiVersion: 'v1beta' },
+      { name: 'gemini-1.5-pro-002', apiVersion: 'v1beta' },
+      { name: 'gemini-pro', apiVersion: 'v1' },
+      { name: 'gemini-1.0-pro', apiVersion: 'v1' }
     ];
-    const uniqueModels = [...new Set(candidateModels)];
 
     let geminiRes = null;
     let lastErrBody = '';
     let usedModel = configuredModel;
 
-    const payload = JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemContent }]
-      },
-      contents: geminiContents,
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 800
+    // Helper to attempt generateContent on a specific model and API version
+    async function attemptGenerate(targetModel, apiVer) {
+      const isLegacy = targetModel.includes('gemini-1.0') || targetModel === 'gemini-pro';
+      let payloadObj;
+
+      if (isLegacy) {
+        // Legacy models expect system instruction as first user message
+        payloadObj = {
+          contents: [
+            { role: 'user', parts: [{ text: `System Instruction:\n${systemContent}\n\nPlease acknowledge and follow these instructions.` }] },
+            { role: 'model', parts: [{ text: 'Understood. I will act strictly as the SportX Biomechanical AI Coach.' }] },
+            ...geminiContents
+          ],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
+        };
+      } else {
+        payloadObj = {
+          system_instruction: { parts: [{ text: systemContent }] },
+          contents: geminiContents,
+          generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
+        };
       }
-    });
 
-    for (const m of uniqueModels) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+      const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${encodeURIComponent(targetModel)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+      return await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadObj)
+      });
+    }
+
+    // 1. Try candidates in order
+    for (const item of candidateModels) {
       try {
-        geminiRes = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload
-        });
-
+        geminiRes = await attemptGenerate(item.name, item.apiVersion);
         if (geminiRes.ok) {
-          usedModel = m;
+          usedModel = item.name;
           break;
         }
 
         lastErrBody = await geminiRes.text();
-        console.warn(`Gemini API attempt with model '${m}' failed (${geminiRes.status}):`, lastErrBody);
+        console.warn(`Gemini API attempt (${item.apiVersion}/${item.name}) failed (${geminiRes.status}):`, lastErrBody);
 
-        // If status is not 404 (e.g. 401, 403, 429), switching models won't help, break immediately
-        if (geminiRes.status !== 404) {
+        // If status is 401, 403, 429, switching models won't help
+        if (geminiRes.status === 401 || geminiRes.status === 403 || geminiRes.status === 429) {
           break;
         }
       } catch (networkErr) {
-        console.error(`Network error requesting model '${m}':`, networkErr);
+        console.error(`Network error on ${item.name}:`, networkErr);
+      }
+    }
+
+    // 2. If candidates returned 404, query ListModels directly to discover available models on this key
+    if ((!geminiRes || geminiRes.status === 404) && geminiRes?.status !== 401 && geminiRes?.status !== 403) {
+      try {
+        console.info('Attempting dynamic model discovery via ListModels...');
+        const listEndpoints = [
+          'https://generativelanguage.googleapis.com/v1beta/models',
+          'https://generativelanguage.googleapis.com/v1/models'
+        ];
+
+        for (const listEp of listEndpoints) {
+          const listRes = await fetch(`${listEp}?key=${encodeURIComponent(apiKey.trim())}`);
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            const available = (listData.models || [])
+              .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+              .map((m) => (m.name || '').replace(/^models\//, ''));
+
+            const apiVer = listEp.includes('v1beta') ? 'v1beta' : 'v1';
+
+            for (const discoveredModel of available) {
+              const res = await attemptGenerate(discoveredModel, apiVer);
+              if (res.ok) {
+                geminiRes = res;
+                usedModel = discoveredModel;
+                break;
+              }
+            }
+          }
+          if (geminiRes && geminiRes.ok) break;
+        }
+      } catch (listErr) {
+        console.warn('Model discovery failed:', listErr);
       }
     }
 

@@ -250,17 +250,24 @@ async def chat_with_assistant(
             }
 
             candidate_models = [
-                clean_model,
-                "gemini-2.0-flash" if clean_model == "gemini-1.5-flash" else "gemini-1.5-flash",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-pro",
+                (clean_model, "v1beta"),
+                ("gemini-2.0-flash", "v1beta"),
+                ("gemini-1.5-flash", "v1beta"),
+                ("gemini-1.5-flash-latest", "v1beta"),
+                ("gemini-1.5-flash-002", "v1beta"),
+                ("gemini-1.5-flash-001", "v1beta"),
+                ("gemini-1.5-flash-8b", "v1beta"),
+                ("gemini-1.5-pro", "v1beta"),
+                ("gemini-1.5-pro-002", "v1beta"),
+                ("gemini-pro", "v1"),
+                ("gemini-1.0-pro", "v1"),
             ]
             seen_models = set()
-            unique_candidates = [m for m in candidate_models if not (m in seen_models or seen_models.add(m))]
+            unique_candidates = [m for m in candidate_models if not (m[0] in seen_models or seen_models.add(m[0]))]
 
             async with httpx.AsyncClient(timeout=25.0) as client:
-                for target_model in unique_candidates:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={api_key}"
+                for target_model, api_ver in unique_candidates:
+                    url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{target_model}:generateContent?key={api_key}"
                     resp = await client.post(
                         url,
                         headers={"Content-Type": "application/json"},
@@ -280,11 +287,44 @@ async def chat_with_assistant(
                                     sources_used=[f"SportX Gemini Biomechanics Engine ({target_model})"]
                                 )
                     elif resp.status_code == 404:
-                        # Model not found on this API version or key; try next candidate
                         continue
                     else:
-                        # For other status codes (401, 403, 429), switching models won't help
                         break
+
+                # Dynamic discovery fallback via ListModels if static candidates were 404
+                for list_ep in ["https://generativelanguage.googleapis.com/v1beta/models", "https://generativelanguage.googleapis.com/v1/models"]:
+                    try:
+                        list_res = await client.get(f"{list_ep}?key={api_key}")
+                        if list_res.status_code == 200:
+                            models_data = list_res.json().get("models", [])
+                            available = [
+                                m.get("name", "").replace("models/", "")
+                                for m in models_data
+                                if "generateContent" in m.get("supportedGenerationMethods", [])
+                            ]
+                            api_ver = "v1beta" if "v1beta" in list_ep else "v1"
+                            for discovered_m in available:
+                                url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{discovered_m}:generateContent?key={api_key}"
+                                disc_resp = await client.post(
+                                    url,
+                                    headers={"Content-Type": "application/json"},
+                                    json=gemini_payload,
+                                )
+                                if disc_resp.status_code == 200:
+                                    data = disc_resp.json()
+                                    candidates = data.get("candidates", [])
+                                    if candidates:
+                                        parts = candidates[0].get("content", {}).get("parts", [])
+                                        ai_content = "".join([p.get("text", "") for p in parts]).strip()
+                                        if ai_content:
+                                            return AssistantChatResponse(
+                                                role="assistant",
+                                                content=ai_content,
+                                                conversationId=request.conversationId,
+                                                sources_used=[f"SportX Gemini Biomechanics Engine ({discovered_m})"]
+                                            )
+                    except Exception:
+                        pass
         except Exception as e:
             # Fallback to local rules engine on upstream network/API issue
             pass
