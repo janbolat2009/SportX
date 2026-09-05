@@ -34,48 +34,37 @@ def check_rate_limit(client_id: str, limit_per_minute: int = 20) -> bool:
 # ---------------------------------------------------------------------------
 # System Prompt & Scope Definition
 # ---------------------------------------------------------------------------
-SPORTX_SYSTEM_PROMPT = """You are the SportX AI Fitness & Biomechanics Coach — a motivating, expert, empathetic human coach specialized in exercise technique, athletic biomechanics, strength training, workout recovery, sports nutrition, sets, reps, mobility, and sleep optimization.
+SPORTX_SYSTEM_PROMPT = """You are the SportX AI Fitness & Biomechanics Coach.
+You provide direct, motivating, expert guidance to athletes on exercise technique, biomechanics, workout programming, sports nutrition, and recovery.
 
-CRITICAL DIRECTIVES:
-1. HUMAN, WARM, AND DIRECT TONE:
-   Speak directly to the athlete like an experienced, supportive coach. Be encouraging, clear, and practical.
-   NEVER output reasoning steps, chain-of-thought, prompt evaluation, planning bullet points, or metadata (e.g. NEVER output "* User says:", "* Language:", "* Topic:", "* Constraint Check:", "* Setup:", "* Descent:").
-   Begin your helpful response immediately without any preamble.
-
-2. STRICT LANGUAGE MATCHING:
-   ALWAYS reply in the EXACT language of the user's message:
-   - If user asks in Russian -> Reply 100% in natural, fluent, motivating Russian (e.g. "Привет! Давай разберем технику жима лежа...").
-   - If user asks in Kazakh -> Reply 100% in natural, fluent Kazakh (e.g. "Сәлем! Жаттығу техникасын бірге талдайық...").
-   - If user asks in English -> Reply 100% in natural, fluent English.
-
-3. ALLOWED TOPICS (ONLY answer these):
-   1. Exercise technique and movement mechanics (bench press, squat, deadlift, push-up, pull-up, shoulder press, bicep curl, etc.).
-   2. Workout programming, sets, reps, tempo, rest periods, progressive overload, training splits.
-   3. Strength training, cardiovascular conditioning, mobility drills, warm-ups, and recovery.
-   4. Sports nutrition (macronutrients, protein timing, hydration, meal planning).
-   5. Sleep and athletic recovery optimization.
-   6. SportX biomechanical metrics (angles, ROM, symmetry, bar path).
-
-4. STRICT OFF-TOPIC REFUSAL:
-   If the user asks about anything completely off-topic (coding, politics, crypto, homework, gaming, etc.):
-   Respond concisely in the user's language:
-   - RU: "Я могу помочь только с техникой упражнений, тренировками, питанием и спортивным восстановлением."
-   - KK: "Мен тек жаттығу техникасы, жаттығулар, тамақтану және қалпына келу бойынша көмектесе аламын."
-   - EN: "I can only assist with exercise technique, workouts, sports nutrition, and recovery."
-
-5. SAFETY & MEDICAL BOUNDARIES:
-   Do not provide medical diagnoses for acute injuries. Suggest consulting a physician for joint or acute pain."""
+CRITICAL INSTRUCTIONS:
+1. DIRECT RESPONSE: Provide your final, practical response directly to the user immediately.
+2. NO REASONING OR SCRATCHPAD: Do NOT output internal reasoning, planning steps, drafts, outlines, bulleted checklists, or metadata tags.
+3. STRICT LANGUAGE MATCH: Reply in the EXACT same language the user wrote in:
+   - Russian -> Natural, fluent Russian.
+   - Kazakh -> Natural, fluent Kazakh.
+   - English -> Natural, fluent English.
+4. SCOPE: Focus strictly on fitness, exercise technique, athletic biomechanics, workouts, and sports nutrition."""
 
 def sanitize_ai_response(raw_text: str) -> str:
     if not raw_text:
         return ""
     import re
-    text = str(raw_text)
+    text = str(raw_text).strip()
     # Remove thought tags
     text = re.sub(r'<thought>[\s\S]*?</thought>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'```thought[\s\S]*?```', '', text, flags=re.IGNORECASE)
-    # Remove leaked planning/reasoning checklists if any model emits them
-    text = re.sub(r'^\s*(\*\s+User says:|\*\s+Language:|\*\s+Topic:|\*\s+Constraint Check:|\*\s+The user wants)[\s\S]*?(?=(Привет|Сәлем|Hello|Hi|Для|Жим|Присед|Отжим|Чтобы|1\.|#|[A-ZА-ЯӘІҢҒҮҰҚӨҺ]))', '', text, flags=re.IGNORECASE)
+    
+    # Strip planning / reasoning scratchpad blocks if model leaks them
+    scratchpad_end_regex = r'^[\s\S]*?(?:Language:\s*(?:Russian|Kazakh|English|RU|KK|EN)[\.\s]*|Check against constraints[^\n]*[\.\s]*|Ensure tone is[^\n]*[\.\s]*)(?=[А-ЯӘІҢҒҮҰҚӨҺA-Z0-9#\n])'
+    text = re.sub(scratchpad_end_regex, '', text, flags=re.IGNORECASE)
+
+    # Strip leading bulleted reasoning lists
+    text = re.sub(r'^(?:\s*[\*\-]\s*(?:User says:|Topic:|Target Persona:|Greeting:|Key Biomechanical|Setup:|Grip:|Bar Path:|Execution:|Safety:|Common Mistakes:|Closing:|Introduction:)[^\n]*\n*)+', '', text, flags=re.IGNORECASE | re.MULTILINE)
+
+    # Strip any leading translated query echoes
+    text = re.sub(r'^[^\n]*\([A-Za-z\s,!\'\?]+\)\.\s*\n+', '', text, flags=re.IGNORECASE)
+
     return text.strip()
 
 # ---------------------------------------------------------------------------
@@ -259,8 +248,10 @@ async def chat_with_assistant(
                 },
                 "contents": gemini_contents,
                 "generationConfig": {
-                    "temperature": 0.4,
-                    "maxOutputTokens": 800
+                    "temperature": 0.3,
+                    "maxOutputTokens": 1000,
+                    "thinkingConfig": {"thinkingBudget": 0},
+                    "thinking_config": {"thinking_budget": 0}
                 }
             }
 
@@ -292,7 +283,7 @@ async def chat_with_assistant(
                         data = resp.json()
                         candidates = data.get("candidates", [])
                         if candidates:
-                            parts = candidates[0].get("content", {}).get("parts", [])
+                            parts = [p for p in candidates[0].get("content", {}).get("parts", []) if not p.get("thought")]
                             raw_ai_content = "".join([p.get("text", "") for p in parts]).strip()
                             ai_content = sanitize_ai_response(raw_ai_content)
                             if ai_content:

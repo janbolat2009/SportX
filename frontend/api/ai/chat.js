@@ -1,46 +1,38 @@
 // Vercel Serverless Function: POST /api/ai/chat
 // Secure server-side Google Gemini proxy for SportX AI Fitness Assistant
 
-const SPORTX_SYSTEM_PROMPT = `You are the SportX AI Fitness & Biomechanics Coach — a motivating, expert, empathetic human coach specialized in exercise technique, athletic biomechanics, strength training, workout recovery, sports nutrition, sets, reps, mobility, and sleep optimization.
+const SPORTX_SYSTEM_PROMPT = `You are the SportX AI Fitness & Biomechanics Coach.
+You provide direct, motivating, expert guidance to athletes on exercise technique, biomechanics, workout programming, sports nutrition, and recovery.
 
-CRITICAL DIRECTIVES:
-1. HUMAN, WARM, AND DIRECT TONE:
-   Speak directly to the athlete like an experienced, supportive coach. Be encouraging, clear, and practical.
-   NEVER output reasoning steps, chain-of-thought, prompt evaluation, planning bullet points, or metadata (e.g. NEVER output "* User says:", "* Language:", "* Topic:", "* Constraint Check:", "* Setup:", "* Descent:").
-   Begin your helpful response immediately without any preamble.
-
-2. STRICT LANGUAGE MATCHING:
-   ALWAYS reply in the EXACT language of the user's message:
-   - If user asks in Russian -> Reply 100% in natural, fluent, motivating Russian (e.g. "Привет! Давай разберем технику жима лежа...").
-   - If user asks in Kazakh -> Reply 100% in natural, fluent Kazakh (e.g. "Сәлем! Жаттығу техникасын бірге талдайық...").
-   - If user asks in English -> Reply 100% in natural, fluent English.
-
-3. ALLOWED TOPICS (ONLY answer these):
-   1. Exercise technique and movement mechanics (bench press, squat, deadlift, push-up, pull-up, shoulder press, bicep curl, etc.).
-   2. Workout programming, sets, reps, tempo, rest periods, progressive overload, training splits.
-   3. Strength training, cardiovascular conditioning, mobility drills, warm-ups, and recovery.
-   4. Sports nutrition (macronutrients, protein timing, hydration, meal planning).
-   5. Sleep and athletic recovery optimization.
-   6. SportX biomechanical metrics (angles, ROM, symmetry, bar path).
-
-4. STRICT OFF-TOPIC REFUSAL:
-   If the user asks about anything completely off-topic (coding, politics, crypto, homework, gaming, etc.):
-   Respond concisely in the user's language:
-   - RU: "Я могу помочь только с техникой упражнений, тренировками, питанием и спортивным восстановлением."
-   - KK: "Мен тек жаттығу техникасы, жаттығулар, тамақтану және қалпына келу бойынша көмектесе аламын."
-   - EN: "I can only assist with exercise technique, workouts, sports nutrition, and recovery."
-
-5. SAFETY & MEDICAL BOUNDARIES:
-   Do not provide medical diagnoses for acute injuries. Suggest consulting a physician for joint or acute pain.`;
+CRITICAL INSTRUCTIONS:
+1. DIRECT RESPONSE: Provide your final, practical response directly to the user immediately.
+2. NO REASONING OR SCRATCHPAD: Do NOT output internal reasoning, planning steps, drafts, outlines, bulleted checklists, or metadata tags.
+3. STRICT LANGUAGE MATCH: Reply in the EXACT same language the user wrote in:
+   - Russian -> Natural, fluent Russian.
+   - Kazakh -> Natural, fluent Kazakh.
+   - English -> Natural, fluent English.
+4. SCOPE: Focus strictly on fitness, exercise technique, athletic biomechanics, workouts, and sports nutrition.`;
 
 function sanitizeAIResponse(rawText) {
   if (!rawText) return '';
-  let text = String(rawText);
-  // Remove markdown thinking blocks or <thought> tags
+  let text = String(rawText).trim();
+
+  // 1. Remove XML/HTML thought tags
   text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
   text = text.replace(/```thought[\s\S]*?```/gi, '');
-  // Remove leaked planning/reasoning checklists if any model emits them
-  text = text.replace(/^\s*(\*\s+User says:|\*\s+Language:|\*\s+Topic:|\*\s+Constraint Check:|\*\s+The user wants)[\s\S]*?(?=(Привет|Сәлем|Hello|Hi|Для|Жим|Присед|Отжим|Чтобы|1\.|#|[A-ZА-ЯӘІҢҒҮҰҚӨҺ]))/i, '');
+
+  // 2. Strip planning / reasoning scratchpad blocks if model leaks them
+  const scratchpadEndRegex = /^[\s\S]*?(?:Language:\s*(?:Russian|Kazakh|English|RU|KK|EN)[\.\s]*|Check against constraints[^\n]*[\.\s]*|Ensure tone is[^\n]*[\.\s]*)(?=[А-ЯӘІҢҒҮҰҚӨҺA-Z0-9#\n])/i;
+  if (scratchpadEndRegex.test(text)) {
+    text = text.replace(scratchpadEndRegex, '');
+  }
+
+  // 3. Strip leading bulleted reasoning lists
+  text = text.replace(/^(?:\s*[\*\-]\s*(?:User says:|Topic:|Target Persona:|Greeting:|Key Biomechanical|Setup:|Grip:|Bar Path:|Execution:|Safety:|Common Mistakes:|Closing:|Introduction:)[^\n]*\n*)+/gim, '');
+
+  // 4. Strip any leading translated query echoes
+  text = text.replace(/^[^\n]*\([A-Za-z\s,!'\?]+\)\.\s*\n+/i, '');
+
   return text.trim();
 }
 
@@ -76,7 +68,7 @@ export default async function handler(req, res) {
     if (Array.isArray(messages) && messages.length > 0) {
       const history = messages.slice(-10).map((m) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: String(m.content || '').slice(0, 3000) }]
+        parts: [{ text: sanitizeAIResponse(String(m.content || '')).slice(0, 3000) }]
       }));
       geminiContents.push(...history);
     } else if (message) {
@@ -113,6 +105,13 @@ export default async function handler(req, res) {
       const isLegacy = targetModel.includes('gemini-1.0') || targetModel === 'gemini-pro';
       let payloadObj;
 
+      const genConfig = {
+        temperature: 0.3,
+        maxOutputTokens: 1000,
+        thinkingConfig: { thinkingBudget: 0 },
+        thinking_config: { thinking_budget: 0 }
+      };
+
       if (isLegacy) {
         // Legacy models expect system instruction as first user message
         payloadObj = {
@@ -121,13 +120,13 @@ export default async function handler(req, res) {
             { role: 'model', parts: [{ text: 'Understood. I will act strictly as the SportX Biomechanical AI Coach.' }] },
             ...geminiContents
           ],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
+          generationConfig: { temperature: 0.3, maxOutputTokens: 1000 }
         };
       } else {
         payloadObj = {
           system_instruction: { parts: [{ text: systemContent }] },
           contents: geminiContents,
-          generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
+          generationConfig: genConfig
         };
       }
 
@@ -234,8 +233,8 @@ export default async function handler(req, res) {
     }
 
     const data = await geminiRes.json();
-    const candidateParts = data.candidates?.[0]?.content?.parts || [];
-    const rawContent = candidateParts.map((p) => p.text).join('').trim() || 'I can only help with exercise technique, training, workouts, and fitness-related questions.';
+    const candidateParts = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought);
+    const rawContent = candidateParts.map((p) => p.text || '').join('').trim() || 'I can only help with exercise technique, training, workouts, and fitness-related questions.';
     const assistantContent = sanitizeAIResponse(rawContent);
 
     return res.status(200).json({

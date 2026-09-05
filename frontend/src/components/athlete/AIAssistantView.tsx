@@ -14,6 +14,20 @@ interface ChatMessage {
   created_at?: string;
 }
 
+function cleanAIMessageContent(raw: string): string {
+  if (!raw) return '';
+  let text = String(raw).trim();
+  text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+  text = text.replace(/```thought[\s\S]*?```/gi, '');
+  const scratchpadEndRegex = /^[\s\S]*?(?:Language:\s*(?:Russian|Kazakh|English|RU|KK|EN)[\.\s]*|Check against constraints[^\n]*[\.\s]*|Ensure tone is[^\n]*[\.\s]*)(?=[А-ЯӘІҢҒҮҰҚӨҺA-Z0-9#\n])/i;
+  if (scratchpadEndRegex.test(text)) {
+    text = text.replace(scratchpadEndRegex, '');
+  }
+  text = text.replace(/^(?:\s*[\*\-]\s*(?:User says:|Topic:|Target Persona:|Greeting:|Key Biomechanical|Setup:|Grip:|Bar Path:|Execution:|Safety:|Common Mistakes:|Closing:|Introduction:)[^\n]*\n*)+/gim, '');
+  text = text.replace(/^[^\n]*\([A-Za-z\s,!'\?]+\)\.\s*\n+/i, '');
+  return text.trim();
+}
+
 export const AIAssistantView: React.FC = () => {
   const { user, athleteProfile } = useAuth();
   const { language, t } = useTranslation();
@@ -64,7 +78,12 @@ export const AIAssistantView: React.FC = () => {
             .order('created_at', { ascending: true });
 
           if (dbMsgs && dbMsgs.length > 0) {
-            setMessages(dbMsgs as any);
+            setMessages(
+              dbMsgs.map((m: any) => ({
+                ...m,
+                content: m.role === 'assistant' ? cleanAIMessageContent(m.content) : m.content,
+              }))
+            );
           }
         }
       } catch (err) {
@@ -152,7 +171,7 @@ export const AIAssistantView: React.FC = () => {
         body: JSON.stringify({
           message: textToSend.trim(),
           conversationId: activeConvId,
-          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: cleanAIMessageContent(m.content) })),
           user_context: {
             sport: athleteProfile?.sport || 'General Fitness',
             training_level: athleteProfile?.training_level || 'Intermediate',
@@ -163,7 +182,7 @@ export const AIAssistantView: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        const assistantContent = data.content || '';
+        const assistantContent = cleanAIMessageContent(data.content || '');
 
         const assistantMsg: ChatMessage = {
           role: 'assistant',

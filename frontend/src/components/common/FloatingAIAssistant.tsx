@@ -12,6 +12,20 @@ interface Message {
   time: string;
 }
 
+function cleanAIMessageContent(raw: string): string {
+  if (!raw) return '';
+  let text = String(raw).trim();
+  text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+  text = text.replace(/```thought[\s\S]*?```/gi, '');
+  const scratchpadEndRegex = /^[\s\S]*?(?:Language:\s*(?:Russian|Kazakh|English|RU|KK|EN)[\.\s]*|Check against constraints[^\n]*[\.\s]*|Ensure tone is[^\n]*[\.\s]*)(?=[А-ЯӘІҢҒҮҰҚӨҺA-Z0-9#\n])/i;
+  if (scratchpadEndRegex.test(text)) {
+    text = text.replace(scratchpadEndRegex, '');
+  }
+  text = text.replace(/^(?:\s*[\*\-]\s*(?:User says:|Topic:|Target Persona:|Greeting:|Key Biomechanical|Setup:|Grip:|Bar Path:|Execution:|Safety:|Common Mistakes:|Closing:|Introduction:)[^\n]*\n*)+/gim, '');
+  text = text.replace(/^[^\n]*\([A-Za-z\s,!'\?]+\)\.\s*\n+/i, '');
+  return text.trim();
+}
+
 interface Props {
   initialContextQuery?: string;
   onClearInitialContext?: () => void;
@@ -107,7 +121,7 @@ export const FloatingAIAssistant: React.FC<Props> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: textToSend.trim(),
-          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: cleanAIMessageContent(m.content) })),
           user_context: {
             user_name: user?.full_name || "Athlete",
             role: user?.role || "athlete",
@@ -117,11 +131,12 @@ export const FloatingAIAssistant: React.FC<Props> = ({
 
       if (response.ok) {
         const data = await response.json();
+        const assistantText = cleanAIMessageContent(data.content || "");
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: data.content,
+            content: assistantText,
             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ]);
