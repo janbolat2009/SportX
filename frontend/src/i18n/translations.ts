@@ -103,6 +103,43 @@ export const translations: TranslationDictionary = {
     kk: 'ЖИ Камера',
   },
 
+  // Notifications & Alerts Dropdown
+  'notifications.title': {
+    en: 'Alerts & Notifications',
+    ru: 'Уведомления и сигналы',
+    kk: 'Хабарландырулар мен белгілер',
+  },
+  'notifications.subtitle': {
+    en: 'Real-time biomechanical analysis & alerts',
+    ru: 'Биомеханический анализ и важные сигналы',
+    kk: 'Нақты уақыттағы биомеханикалық талдау мен белгілер',
+  },
+  'notifications.emptyTitle': {
+    en: 'All metrics on track',
+    ru: 'Все показатели в норме',
+    kk: 'Барлық көрсеткіштер қалыпты',
+  },
+  'notifications.emptySubtitle': {
+    en: 'No critical technique deviations or active warnings detected.',
+    ru: 'Критичных отклонений техники или активных предупреждений нет.',
+    kk: 'Маңызды техникалық ауытқулар немесе белсенді ескертулер жоқ.',
+  },
+  'notifications.loading': {
+    en: 'Loading notifications...',
+    ru: 'Загрузка уведомлений...',
+    kk: 'Хабарландырулар жүктелуде...',
+  },
+  'notifications.close': {
+    en: 'Close',
+    ru: 'Закрыть',
+    kk: 'Жабу',
+  },
+  'notifications.clearAll': {
+    en: 'Mark all as read',
+    ru: 'Прочитано',
+    kk: 'Барлығын оқылды деп белгілеу',
+  },
+
   // Auth Modal & Screen
   'auth.welcomeBack': {
     en: 'Welcome Back',

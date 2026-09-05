@@ -217,7 +217,8 @@ async def chat_with_assistant(
 
     # 4. Query Google Gemini if configured
     api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
-    model_name = settings.GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    raw_model = settings.GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    clean_model = (raw_model or "gemini-1.5-flash").strip().replace("models/", "")
 
     if api_key and not api_key.startswith("your-") and len(api_key) > 10:
         try:
@@ -248,26 +249,42 @@ async def chat_with_assistant(
                 }
             }
 
+            candidate_models = [
+                clean_model,
+                "gemini-2.0-flash" if clean_model == "gemini-1.5-flash" else "gemini-1.5-flash",
+                "gemini-1.5-flash-latest",
+                "gemini-1.5-pro",
+            ]
+            seen_models = set()
+            unique_candidates = [m for m in candidate_models if not (m in seen_models or seen_models.add(m))]
+
             async with httpx.AsyncClient(timeout=25.0) as client:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-                resp = await client.post(
-                    url,
-                    headers={"Content-Type": "application/json"},
-                    json=gemini_payload,
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        ai_content = "".join([p.get("text", "") for p in parts]).strip()
-                        if ai_content:
-                            return AssistantChatResponse(
-                                role="assistant",
-                                content=ai_content,
-                                conversationId=request.conversationId,
-                                sources_used=["SportX Gemini Biomechanics Engine"]
-                            )
+                for target_model in unique_candidates:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={api_key}"
+                    resp = await client.post(
+                        url,
+                        headers={"Content-Type": "application/json"},
+                        json=gemini_payload,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            ai_content = "".join([p.get("text", "") for p in parts]).strip()
+                            if ai_content:
+                                return AssistantChatResponse(
+                                    role="assistant",
+                                    content=ai_content,
+                                    conversationId=request.conversationId,
+                                    sources_used=[f"SportX Gemini Biomechanics Engine ({target_model})"]
+                                )
+                    elif resp.status_code == 404:
+                        # Model not found on this API version or key; try next candidate
+                        continue
+                    else:
+                        # For other status codes (401, 403, 429), switching models won't help
+                        break
         except Exception as e:
             # Fallback to local rules engine on upstream network/API issue
             pass

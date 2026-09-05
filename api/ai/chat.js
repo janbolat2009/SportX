@@ -68,37 +68,73 @@ export default async function handler(req, res) {
       });
     }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
-    
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
+    // Sanitize model name: strip 'models/' prefix, remove extra slashes/spaces
+    let configuredModel = (process.env.GEMINI_MODEL || 'gemini-1.5-flash').trim().replace(/^models\//, '');
+    const candidateModels = [
+      configuredModel,
+      configuredModel === 'gemini-1.5-flash' ? 'gemini-2.0-flash' : 'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro'
+    ];
+    const uniqueModels = [...new Set(candidateModels)];
+
+    let geminiRes = null;
+    let lastErrBody = '';
+    let usedModel = configuredModel;
+
+    const payload = JSON.stringify({
+      system_instruction: {
+        parts: [{ text: systemContent }]
       },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemContent }]
-        },
-        contents: geminiContents,
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 800
-        }
-      })
+      contents: geminiContents,
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 800
+      }
     });
 
-    if (!geminiRes.ok) {
-      const errBody = await geminiRes.text();
-      console.error(`Gemini API error (${geminiRes.status}):`, errBody);
+    for (const m of uniqueModels) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+      try {
+        geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        });
 
-      if (geminiRes.status === 401 || geminiRes.status === 403) {
+        if (geminiRes.ok) {
+          usedModel = m;
+          break;
+        }
+
+        lastErrBody = await geminiRes.text();
+        console.warn(`Gemini API attempt with model '${m}' failed (${geminiRes.status}):`, lastErrBody);
+
+        // If status is not 404 (e.g. 401, 403, 429), switching models won't help, break immediately
+        if (geminiRes.status !== 404) {
+          break;
+        }
+      } catch (networkErr) {
+        console.error(`Network error requesting model '${m}':`, networkErr);
+      }
+    }
+
+    if (!geminiRes || !geminiRes.ok) {
+      let googleErrorMsg = '';
+      try {
+        const parsed = JSON.parse(lastErrBody);
+        googleErrorMsg = parsed?.error?.message || '';
+      } catch (e) {
+        googleErrorMsg = (lastErrBody || '').slice(0, 150);
+      }
+
+      if (geminiRes?.status === 401 || geminiRes?.status === 403) {
         return res.status(geminiRes.status).json({
-          error: 'Неверный API ключ Gemini (Invalid API Key). Пожалуйста, проверьте переменную GEMINI_API_KEY в Vercel Dashboard.'
+          error: `Неверный API ключ Gemini (Invalid API Key): ${googleErrorMsg || 'Проверьте переменную GEMINI_API_KEY в Vercel Dashboard.'}`
         });
       }
 
-      if (geminiRes.status === 429) {
+      if (geminiRes?.status === 429) {
         const queryText = message || (Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1].content : '');
         const fallbackAnswer = generateOfflineFitnessResponse(queryText);
 
@@ -112,9 +148,10 @@ export default async function handler(req, res) {
 
       const queryText = message || (Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1].content : '');
       const fallbackAnswer = generateOfflineFitnessResponse(queryText);
+      const detailSuffix = googleErrorMsg ? ` — ${googleErrorMsg}` : '';
       return res.status(200).json({
         role: 'assistant',
-        content: `${fallbackAnswer}\n\n---\n*(Автономный режим SportX: Gemini API вернул статус ${geminiRes.status})*`,
+        content: `${fallbackAnswer}\n\n---\n*(Автономный режим SportX: Gemini API статус ${geminiRes ? geminiRes.status : 'Network Error'}${detailSuffix})*`,
         conversationId: conversationId || null,
         model: 'sportx-offline-knowledge'
       });
@@ -128,7 +165,7 @@ export default async function handler(req, res) {
       role: 'assistant',
       content: assistantContent,
       conversationId: conversationId || null,
-      model: model
+      model: usedModel
     });
 
   } catch (error) {
