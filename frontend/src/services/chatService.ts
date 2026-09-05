@@ -13,6 +13,7 @@ export interface ChatContact {
   id: string;
   user_id: string;
   full_name: string;
+  email?: string;
   role: "athlete" | "coach" | "trainer";
   sport?: string;
   avatar_url?: string;
@@ -39,6 +40,9 @@ function saveLocalMessages(msgs: DirectMessage[]): void {
 }
 
 export const chatService = {
+  /**
+   * Fetch complete message conversation between two users
+   */
   async getConversation(currentUserId: string, otherUserId: string): Promise<DirectMessage[]> {
     if (!currentUserId || !otherUserId) return [];
 
@@ -53,7 +57,7 @@ export const chatService = {
           .order("created_at", { ascending: true });
 
         if (!error && data) {
-          // Merge with local storage
+          // Merge with local storage fallback if any offline messages exist
           const localMsgs = getLocalMessages().filter(
             (m) =>
               (m.sender_id === currentUserId && m.receiver_id === otherUserId) ||
@@ -80,12 +84,20 @@ export const chatService = {
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   },
 
+  /**
+   * Send a direct message and persist to Supabase
+   */
   async sendMessage(senderId: string, receiverId: string, content: string): Promise<DirectMessage> {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      throw new Error("Message content cannot be empty");
+    }
+
     const newMsg: DirectMessage = {
-      id: "msg_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
+      id: "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9),
       sender_id: String(senderId),
       receiver_id: String(receiverId),
-      content: content.trim(),
+      content: trimmed,
       is_read: false,
       created_at: new Date().toISOString(),
     };
@@ -97,7 +109,7 @@ export const chatService = {
           .insert({
             sender_id: senderId,
             receiver_id: receiverId,
-            content: content.trim(),
+            content: trimmed,
             is_read: false,
             created_at: newMsg.created_at,
           })
@@ -105,10 +117,16 @@ export const chatService = {
           .single();
 
         if (!error && data) {
+          // Save a copy locally as cache
+          const locals = getLocalMessages();
+          locals.push(data);
+          saveLocalMessages(locals);
           return data;
+        } else if (error) {
+          console.warn("Supabase chat send error:", error.message);
         }
       } catch (e) {
-        console.warn("Supabase chat send notice:", e);
+        console.warn("Supabase chat send exception:", e);
       }
     }
 
@@ -119,14 +137,20 @@ export const chatService = {
     return newMsg;
   },
 
+  /**
+   * Mark all messages in a conversation sent to current user as read
+   */
   async markAsRead(currentUserId: string, otherUserId: string): Promise<void> {
+    if (!currentUserId || !otherUserId) return;
+
     if (isSupabaseConfigured()) {
       try {
         await supabase
           .from("direct_messages")
           .update({ is_read: true })
           .eq("receiver_id", currentUserId)
-          .eq("sender_id", otherUserId);
+          .eq("sender_id", otherUserId)
+          .eq("is_read", false);
       } catch (e) {
         console.warn("Supabase chat markRead notice:", e);
       }
@@ -142,25 +166,49 @@ export const chatService = {
     saveLocalMessages(locals);
   },
 
-  subscribeToMessages(currentUserId: string, onNewMessage: (msg: DirectMessage) => void) {
-    if (!isSupabaseConfigured()) {
+  /**
+   * Subscribe to Supabase Realtime channel for instant bidirectional message delivery
+   */
+  subscribeToMessages(
+    currentUserId: string,
+    onNewMessage: (msg: DirectMessage) => void,
+    onMessageUpdated?: (msg: DirectMessage) => void
+  ) {
+    if (!isSupabaseConfigured() || !currentUserId) {
       return () => {};
     }
 
     try {
+      const channelId = `chat_channel_${currentUserId}_${Date.now()}`;
       const channel = supabase
-        .channel("public:direct_messages")
+        .channel(channelId)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "direct_messages",
-            filter: `receiver_id=eq.${currentUserId}`,
           },
           (payload) => {
-            if (payload.new) {
-              onNewMessage(payload.new as DirectMessage);
+            const row = payload.new as DirectMessage;
+            if (row && (row.receiver_id === currentUserId || row.sender_id === currentUserId)) {
+              onNewMessage(row);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "direct_messages",
+          },
+          (payload) => {
+            const row = payload.new as DirectMessage;
+            if (row && (row.receiver_id === currentUserId || row.sender_id === currentUserId)) {
+              if (onMessageUpdated) {
+                onMessageUpdated(row);
+              }
             }
           }
         )
@@ -174,107 +222,186 @@ export const chatService = {
     }
   },
 
+  /**
+   * Get total unread count for current user
+   */
+  async getUnreadCount(currentUserId: string): Promise<number> {
+    if (!currentUserId) return 0;
+
+    if (isSupabaseConfigured()) {
+      try {
+        const { count, error } = await supabase
+          .from("direct_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("receiver_id", currentUserId)
+          .eq("is_read", false);
+
+        if (!error && typeof count === "number") {
+          return count;
+        }
+      } catch (e) {
+        console.warn("Error getting unread count:", e);
+      }
+    }
+
+    // Local fallback
+    return getLocalMessages().filter((m) => m.receiver_id === currentUserId && !m.is_read).length;
+  },
+
+  /**
+   * Fetch contacts list for current user from real Supabase users & profiles
+   */
   async getContactsForUser(currentUser: any): Promise<ChatContact[]> {
+    if (!currentUser?.id) return [];
+    const currentUserId = String(currentUser.id);
     const isTrainer = currentUser?.role === "coach" || currentUser?.role === "trainer";
 
     if (isSupabaseConfigured()) {
       try {
-        if (isTrainer) {
-          // Fetch coach profile id first
-          const { data: cp } = await supabase
-            .from("coach_profiles")
-            .select("id")
-            .eq("user_id", String(currentUser.id))
-            .maybeSingle();
+        // 1. Fetch all other registered user profiles from Supabase
+        const { data: profiles, error: profError } = await supabase
+          .from("profiles")
+          .select("id, email, full_name, role, avatar_url")
+          .neq("id", currentUserId);
 
-          if (cp) {
-            const { data: rels } = await supabase
-              .from("coach_athlete_relationships")
-              .select("athlete_id, athlete_profiles(id, user_id, sport, user:users(id, full_name, avatar_url))")
-              .eq("coach_id", cp.id)
-              .eq("status", "active");
+        // 2. Fetch athlete & coach extra details for richer bio/sport display
+        const [{ data: athletes }, { data: coaches }] = await Promise.all([
+          supabase.from("athlete_profiles").select("user_id, sport, training_level"),
+          supabase.from("coach_profiles").select("user_id, specialization"),
+        ]);
 
-            if (rels && rels.length > 0) {
-              return rels
-                .filter((r: any) => r.athlete_profiles)
-                .map((r: any) => ({
-                  id: String(r.athlete_profiles.id),
-                  user_id: String(r.athlete_profiles.user_id || r.athlete_profiles.user?.id),
-                  full_name: r.athlete_profiles.user?.full_name || "Athlete #" + r.athlete_profiles.id,
-                  role: "athlete" as const,
-                  sport: r.athlete_profiles.sport || "Track & Field",
-                  avatar_url: r.athlete_profiles.user?.avatar_url,
-                }));
+        const athleteMap = new Map<string, { sport?: string; training_level?: string }>();
+        if (athletes) {
+          athletes.forEach((a: any) => athleteMap.set(String(a.user_id), a));
+        }
+
+        const coachMap = new Map<string, { specialization?: string }>();
+        if (coaches) {
+          coaches.forEach((c: any) => coachMap.set(String(c.user_id), c));
+        }
+
+        // 3. Fetch recent direct messages for the current user to compute last messages & unread counts
+        const { data: messages } = await supabase
+          .from("direct_messages")
+          .select("id, sender_id, receiver_id, content, is_read, created_at")
+          .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
+          .order("created_at", { ascending: false });
+
+        // Map messages by contact user id
+        const lastMsgMap = new Map<string, { text: string; time: string; timestamp: number }>();
+        const unreadCountMap = new Map<string, number>();
+
+        if (messages && messages.length > 0) {
+          for (const msg of messages) {
+            const partnerId = msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
+            
+            // First time we encounter this partner in desc order -> this is the latest message
+            if (!lastMsgMap.has(partnerId)) {
+              const date = new Date(msg.created_at);
+              const isToday = date.toDateString() === new Date().toDateString();
+              const formattedTime = isToday
+                ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : date.toLocaleDateString([], { month: "short", day: "numeric" });
+
+              lastMsgMap.set(partnerId, {
+                text: msg.content,
+                time: formattedTime,
+                timestamp: date.getTime(),
+              });
+            }
+
+            // Calculate unread count for messages sent TO current user
+            if (msg.receiver_id === currentUserId && !msg.is_read) {
+              unreadCountMap.set(partnerId, (unreadCountMap.get(partnerId) || 0) + 1);
             }
           }
-        } else {
-          // Athlete searching for connected trainers
-          const { data: ap } = await supabase
-            .from("athlete_profiles")
-            .select("id")
-            .eq("user_id", String(currentUser.id))
-            .maybeSingle();
+        }
 
-          if (ap) {
-            const { data: rels } = await supabase
-              .from("coach_athlete_relationships")
-              .select("coach_id, coach_profiles(id, user_id, user:users(id, full_name, avatar_url))")
-              .eq("athlete_id", ap.id)
-              .eq("status", "active");
+        // 4. Transform profiles into ChatContact items
+        if (profiles && profiles.length > 0) {
+          const contactList: ChatContact[] = profiles.map((p) => {
+            const pId = String(p.id);
+            const athInfo = athleteMap.get(pId);
+            const coachInfo = coachMap.get(pId);
+            const msgInfo = lastMsgMap.get(pId);
+            const unread = unreadCountMap.get(pId) || 0;
 
-            if (rels && rels.length > 0) {
-              return rels
-                .filter((r: any) => r.coach_profiles)
-                .map((r: any) => ({
-                  id: String(r.coach_profiles.id),
-                  user_id: String(r.coach_profiles.user_id || r.coach_profiles.user?.id),
-                  full_name: r.coach_profiles.user?.full_name || "Coach / Trainer",
-                  role: "trainer" as const,
-                  sport: "Master Strength Coach",
-                  avatar_url: r.coach_profiles.user?.avatar_url,
-                }));
+            let role: "athlete" | "coach" | "trainer" = "athlete";
+            if (p.role === "coach" || p.role === "trainer") {
+              role = "coach";
             }
-          }
+
+            let sportOrSpec = "";
+            if (role === "coach") {
+              sportOrSpec = coachInfo?.specialization || "Biomechanics Coach";
+            } else {
+              sportOrSpec = athInfo?.sport || "General Fitness";
+            }
+
+            return {
+              id: pId,
+              user_id: pId,
+              full_name: p.full_name || (role === "coach" ? "Coach" : "Athlete"),
+              email: p.email,
+              role: role,
+              sport: sportOrSpec,
+              avatar_url: p.avatar_url,
+              last_message: msgInfo?.text,
+              last_message_time: msgInfo?.time,
+              unread_count: unread,
+            };
+          });
+
+          // Sort contacts:
+          // 1. Users with recent conversations (by timestamp desc)
+          // 2. Targeted role matches (coaches first for athletes, athletes first for coaches)
+          // 3. Alphabetically
+          return contactList.sort((a, b) => {
+            const timeA = lastMsgMap.get(a.user_id)?.timestamp || 0;
+            const timeB = lastMsgMap.get(b.user_id)?.timestamp || 0;
+            if (timeA !== timeB) return timeB - timeA;
+
+            // Prioritize opposite roles for easy discovery
+            const aIsTargetRole = isTrainer ? a.role === "athlete" : (a.role === "coach" || a.role === "trainer");
+            const bIsTargetRole = isTrainer ? b.role === "athlete" : (b.role === "coach" || b.role === "trainer");
+            if (aIsTargetRole && !bIsTargetRole) return -1;
+            if (!aIsTargetRole && bIsTargetRole) return 1;
+
+            return a.full_name.localeCompare(b.full_name);
+          });
         }
       } catch (err) {
         console.warn("Supabase contacts fetch notice:", err);
       }
     }
 
-    // Default connected contacts fallback
-    if (isTrainer) {
-      return [
-        {
-          id: "ath_1",
-          user_id: "user_ath_1",
-          full_name: "Arman Kazbek",
-          role: "athlete",
-          sport: "Sprint & Hurdles",
-          last_message: "Coach, check my latest squat video form!",
-          last_message_time: "10:24 AM",
-        },
-        {
-          id: "ath_2",
-          user_id: "user_ath_2",
-          full_name: "Elena Rostova",
-          role: "athlete",
-          sport: "Olympic Weightlifting",
-          last_message: "Completed 5 sets of pushups today.",
-          last_message_time: "Yesterday",
-        },
-      ];
-    } else {
-      return [
-        {
-          id: "coach_1",
-          user_id: "user_coach_1",
-          full_name: "Alexey Volkov (Head Coach)",
-          role: "trainer",
-          sport: "Olympic Biomechanics Expert",
-          last_message: "Keep your knees tracked out over your toes during squats.",
-          last_message_time: "09:15 AM",
-        },
-      ];
+    // Fallback: check local storage message history if database is not reachable
+    const localMsgs = getLocalMessages();
+    const partnerIds = new Set<string>();
+    localMsgs.forEach((m) => {
+      if (m.sender_id === currentUserId) partnerIds.add(m.receiver_id);
+      if (m.receiver_id === currentUserId) partnerIds.add(m.sender_id);
+    });
+
+    if (partnerIds.size > 0) {
+      return Array.from(partnerIds).map((pId) => {
+        const relevant = localMsgs.filter(
+          (m) => (m.sender_id === currentUserId && m.receiver_id === pId) || (m.sender_id === pId && m.receiver_id === currentUserId)
+        );
+        const last = relevant[relevant.length - 1];
+        return {
+          id: pId,
+          user_id: pId,
+          full_name: `Contact (${pId.substring(0, 8)})`,
+          role: isTrainer ? "athlete" : "coach",
+          sport: "Connected User",
+          last_message: last?.content,
+          last_message_time: last?.created_at ? new Date(last.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : undefined,
+        };
+      });
     }
+
+    return [];
   },
 };
+

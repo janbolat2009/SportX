@@ -140,6 +140,113 @@ export const translations: TranslationDictionary = {
     kk: 'Барлығын оқылды деп белгілеу',
   },
 
+  // Direct Messages & Chat System
+  'chat.directMessages': {
+    en: 'Direct Messages',
+    ru: 'Личные сообщения',
+    kk: 'Жеке хабарламалар',
+  },
+  'chat.trainerHub': {
+    en: 'Trainer Hub',
+    ru: 'Центр тренера',
+    kk: 'Жаттықтырушы орталығы',
+  },
+  'chat.athleteChat': {
+    en: 'Athlete Chat',
+    ru: 'Чат атлета',
+    kk: 'Атлет чаты',
+  },
+  'chat.searchAthletes': {
+    en: 'Search athletes...',
+    ru: 'Поиск атлетов...',
+    kk: 'Атлеттерді іздеу...',
+  },
+  'chat.searchTrainers': {
+    en: 'Search coaches...',
+    ru: 'Поиск тренеров...',
+    kk: 'Жаттықтырушыларды іздеу...',
+  },
+  'chat.searchContacts': {
+    en: 'Search contacts...',
+    ru: 'Поиск контактов...',
+    kk: 'Контактілерді іздеу...',
+  },
+  'chat.loadingConversations': {
+    en: 'Loading conversations...',
+    ru: 'Загрузка диалогов...',
+    kk: 'Сұхбаттар жүктелуде...',
+  },
+  'chat.noConversations': {
+    en: 'No active conversations yet',
+    ru: 'Нет активных диалогов',
+    kk: 'Белсенді сұхбаттар жоқ',
+  },
+  'chat.noConversationsDesc': {
+    en: 'Start a conversation with a coach or athlete to discuss technique and training plans.',
+    ru: 'Начните диалог с тренером или атлетом для обсуждения техники и плана тренировок.',
+    kk: 'Техника мен жаттығу жоспарын талқылау үшін жаттықтырушы немесе атлетпен сұхбат бастаңыз.',
+  },
+  'chat.selectConversation': {
+    en: 'Select a conversation',
+    ru: 'Выберите диалог',
+    kk: 'Сұхбатты таңдаңыз',
+  },
+  'chat.selectConversationDesc': {
+    en: 'Connect directly between athlete and coach, exchange exercise advice, and review live kinematic progress.',
+    ru: 'Общайтесь напрямую между атлетом и тренером, обменивайтесь рекомендациями и разбирайте технику.',
+    kk: 'Атлет пен жаттықтырушы арасында тікелей байланысып, ұсыныстармен бөлісіңіз және техниканы талдаңыз.',
+  },
+  'chat.startConversationTitle': {
+    en: 'Start the conversation',
+    ru: 'Начните разговор',
+    kk: 'Әңгімені бастаңыз',
+  },
+  'chat.startConversationDesc': {
+    en: 'Send real-time feedback, workout recommendations, or ask your coach questions about technique.',
+    ru: 'Отправляйте советы, рекомендации по тренировкам или задавайте вопросы тренеру.',
+    kk: 'Кері байланыс, жаттығу ұсыныстарын жіберіңіз немесе жаттықтырушыға сұрақ қойыңыз.',
+  },
+  'chat.typePlaceholder': {
+    en: 'Type a message...',
+    ru: 'Введите сообщение...',
+    kk: 'Хабарлама жазыңыз...',
+  },
+  'chat.viewTelemetry': {
+    en: 'View Telemetry',
+    ru: 'Телеметрия',
+    kk: 'Телеметрия',
+  },
+  'chat.coach': {
+    en: 'Coach',
+    ru: 'Тренер',
+    kk: 'Жаттықтырушы',
+  },
+  'chat.athlete': {
+    en: 'Athlete',
+    ru: 'Атлет',
+    kk: 'Атлет',
+  },
+  'chat.allUsers': {
+    en: 'All Contacts',
+    ru: 'Все контакты',
+    kk: 'Барлық контактілер',
+  },
+  'chat.recent': {
+    en: 'Recent',
+    ru: 'Недавно',
+    kk: 'Жақында',
+  },
+  'chat.unread': {
+    en: 'unread',
+    ru: 'новые',
+    kk: 'жаңа',
+  },
+  'chat.readyToConnect': {
+    en: 'Ready to connect',
+    ru: 'Готов к общению',
+    kk: 'Байланысуға дайын',
+  },
+
   // Auth Modal & Screen
   'auth.welcomeBack': {
     en: 'Welcome Back',
