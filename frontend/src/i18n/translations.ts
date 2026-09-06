@@ -2266,6 +2266,132 @@ export const translations: TranslationDictionary = {
     ru: 'Квалификация и сертификаты',
     kk: 'Біліктілік пен сертификаттар',
   },
+
+  // Post-Workout & Technique Feedback Additional Localization
+  'report.solidForm': {
+    en: 'Solid Form',
+    ru: 'Хорошая техника',
+    kk: 'Жақсы техника',
+  },
+  'report.needsAttention': {
+    en: 'Needs Attention',
+    ru: 'Требует внимания',
+    kk: 'Назар аударуды қажет етеді',
+  },
+  'report.fullRom': {
+    en: '100% full ROM',
+    ru: '100% полная амплитуда',
+    kk: '100% толық амплитуда',
+  },
+  'report.incompleteReps': {
+    en: 'incomplete reps',
+    ru: 'неполных повторов',
+    kk: 'толық емес қайталаулар',
+  },
+  'report.optimalSymmetry': {
+    en: 'Optimal bilateral balance',
+    ru: 'Оптимальный баланс сторон',
+    kk: 'Екі жақтың оңтайлы тепе-теңдігі',
+  },
+  'report.minorAsymmetry': {
+    en: 'Minor side drift',
+    ru: 'Небольшой дисбаланс',
+    kk: 'Аздаған теңсіздік',
+  },
+  'report.standardDepth': {
+    en: 'Target depth standard',
+    ru: 'Стандарт целевой глубины',
+    kk: 'Мақсатты тереңдік стандарты',
+  },
+  'report.noIssuesDetected': {
+    en: 'No biomechanical discrepancies detected',
+    ru: 'Биомеханических ошибок не обнаружено',
+    kk: 'Биомеханикалық қателер анықталған жоқ',
+  },
+  'report.goodKneeAlignment': {
+    en: 'Good knee alignment',
+    ru: 'Правильная траектория коленей',
+    kk: 'Тізенің дұрыс траекториясы',
+  },
+  'report.stableTorso': {
+    en: 'Stable torso alignment',
+    ru: 'Стабильное положение корпуса',
+    kk: 'Тұлғаның тұрақты қалпы',
+  },
+  'report.balancedSymmetry': {
+    en: 'Balanced bilateral symmetry',
+    ru: 'Симметричное распределение нагрузки',
+    kk: 'Салмақтың екі жаққа тең түсуі',
+  },
+  'report.solidLockout': {
+    en: 'Solid lockout & pacing',
+    ru: 'Уверенная фиксация и темп',
+    kk: 'Сенімді бекіту және темп',
+  },
+  'report.movementDeviation': {
+    en: 'Deviation detected in target joint path',
+    ru: 'Обнаружено отклонение в целевой траектории суставов',
+    kk: 'Буынның мақсатты траекториясында ауытқу анықталды',
+  },
+  'report.focusAlignment': {
+    en: 'Focus on joint alignment and steady tempo',
+    ru: 'Сфокусируйтесь на выравнивании суставов и ровном темпе',
+    kk: 'Буындарды тегістеуге және тұрақты қарқынға назар аударыңыз',
+  },
+
+  // Sleep & Recovery Apple Health Additional Localization
+  'sleep.todaySleep': {
+    en: 'Sleep Session Today',
+    ru: 'Сон сегодня',
+    kk: 'Бүгінгі ұйқы',
+  },
+  'sleep.readinessScore': {
+    en: 'Readiness Score',
+    ru: 'Индекс готовности',
+    kk: 'Дайындық индексі',
+  },
+  'sleep.weeklyAverage': {
+    en: 'Weekly Average',
+    ru: 'Среднее за неделю',
+    kk: 'Апталық орташа',
+  },
+  'sleep.avgQuality': {
+    en: 'Avg Quality',
+    ru: 'Среднее качество',
+    kk: 'Орташа сапасы',
+  },
+  'sleep.circadianRhythm': {
+    en: 'Circadian Rhythm',
+    ru: 'Циркадный ритм',
+    kk: 'Циркадтық ырғақ',
+  },
+
+  // QR connection additional
+  'qr.authRequired': {
+    en: 'Authentication Required',
+    ru: 'Требуется авторизация',
+    kk: 'Авторизация қажет',
+  },
+  'qr.authRequiredDesc': {
+    en: 'Please sign in or create an account in SportX to link with this trainer.',
+    ru: 'Пожалуйста, войдите в аккаунт или зарегистрируйтесь в SportX для подключения к тренеру.',
+    kk: 'Бапкерге қосылу үшін SportX жүйесіне кіріңіз немесе тіркеліңіз.',
+  },
+  'qr.alreadyConnected': {
+    en: 'Already Connected to Trainer',
+    ru: 'Вы уже подключены к этому тренеру',
+    kk: 'Сіз осы бапкерге қосылғансыз',
+  },
+  'qr.alreadyConnectedDesc': {
+    en: 'The coach already has access to your workouts and technique telemetry.',
+    ru: 'Тренер уже видит ваши тренировки. Вы можете написать ему в чат и получить персональный совет.',
+    kk: 'Бапкер сіздің жаттығуларыңызды көреді. Чатта жазып, жеке кеңес алуға болады.',
+  },
+  'qr.loginRequired': {
+    en: 'Please sign in to connect with a trainer.',
+    ru: 'Пожалуйста, войдите в аккаунт, чтобы подключиться к тренеру.',
+    kk: 'Бапкерге қосылу үшін жүйеге кіріңіз.',
+  },
 };
 
 export const getTranslation = (key: string, lang: Language): string => {

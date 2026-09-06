@@ -33,13 +33,19 @@ const MainAppContent: React.FC = () => {
 
   const isTrainer = user?.role === "coach" || user?.role === "trainer";
 
-  // Check URL parameters for direct coach connection from external QR scans
+  // Check URL parameters and deep links for direct coach connection from external QR scans
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const pathname = window.location.pathname;
+      const pathMatch = pathname.match(/\/connect\/trainer\/([^/?#]+)/i);
+      if (pathMatch && pathMatch[1]) {
+        setAutoConnectCoachId(decodeURIComponent(pathMatch[1].trim()));
+        return;
+      }
       const params = new URLSearchParams(window.location.search);
       const coachParam = params.get("connect_coach") || params.get("coach");
       if (coachParam) {
-        setAutoConnectCoachId(coachParam);
+        setAutoConnectCoachId(decodeURIComponent(coachParam.trim()));
       }
     }
   }, []);
@@ -179,6 +185,7 @@ const MainAppContent: React.FC = () => {
       {autoConnectCoachId && (
         <ConnectTrainerModal
           isOpen={true}
+          initialCoachId={autoConnectCoachId}
           onClose={() => {
             setAutoConnectCoachId(null);
             if (typeof window !== "undefined" && window.history?.replaceState) {

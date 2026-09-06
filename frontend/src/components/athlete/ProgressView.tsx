@@ -43,9 +43,14 @@ export const ProgressView: React.FC = () => {
 
   const avgScore = sessions.length > 0
     ? Math.round(sessions.reduce((acc, s) => acc + s.overall_score, 0) / sessions.length)
-    : 86;
+    : null;
 
   const totalRepsCount = sessions.reduce((acc, s) => acc + (s.total_reps || 0), 0);
+  const totalDurationMinutes = Math.round(sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) / 60);
+
+  const avgSymmetry = sessions.length > 0
+    ? Math.round(sessions.reduce((acc, s) => acc + (s.symmetry_score || 90), 0) / sessions.length)
+    : null;
 
   if (loading) {
     return (
@@ -79,10 +84,16 @@ export const ProgressView: React.FC = () => {
             {t("progress.avgScore", "Average Score")}
           </span>
           <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1">
-            {avgScore}<span className="text-xs text-stone-400 dark:text-zinc-500 font-normal">/100</span>
+            {avgScore !== null ? avgScore : "—"}{avgScore !== null && <span className="text-xs text-stone-400 dark:text-zinc-500 font-normal">/100</span>}
           </p>
           <span className="text-[10px] text-emerald-600 dark:text-brand-400 font-medium flex items-center gap-0.5 mt-1">
-            <ArrowUpRight className="w-3 h-3" /> +4% {t("progress.vsLastWeek", "vs last week")}
+            {sessions.length > 0 ? (
+              <>
+                <ArrowUpRight className="w-3 h-3" /> {sessions.length} {t("progress.sessionsCount", "sessions")}
+              </>
+            ) : (
+              <span className="text-stone-400 dark:text-zinc-500">0 {t("progress.sessionsCount", "sessions")}</span>
+            )}
           </span>
         </div>
 
@@ -93,10 +104,10 @@ export const ProgressView: React.FC = () => {
           <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1 font-mono">{totalRepsCount}</p>
           <span className="text-[10px] text-stone-400 dark:text-zinc-500 font-medium mt-1 block">
             {language === "ru"
-              ? `За ${sessions.length} сессий`
+              ? `За ${sessions.length} сессий • ${totalDurationMinutes} мин`
               : language === "kk"
-              ? `${sessions.length} жаттығу ішінде`
-              : `Across ${sessions.length} sessions`}
+              ? `${sessions.length} жаттығу ішінде • ${totalDurationMinutes} мин`
+              : `Across ${sessions.length} sessions • ${totalDurationMinutes}m`}
           </span>
         </div>
 
@@ -104,9 +115,11 @@ export const ProgressView: React.FC = () => {
           <span className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400 block">
             {t("progress.avgSymmetry", "Avg Symmetry")}
           </span>
-          <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1 font-mono">94%</p>
+          <p className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white mt-1 font-mono">
+            {avgSymmetry !== null ? `${avgSymmetry}%` : "—"}
+          </p>
           <span className="text-[10px] text-emerald-600 dark:text-brand-400 font-medium flex items-center gap-0.5 mt-1">
-            <CheckCircle2 className="w-3 h-3" /> {t("progress.optimalBalance", "Optimal Balance")}
+            <CheckCircle2 className="w-3 h-3" /> {avgSymmetry !== null && avgSymmetry >= 85 ? t("progress.optimalBalance", "Optimal Balance") : t("progress.needsWork", "Tracking")}
           </span>
         </div>
 
@@ -118,7 +131,7 @@ export const ProgressView: React.FC = () => {
             {readiness?.readiness_score || 88}%
           </p>
           <span className="text-[10px] text-emerald-600 dark:text-brand-400 font-medium flex items-center gap-0.5 mt-1">
-            <Flame className="w-3 h-3 text-emerald-600 dark:text-brand-400" /> {t("progress.readyHighLoad", "Ready for High Load")}
+            <Flame className="w-3 h-3 text-emerald-600 dark:text-brand-400" /> {t("progress.readyHighLoad", "Ready for Load")}
           </span>
         </div>
 
@@ -136,32 +149,40 @@ export const ProgressView: React.FC = () => {
           <span className="text-xs font-mono text-stone-500 dark:text-zinc-400">{t("progress.target", "Target: 85%+")}</span>
         </div>
 
-        {/* CSS Bar Chart */}
-        <div className="h-40 flex items-end gap-2 sm:gap-3 pt-6 border-b border-surface-border pb-2">
-          {sessions.slice(0, 10).reverse().map((sess, idx) => {
-            const h = Math.max(15, (sess.overall_score / 100) * 100);
-            return (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-1 group">
-                <div className="text-[10px] font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {Math.round(sess.overall_score)}
+        {/* Real Data Chart or Clean Empty State */}
+        {sessions.length === 0 ? (
+          <div className="h-32 flex flex-col items-center justify-center text-center p-4 border border-dashed border-stone-200 dark:border-zinc-800 rounded-xl space-y-1">
+            <p className="text-xs text-stone-500 dark:text-zinc-400">
+              {t("progress.noSessions", "No completed workouts yet. Start an exercise session to track technique progress!")}
+            </p>
+          </div>
+        ) : (
+          <div className="h-40 flex items-end gap-2 sm:gap-3 pt-6 border-b border-surface-border pb-2">
+            {sessions.slice(0, 10).reverse().map((sess, idx) => {
+              const h = Math.max(15, (sess.overall_score / 100) * 100);
+              return (
+                <div key={idx} className="flex-1 flex flex-col items-center gap-1 group">
+                  <div className="text-[10px] font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {Math.round(sess.overall_score)}
+                  </div>
+                  <div
+                    style={{ height: `${h}%` }}
+                    className={`w-full max-w-[36px] rounded-t-lg transition-all ${
+                      sess.overall_score >= 85
+                        ? "bg-brand-500/80 group-hover:bg-brand-400"
+                        : sess.overall_score >= 70
+                        ? "bg-amber-500/80 group-hover:bg-amber-400"
+                        : "bg-red-500/80 group-hover:bg-red-400"
+                    }`}
+                  />
+                  <span className="text-[9px] text-zinc-500 font-mono truncate max-w-[32px]">
+                    {sess.exercise_name?.slice(0, 3) || "Rep"}
+                  </span>
                 </div>
-                <div
-                  style={{ height: `${h}%` }}
-                  className={`w-full max-w-[36px] rounded-t-lg transition-all ${
-                    sess.overall_score >= 85
-                      ? "bg-brand-500/80 group-hover:bg-brand-400"
-                      : sess.overall_score >= 70
-                      ? "bg-amber-500/80 group-hover:bg-amber-400"
-                      : "bg-red-500/80 group-hover:bg-red-400"
-                  }`}
-                />
-                <span className="text-[9px] text-zinc-500 font-mono truncate max-w-[32px]">
-                  {sess.exercise_name?.slice(0, 3) || "Rep"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Completed Sessions Feed */}

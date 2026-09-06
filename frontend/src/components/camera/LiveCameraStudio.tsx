@@ -475,11 +475,29 @@ export const LiveCameraStudio: React.FC<Props> = ({
 
     if (isSupabaseConfigured() && user?.id) {
       try {
-        const { data: ap } = await supabase
+        let { data: ap } = await supabase
           .from('athlete_profiles')
           .select('id')
           .eq('user_id', String(user.id))
           .maybeSingle();
+
+        if (!ap) {
+          const subjectId = "ATH-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+          const { data: newAp } = await supabase
+            .from('athlete_profiles')
+            .upsert(
+              {
+                user_id: String(user.id),
+                sport: 'General Fitness',
+                training_level: 'Intermediate',
+                anonymized_subject_id: subjectId,
+              },
+              { onConflict: 'user_id' }
+            )
+            .select('id')
+            .maybeSingle();
+          ap = newAp;
+        }
 
         if (ap) {
           const exObj = exercises.find((e) => e.slug === selectedSlug) || exercises[0];

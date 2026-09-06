@@ -197,8 +197,8 @@ export interface AthleteProfile {
 }
 
 export interface SleepRecord {
-  id: number;
-  athlete_id: number;
+  id: number | string;
+  athlete_id: number | string;
   log_date: string;
   bedtime?: string;
   wake_time?: string;
@@ -206,7 +206,7 @@ export interface SleepRecord {
   sleep_quality_score: number;
   consistency_score: number;
   notes?: string;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface NutritionRecord {

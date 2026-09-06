@@ -12,11 +12,31 @@ export const workoutService = {
   async getWorkoutSessions(athleteUserId?: string): Promise<WorkoutSession[]> {
     if (isSupabaseConfigured() && athleteUserId) {
       // 1. Get athlete profile ID
-      const { data: athlete } = await supabase
+      let { data: athlete } = await supabase
         .from('athlete_profiles')
         .select('id')
         .eq('user_id', athleteUserId)
         .maybeSingle();
+
+      if (!athlete) {
+        try {
+          const subjectId = "ATH-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+          const { data: newAp } = await supabase
+            .from('athlete_profiles')
+            .upsert(
+              {
+                user_id: athleteUserId,
+                sport: 'General Fitness',
+                training_level: 'Intermediate',
+                anonymized_subject_id: subjectId,
+              },
+              { onConflict: 'user_id' }
+            )
+            .select('id')
+            .maybeSingle();
+          athlete = newAp;
+        } catch {}
+      }
 
       if (athlete) {
         const { data: sessions, error } = await supabase
@@ -24,7 +44,8 @@ export const workoutService = {
           .select(`
             *,
             exercises:exercise_id (name, slug),
-            repetitions (*)
+            repetitions (*),
+            technique_issues (*)
           `)
           .eq('athlete_id', athlete.id)
           .order('created_at', { ascending: false });
@@ -70,14 +91,16 @@ export const workoutService = {
               phase_durations: r.phase_durations,
               detected_errors: r.detected_errors || []
             })),
-            issues: []
+            issues: s.technique_issues || []
           }));
         }
       }
+
+      // No mock data: return empty array when no sessions recorded yet
+      return [];
     }
 
-    // Fallback to local API
-    return api.getAthleteSessions(1);
+    return [];
   },
 
   async getWorkoutSessionById(sessionId: string): Promise<WorkoutSession | null> {

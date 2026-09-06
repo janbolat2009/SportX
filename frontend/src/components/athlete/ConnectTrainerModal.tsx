@@ -27,6 +27,7 @@ interface Props {
   onClose: () => void;
   onConnected?: (coach: CoachPublicInfo) => void;
   onOpenChat?: (coachUserId: string) => void;
+  initialCoachId?: string | null;
 }
 
 type Step = "scanner" | "confirm" | "success" | "error";
@@ -37,6 +38,7 @@ export const ConnectTrainerModal: React.FC<Props> = ({
   onClose,
   onConnected,
   onOpenChat,
+  initialCoachId,
 }) => {
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -49,6 +51,7 @@ export const ConnectTrainerModal: React.FC<Props> = ({
   const [torchOn, setTorchOn] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [scannedCoach, setScannedCoach] = useState<CoachPublicInfo | null>(null);
+  const [isAlreadyConnected, setIsAlreadyConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -101,12 +104,28 @@ export const ConnectTrainerModal: React.FC<Props> = ({
       }
 
       setScannedCoach(coach);
+
+      // Check if already connected
+      if (user?.id) {
+        const isConn = await trainerConnectionService.isAlreadyConnected(String(user.id), coach.id);
+        setIsAlreadyConnected(isConn);
+      } else {
+        setIsAlreadyConnected(false);
+      }
+
       setStep("confirm");
     } catch (e: any) {
       setActionError(e.message || "Failed to resolve trainer information.");
       setStep("error");
     }
   }, [stopCamera, t, user?.id]);
+
+  // Handle initialCoachId auto-detection from URL
+  useEffect(() => {
+    if (isOpen && initialCoachId) {
+      handleCodeDetected(initialCoachId);
+    }
+  }, [isOpen, initialCoachId, handleCodeDetected]);
 
   // Continuous frame scanner loop
   const scanFrame = useCallback(async () => {
@@ -287,7 +306,11 @@ export const ConnectTrainerModal: React.FC<Props> = ({
 
   // Confirm connection
   const handleConfirmConnection = async () => {
-    if (!user?.id || !scannedCoach) return;
+    if (!scannedCoach) return;
+    if (!user?.id) {
+      setActionError(t("qr.loginRequired", "Please sign in to your SportX account to connect with this trainer."));
+      return;
+    }
     setConnecting(true);
     setActionError(null);
 
@@ -298,6 +321,9 @@ export const ConnectTrainerModal: React.FC<Props> = ({
       );
 
       if (result.success) {
+        if (result.alreadyConnected) {
+          setIsAlreadyConnected(true);
+        }
         setStep("success");
         if (onConnected) onConnected(scannedCoach);
       }
@@ -688,6 +714,30 @@ export const ConnectTrainerModal: React.FC<Props> = ({
               </ul>
             </div>
 
+            {/* Already Connected Banner */}
+            {isAlreadyConnected && (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-center space-y-1">
+                <p className="text-xs font-bold text-emerald-700 dark:text-brand-300 flex items-center justify-center gap-1.5">
+                  <Check className="w-4 h-4 stroke-[2.5]" />
+                  <span>{t("qr.alreadyConnected", "Вы уже подключены к этому тренеру")}</span>
+                </p>
+                <p className="text-[11px] text-stone-600 dark:text-zinc-400">
+                  {t("qr.alreadyConnectedDesc", "Тренер видит ваши тренировки. Вы можете написать ему в чат и получить рекомендации.")}
+                </p>
+              </div>
+            )}
+
+            {!user?.id && (
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-center space-y-1">
+                <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                  {t("qr.authRequired", "Требуется авторизация")}
+                </p>
+                <p className="text-[11px] text-stone-600 dark:text-zinc-400">
+                  {t("qr.authRequiredDesc", "Пожалуйста, войдите в свой аккаунт, чтобы завершить подключение.")}
+                </p>
+              </div>
+            )}
+
             {actionError && (
               <p className="text-xs text-rose-500 bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 text-center font-medium">
                 {actionError}
@@ -696,24 +746,40 @@ export const ConnectTrainerModal: React.FC<Props> = ({
 
             {/* Actions */}
             <div className="space-y-2 pt-1">
-              <button
-                type="button"
-                onClick={handleConfirmConnection}
-                disabled={connecting}
-                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
-              >
-                {connecting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{t("qr.connecting", "Подключение...")}</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck className="w-4 h-4" />
-                    <span>{t("qr.connectBtn", "Подтвердить подключение")}</span>
-                  </>
-                )}
-              </button>
+              {isAlreadyConnected ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (onOpenChat) {
+                      onOpenChat(scannedCoach.user_id || scannedCoach.id);
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>{t("qr.openChat", "Спросить совет / Чат")}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmConnection}
+                  disabled={connecting}
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {connecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{t("qr.connecting", "Подключение...")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span>{t("qr.connectBtn", "Подтвердить подключение")}</span>
+                    </>
+                  )}
+                </button>
+              )}
 
               <button
                 type="button"
