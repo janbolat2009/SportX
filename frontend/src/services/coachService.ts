@@ -5,125 +5,337 @@ import { CoachRosterAthlete, NotificationItem } from '../types';
 
 export const coachService = {
   async getSupervisedAthletes(coachUserId: string): Promise<CoachRosterAthlete[]> {
-    let roster: CoachRosterAthlete[] = [];
+    if (!isSupabaseConfigured() || !coachUserId) {
+      return [];
+    }
 
-    if (isSupabaseConfigured() && coachUserId) {
-      // 1. Get coach profile ID
+    try {
+      // 1. Resolve coach_profiles id for this user
+      let coachProfId: string | null = null;
       const { data: coach } = await supabase
         .from('coach_profiles')
         .select('id')
         .eq('user_id', coachUserId)
         .maybeSingle();
 
-      const coachProfId = coach?.id || coachUserId;
+      if (coach) {
+        coachProfId = coach.id;
+      }
 
+      // 2. Query active relationships for this coach (check both coach_profiles.id and user_id)
+      let rels: any[] = [];
       if (coachProfId) {
-        const { data: rels, error } = await supabase
+        const { data: r1 } = await supabase
           .from('coach_athlete_relationships')
-          .select(`
-            athlete_id,
-            status,
-            athlete_profiles:athlete_id (
-              id,
-              user_id,
-              sport,
-              training_level,
-              anonymized_subject_id,
-              profiles:user_id (full_name, email, avatar_url),
-              workout_sessions (
-                id,
-                overall_score,
-                created_at,
-                exercises:exercise_id (name)
-              )
-            )
-          `)
+          .select('id, athlete_id, coach_id, status, created_at')
           .eq('coach_id', coachProfId)
           .eq('status', 'active');
-
-        if (!error && rels && rels.length > 0) {
-          roster = rels.map((r: any) => {
-            const ap = r.athlete_profiles;
-            const user = ap?.profiles;
-            const sessions = ap?.workout_sessions || [];
-            const sortedSessions = [...sessions].sort(
-              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            );
-            const latestSession = sortedSessions[0];
-            const avgScore =
-              sessions.length > 0
-                ? Math.round(
-                    sessions.reduce((acc: number, curr: any) => acc + (curr.overall_score || 0), 0) /
-                      sessions.length
-                  )
-                : 88;
-
-            return {
-              athlete_id: ap?.id || r.athlete_id,
-              user_id: ap?.user_id,
-              full_name: user?.full_name || 'Athlete',
-              email: user?.email || 'athlete@sportx.ai',
-              sport: ap?.sport || 'General Fitness',
-              training_level: ap?.training_level || 'Intermediate',
-              anonymized_subject_id: ap?.anonymized_subject_id || 'ATH-001',
-              total_sessions: sessions.length,
-              recent_average_score: avgScore,
-              average_technique_score: avgScore,
-              latest_session_exercise: latestSession?.exercises?.name || 'Barbell Squat',
-              latest_session_score: latestSession?.overall_score || null,
-              latest_session_date: latestSession?.created_at || new Date().toISOString(),
-              pending_assignments: 0,
-              status: r.status,
-            };
-          });
-        }
+        if (r1 && r1.length > 0) rels = r1;
       }
-    }
 
-    // Check local storage relationships for immediate zero-latency visibility
-    try {
-      const rawLocals = localStorage.getItem('sportx_coach_athlete_relationships');
-      if (rawLocals) {
-        const localRels = JSON.parse(rawLocals);
-        for (const lr of localRels) {
-          if (
-            (lr.coach_id === coachUserId || lr.coach_id?.includes(coachUserId)) &&
-            lr.status === 'active'
-          ) {
-            const exists = roster.some((r) => r.athlete_id === lr.athlete_id || r.user_id === lr.athlete_id);
-            if (!exists) {
-              roster.unshift({
-                athlete_id: lr.athlete_id,
-                user_id: lr.athlete_id,
-                full_name: lr.athlete_name || 'New Connected Athlete',
-                email: lr.athlete_email || 'athlete@sportx.ai',
-                sport: 'Functional Training',
-                training_level: 'Intermediate',
-                anonymized_subject_id: 'ATH-LIVE',
-                total_sessions: 1,
-                recent_average_score: 90,
-                average_technique_score: 90,
-                latest_session_exercise: 'Barbell Squat',
-                latest_session_score: 90,
-                latest_session_date: 'Just now',
-                pending_assignments: 0,
-                status: 'active',
-              });
+      // If nothing found by coach_profiles.id, check by coachUserId (in case QR encoded user_id)
+      if (rels.length === 0 && coachUserId) {
+        const { data: r2 } = await supabase
+          .from('coach_athlete_relationships')
+          .select('id, athlete_id, coach_id, status, created_at')
+          .eq('coach_id', coachUserId)
+          .eq('status', 'active');
+        if (r2 && r2.length > 0) rels = r2;
+      }
+
+      // Also check local storage relationships for instant optimistic reactivity
+      try {
+        const rawLocals = localStorage.getItem('sportx_coach_athlete_relationships');
+        if (rawLocals) {
+          const localRels = JSON.parse(rawLocals);
+          for (const lr of localRels) {
+            if (
+              (lr.coach_id === coachProfId || lr.coach_id === coachUserId) &&
+              lr.status === 'active' &&
+              !rels.some((r) => r.athlete_id === lr.athlete_id)
+            ) {
+              rels.push(lr);
             }
           }
         }
-      }
-    } catch {}
+      } catch {}
 
-    if (roster.length > 0) {
+      if (rels.length === 0) {
+        return [];
+      }
+
+      // 3. For each active relationship, fetch real athlete profile, user profile, and real workout sessions
+      const roster: CoachRosterAthlete[] = [];
+
+      for (const rel of rels) {
+        const athleteId = String(rel.athlete_id);
+
+        // Fetch athlete_profiles
+        let ap: any = null;
+        const { data: apData } = await supabase
+          .from('athlete_profiles')
+          .select('*')
+          .eq('id', athleteId)
+          .maybeSingle();
+
+        if (apData) {
+          ap = apData;
+        } else {
+          // Check by user_id
+          const { data: apByUser } = await supabase
+            .from('athlete_profiles')
+            .select('*')
+            .eq('user_id', athleteId)
+            .maybeSingle();
+          if (apByUser) ap = apByUser;
+        }
+
+        const athleteProfileId = ap?.id || athleteId;
+        const athleteUserId = ap?.user_id || athleteId;
+
+        // Fetch user profile from profiles table
+        let userProf: any = null;
+        if (athleteUserId) {
+          const { data: upData } = await supabase
+            .from('profiles')
+            .select('full_name, email, avatar_url')
+            .eq('id', athleteUserId)
+            .maybeSingle();
+          userProf = upData;
+        }
+
+        // Fetch real workout sessions for this athlete
+        const { data: sessionsData } = await supabase
+          .from('workout_sessions')
+          .select(`
+            id,
+            overall_score,
+            created_at,
+            exercises:exercise_id (name)
+          `)
+          .eq('athlete_id', athleteProfileId)
+          .order('created_at', { ascending: false });
+
+        const sessions = sessionsData || [];
+        const latestSession = sessions[0];
+        const avgScore =
+          sessions.length > 0
+            ? Math.round(
+                sessions.reduce((acc: number, curr: any) => acc + (Number(curr.overall_score) || 0), 0) /
+                  sessions.length
+              )
+            : 0;
+
+        roster.push({
+          athlete_id: athleteProfileId,
+          user_id: athleteUserId,
+          full_name: userProf?.full_name || 'Athlete',
+          email: userProf?.email || '',
+          sport: ap?.sport || 'General Fitness',
+          training_level: ap?.training_level || 'Intermediate',
+          anonymized_subject_id: ap?.anonymized_subject_id || `ATH-${athleteProfileId.slice(0, 6)}`,
+          total_sessions: sessions.length,
+          recent_average_score: avgScore,
+          average_technique_score: avgScore,
+          latest_session_exercise: (latestSession as any)?.exercises?.name || '',
+          latest_session_score: latestSession?.overall_score ?? null,
+          latest_session_date: latestSession?.created_at || rel.created_at || new Date().toISOString(),
+          pending_assignments: 0,
+          status: rel.status || 'active',
+        });
+      }
+
       return roster;
+    } catch (e) {
+      console.error('Error in getSupervisedAthletes:', e);
+      return [];
+    }
+  },
+
+  async getAthleteFullDossier(athleteIdOrUserId: string | number) {
+    const queryId = String(athleteIdOrUserId);
+    if (!isSupabaseConfigured() || !queryId) {
+      return null;
     }
 
-    // Fallback to local roster from API
     try {
-      return await api.getCoachRoster();
-    } catch {
-      return [];
+      // 1. Resolve athlete_profiles record
+      let athleteProfile: any = null;
+      const { data: apById } = await supabase
+        .from('athlete_profiles')
+        .select('*')
+        .eq('id', queryId)
+        .maybeSingle();
+
+      if (apById) {
+        athleteProfile = apById;
+      } else {
+        const { data: apByUser } = await supabase
+          .from('athlete_profiles')
+          .select('*')
+          .eq('user_id', queryId)
+          .maybeSingle();
+        if (apByUser) athleteProfile = apByUser;
+      }
+
+      if (!athleteProfile) {
+        return null;
+      }
+
+      const athleteId = athleteProfile.id;
+      const userId = athleteProfile.user_id;
+
+      // 2. Fetch athlete's user profile (profiles table)
+      let userProfile: any = null;
+      if (userId) {
+        const { data: uProf } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url, role')
+          .eq('id', userId)
+          .maybeSingle();
+        userProfile = uProf;
+      }
+
+      // 3. Fetch all workout sessions for this athlete
+      const { data: sessionsData } = await supabase
+        .from('workout_sessions')
+        .select(`
+          *,
+          exercises:exercise_id (name, slug),
+          technique_issues (*)
+        `)
+        .eq('athlete_id', athleteId)
+        .order('created_at', { ascending: false });
+
+      const sessions = sessionsData || [];
+
+      // 4. Fetch sleep records for this athlete
+      const { data: sleepData } = await supabase
+        .from('sleep_records')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .order('sleep_date', { ascending: false })
+        .limit(14);
+
+      const sleepRecords = sleepData || [];
+
+      // 5. Fetch nutrition records for this athlete
+      const { data: nutritionData } = await supabase
+        .from('nutrition_records')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .order('date', { ascending: false })
+        .limit(14);
+
+      const nutritionRecords = nutritionData || [];
+
+      // 6. Fetch recovery records for this athlete
+      const { data: recoveryData } = await supabase
+        .from('recovery_records')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .order('log_date', { ascending: false })
+        .limit(7);
+
+      const recoveryRecords = recoveryData || [];
+
+      // 7. Calculate real aggregated metrics
+      const totalSessions = sessions.length;
+      let avgScore: number | null = null;
+      let avgSymmetry: number | null = null;
+      let totalReps = 0;
+      let totalDurationMinutes = 0;
+      const issueCounts: Record<string, number> = {};
+
+      if (totalSessions > 0) {
+        const totalScoreSum = sessions.reduce((acc: number, s: any) => acc + (Number(s.overall_score) || 0), 0);
+        avgScore = Math.round(totalScoreSum / totalSessions);
+
+        const symSessions = sessions.filter((s: any) => s.symmetry_score != null && Number(s.symmetry_score) > 0);
+        if (symSessions.length > 0) {
+          avgSymmetry = Math.round(symSessions.reduce((acc: number, s: any) => acc + Number(s.symmetry_score), 0) / symSessions.length);
+        }
+
+        totalReps = sessions.reduce((acc: number, s: any) => acc + (Number(s.total_reps) || 0), 0);
+        totalDurationMinutes = Math.round(sessions.reduce((acc: number, s: any) => acc + (Number(s.duration_seconds) || 0), 0) / 60);
+
+        // Aggregate real technique issues
+        for (const sess of sessions) {
+          const issues = sess.technique_issues || [];
+          for (const iss of issues) {
+            const name = iss.error_name || iss.error_code || 'Technique Deviation';
+            issueCounts[name] = (issueCounts[name] || 0) + 1;
+          }
+        }
+      }
+
+      // Real sleep average
+      let avgSleepHours: number | null = null;
+      if (sleepRecords.length > 0) {
+        const totalMinutes = sleepRecords.reduce((acc: number, r: any) => acc + (Number(r.duration_minutes) || Number(r.total_sleep_minutes) || 0), 0);
+        avgSleepHours = Number((totalMinutes / sleepRecords.length / 60).toFixed(1));
+      }
+
+      // Real recent calories
+      let recentCalories: number | null = null;
+      if (nutritionRecords.length > 0) {
+        recentCalories = nutritionRecords[0].calories || null;
+      }
+
+      // Latest session feedback
+      const latestSession = sessions[0];
+      const latestFeedback = latestSession?.feedback_summary || null;
+
+      return {
+        athlete_id: athleteId,
+        user_id: userId,
+        full_name: userProfile?.full_name || 'Athlete',
+        email: userProfile?.email || '',
+        avatar_url: userProfile?.avatar_url,
+        sport: athleteProfile.sport || 'General Fitness',
+        training_level: athleteProfile.training_level || 'Intermediate',
+        anonymized_subject_id: athleteProfile.anonymized_subject_id || `ATH-${athleteId.slice(0, 6)}`,
+        height_cm: athleteProfile.height_cm || null,
+        weight_kg: athleteProfile.weight_kg || null,
+        date_of_birth: athleteProfile.date_of_birth || null,
+        gender: athleteProfile.gender || null,
+        fitness_goals: athleteProfile.fitness_goals || null,
+        total_sessions: totalSessions,
+        average_technique_score: avgScore,
+        average_symmetry: avgSymmetry,
+        total_reps: totalReps,
+        total_duration_minutes: totalDurationMinutes,
+        average_sleep_hours: avgSleepHours,
+        recent_calories: recentCalories,
+        readiness_score: recoveryRecords[0]?.calculated_readiness_score || null,
+        issue_distribution: issueCounts,
+        latest_session_feedback: latestFeedback,
+        sessions: sessions.map((s: any) => ({
+          id: s.id,
+          exercise_id: s.exercise_id,
+          exercise_name: s.exercises?.name || 'Workout',
+          exercise_slug: s.exercises?.slug || 'squat',
+          session_type: s.session_type || 'LIVE_CAMERA',
+          duration_seconds: s.duration_seconds || 0,
+          total_reps: s.total_reps || 0,
+          valid_reps: s.valid_reps || 0,
+          overall_score: s.overall_score || 0,
+          alignment_score: s.alignment_score,
+          rom_score: s.rom_score,
+          symmetry_score: s.symmetry_score,
+          tempo_score: s.tempo_score,
+          stability_score: s.stability_score,
+          feedback_summary: s.feedback_summary,
+          created_at: s.created_at,
+          issues_count: (s.technique_issues || []).length,
+        })),
+        sleep_records: sleepRecords,
+        nutrition_records: nutritionRecords,
+        recovery_records: recoveryRecords,
+      };
+    } catch (err) {
+      console.error('Error in getAthleteFullDossier:', err);
+      return null;
     }
   },
 
@@ -265,30 +477,7 @@ export const coachService = {
       } catch {}
     }
 
-    return [
-      {
-        id: 'fb-default-1',
-        trainer_id: 'coach-1',
-        athlete_id: athleteId,
-        trainer_name: 'Coach Alex',
-        type: 'recommendation' as const,
-        title: 'Squat Stance & Knee Alignment',
-        content: 'Keep your knees aligned with your feet during squats. Avoid letting knees cave inward on the ascent.',
-        created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-        is_read: false,
-      },
-      {
-        id: 'fb-default-2',
-        trainer_id: 'coach-1',
-        athlete_id: athleteId,
-        trainer_name: 'Coach Alex',
-        type: 'feedback' as const,
-        title: 'Push-up Core Rigidity',
-        content: 'Excellent elbow angle at 45 degrees. Continue bracing your core to prevent sagging hips.',
-        created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-        is_read: true,
-      }
-    ];
+    return [];
   },
 
   async getTrainerAthleteFeedback(trainerId: string, athleteId: string) {
@@ -321,18 +510,6 @@ export const coachService = {
       } catch {}
     }
 
-    return [
-      {
-        id: 'fb-default-1',
-        trainer_id: trainerId,
-        athlete_id: athleteId,
-        trainer_name: 'Coach Alex',
-        type: 'recommendation' as const,
-        title: 'Squat Stance & Knee Alignment',
-        content: 'Keep your knees aligned with your feet during squats. Avoid letting knees cave inward on the ascent.',
-        created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-        is_read: false,
-      }
-    ];
+    return [];
   },
 };

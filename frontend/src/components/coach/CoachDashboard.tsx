@@ -3,6 +3,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { coachService } from "../../services/coachService";
 import { workoutService } from "../../services/workoutService";
+import { supabase, isSupabaseConfigured } from "../../lib/supabase";
 import { CoachRosterAthlete, NotificationItem, Exercise } from "../../types";
 import {
   Users, AlertTriangle, Dumbbell, Calendar,
@@ -29,7 +30,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({ onOpenChat }) =>
   const [selectedAthleteId, setSelectedAthleteId] = useState<number | string | null>(null);
   const [assigningAthlete, setAssigningAthlete] = useState<CoachRosterAthlete | null>(null);
 
-  const loadCoachData = async () => {
+  const loadCoachData = async (silent = false) => {
     try {
       const coachUserIdStr = user?.id ? String(user.id) : undefined;
       const [rosterData, alertsData, exercisesData] = await Promise.all([
@@ -43,20 +44,67 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({ onOpenChat }) =>
     } catch (e) {
       console.error("Failed to load coach data:", e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadCoachData();
 
+    // 1. Instant local events
     const handleUpdate = () => {
-      loadCoachData();
+      loadCoachData(true);
     };
 
     window.addEventListener("sportx_relationships_updated", handleUpdate);
     window.addEventListener("sportx_coach_connected", handleUpdate);
+
+    // 2. Supabase Realtime channel for live connection updates
+    let channel: any = null;
+    if (isSupabaseConfigured() && user?.id) {
+      try {
+        channel = supabase
+          .channel(`coach_live_${user.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'coach_athlete_relationships',
+            },
+            () => {
+              loadCoachData(true);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'workout_sessions',
+            },
+            () => {
+              loadCoachData(true);
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn("Notice subscribing to realtime:", err);
+      }
+    }
+
+    // 3. Fallback periodic polling every 4 seconds to guarantee updates across devices/tabs
+    const pollTimer = setInterval(() => {
+      loadCoachData(true);
+    }, 4000);
+
     return () => {
+      clearInterval(pollTimer);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {}
+      }
       window.removeEventListener("sportx_relationships_updated", handleUpdate);
       window.removeEventListener("sportx_coach_connected", handleUpdate);
     };
@@ -171,7 +219,9 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({ onOpenChat }) =>
                           {t("trainer.avgScore", "Avg Score")}
                         </span>
                         <span className="text-sm font-bold text-white font-mono">
-                          {Math.round(athlete.average_technique_score ?? athlete.recent_average_score ?? 85)}%
+                          {athlete.total_sessions > 0
+                            ? `${Math.round(athlete.average_technique_score || athlete.recent_average_score)}%`
+                            : "—"}
                         </span>
                       </div>
 

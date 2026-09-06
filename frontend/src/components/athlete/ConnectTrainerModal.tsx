@@ -41,7 +41,7 @@ export const ConnectTrainerModal: React.FC<Props> = ({
   initialCoachId,
 }) => {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [step, setStep] = useState<Step>("scanner");
   const [activeTab, setActiveTab] = useState<InputTab>("camera");
@@ -632,9 +632,11 @@ export const ConnectTrainerModal: React.FC<Props> = ({
                 <h4 className="text-base font-bold text-stone-900 dark:text-white">
                   {scannedCoach.full_name}
                 </h4>
-                <p className="text-xs text-stone-600 dark:text-zinc-400 font-medium">
-                  {scannedCoach.specialization}
-                </p>
+                {scannedCoach.specialization && (
+                  <p className="text-xs text-stone-600 dark:text-zinc-400 font-medium">
+                    {scannedCoach.specialization}
+                  </p>
+                )}
                 {scannedCoach.organization && (
                   <p className="text-[11px] text-stone-500 dark:text-zinc-400">
                     {scannedCoach.organization}
@@ -642,30 +644,32 @@ export const ConnectTrainerModal: React.FC<Props> = ({
                 )}
               </div>
 
-              {/* Coach Telemetry & Stats Bar */}
-              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-emerald-500/15 text-center">
-                <div className="p-1.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
-                  <span className="text-[10px] text-stone-500 dark:text-zinc-400 block font-medium">
-                    {t("trainer.experience", "Опыт")}
-                  </span>
-                  <span className="text-xs font-bold text-stone-900 dark:text-white">
-                    {scannedCoach.experience_years ? `${scannedCoach.experience_years} лет` : "5+ лет"}
-                  </span>
-                </div>
-                <div className="p-1.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
+              {/* Coach Telemetry & Stats Bar - Only real data */}
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1 border-t border-emerald-500/15 text-center">
+                {scannedCoach.experience_years != null && scannedCoach.experience_years > 0 && (
+                  <div className="p-1.5 min-w-[75px] rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
+                    <span className="text-[10px] text-stone-500 dark:text-zinc-400 block font-medium">
+                      {t("trainer.experience", "Опыт")}
+                    </span>
+                    <span className="text-xs font-bold text-stone-900 dark:text-white">
+                      {scannedCoach.experience_years} {language === "ru" ? "лет" : language === "kk" ? "жыл" : "yrs"}
+                    </span>
+                  </div>
+                )}
+                <div className="p-1.5 min-w-[75px] rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
                   <span className="text-[10px] text-stone-500 dark:text-zinc-400 block font-medium">
                     {t("trainer.activeAthletes", "Атлетов")}
                   </span>
                   <span className="text-xs font-bold text-stone-900 dark:text-white">
-                    {scannedCoach.stats?.active_athletes ?? 1}
+                    {scannedCoach.stats?.active_athletes ?? 0}
                   </span>
                 </div>
-                <div className="p-1.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
+                <div className="p-1.5 min-w-[75px] rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
                   <span className="text-[10px] text-stone-500 dark:text-zinc-400 block font-medium">
                     {t("trainer.status", "Статус")}
                   </span>
                   <span className="text-xs font-bold text-emerald-600 dark:text-brand-400">
-                    Активен
+                    {t("trainer.activeStatus", "Активен")}
                   </span>
                 </div>
               </div>

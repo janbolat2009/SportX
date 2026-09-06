@@ -434,6 +434,81 @@ CREATE TRIGGER trg_athlete_profiles_updated_at BEFORE UPDATE ON public.athlete_p
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ==============================================================================
+-- SECURITY DEFINER HELPER FUNCTIONS (Eliminates RLS Mutual Recursion)
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.get_current_athlete_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT id FROM public.athlete_profiles WHERE user_id = auth.uid() LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_current_coach_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT id FROM public.coach_profiles WHERE user_id = auth.uid() LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_view_user_profile(target_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT (
+    -- 1. User can view own profile
+    auth.uid() = target_user_id
+    -- 2. Coach/trainer profiles are publicly readable for QR code previews
+    OR EXISTS (
+      SELECT 1 FROM public.profiles WHERE id = target_user_id AND role IN ('coach', 'trainer')
+    )
+    -- 3. Coach can view connected athlete's profile
+    OR EXISTS (
+      SELECT 1 FROM public.coach_athlete_relationships car
+      JOIN public.coach_profiles cp ON car.coach_id = cp.id
+      JOIN public.athlete_profiles ap ON car.athlete_id = ap.id
+      WHERE cp.user_id = auth.uid() AND ap.user_id = target_user_id AND car.status = 'active'
+    )
+    -- 4. Athlete can view connected coach's profile
+    OR EXISTS (
+      SELECT 1 FROM public.coach_athlete_relationships car
+      JOIN public.coach_profiles cp ON car.coach_id = cp.id
+      JOIN public.athlete_profiles ap ON car.athlete_id = ap.id
+      WHERE ap.user_id = auth.uid() AND cp.user_id = target_user_id AND car.status = 'active'
+    )
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_access_athlete_telemetry(target_athlete_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT (
+    -- 1. Athlete themselves
+    EXISTS (
+      SELECT 1 FROM public.athlete_profiles WHERE id = target_athlete_id AND user_id = auth.uid()
+    )
+    -- 2. Connected coach
+    OR EXISTS (
+      SELECT 1 FROM public.coach_athlete_relationships car
+      JOIN public.coach_profiles cp ON car.coach_id = cp.id
+      WHERE car.athlete_id = target_athlete_id AND cp.user_id = auth.uid() AND car.status = 'active'
+    )
+  );
+$$;
+
+-- ==============================================================================
 -- RLS
 -- ==============================================================================
 ALTER TABLE public.profiles                    ENABLE ROW LEVEL SECURITY;
@@ -458,105 +533,164 @@ ALTER TABLE public.coach_comments              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_conversations            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_messages                 ENABLE ROW LEVEL SECURITY;
 
--- PROFILES: своя строка + тренеры (role=coach) + связанные через relationships
-CREATE POLICY "view_profiles" ON public.profiles FOR SELECT USING (
-    auth.uid() = id
-    OR role IN ('coach', 'trainer')
-    OR EXISTS (
-        SELECT 1 FROM public.coach_athlete_relationships car
-        JOIN public.coach_profiles cp ON car.coach_id = cp.id
-        JOIN public.athlete_profiles ap ON car.athlete_id = ap.id
-        WHERE (cp.user_id = auth.uid() AND ap.user_id = profiles.id)
-           OR (ap.user_id = auth.uid() AND cp.user_id = profiles.id)
-    )
-);
+-- PROFILES
+DROP POLICY IF EXISTS "view_profiles" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
+CREATE POLICY "profiles_select_policy" ON public.profiles FOR SELECT USING (public.can_view_user_profile(id));
+
+DROP POLICY IF EXISTS "update_own_profile" ON public.profiles;
 CREATE POLICY "update_own_profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "insert_own_profile" ON public.profiles;
 CREATE POLICY "insert_own_profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
--- COACH PROFILES: читать могут все (нужно для QR-сканирования)
+-- COACH PROFILES: public read for previewing in QR modals
+DROP POLICY IF EXISTS "public_read_coach_profiles" ON public.coach_profiles;
 CREATE POLICY "public_read_coach_profiles" ON public.coach_profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "coach_insert_own" ON public.coach_profiles;
 CREATE POLICY "coach_insert_own" ON public.coach_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "coach_update_own" ON public.coach_profiles;
 CREATE POLICY "coach_update_own" ON public.coach_profiles FOR UPDATE USING (auth.uid() = user_id);
 
 -- ATHLETE PROFILES
-CREATE POLICY "athlete_manage_own" ON public.athlete_profiles FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "coach_view_athletes" ON public.athlete_profiles FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.coach_athlete_relationships car
-        JOIN public.coach_profiles cp ON car.coach_id = cp.id
-        WHERE car.athlete_id = athlete_profiles.id AND cp.user_id = auth.uid() AND car.status = 'active'
-    )
-);
+DROP POLICY IF EXISTS "athlete_manage_own" ON public.athlete_profiles;
+DROP POLICY IF EXISTS "coach_view_athletes" ON public.athlete_profiles;
+DROP POLICY IF EXISTS "athlete_profiles_select_policy" ON public.athlete_profiles;
+CREATE POLICY "athlete_profiles_select_policy" ON public.athlete_profiles FOR SELECT USING (public.can_access_athlete_telemetry(id));
+
+DROP POLICY IF EXISTS "athlete_profiles_modify_policy" ON public.athlete_profiles;
+CREATE POLICY "athlete_profiles_modify_policy" ON public.athlete_profiles FOR ALL USING (auth.uid() = user_id);
 
 -- COACH-ATHLETE RELATIONSHIPS
+DROP POLICY IF EXISTS "rel_select" ON public.coach_athlete_relationships;
 CREATE POLICY "rel_select" ON public.coach_athlete_relationships FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.coach_profiles cp WHERE cp.id = coach_id AND cp.user_id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
-);
-CREATE POLICY "rel_insert" ON public.coach_athlete_relationships FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
-);
-CREATE POLICY "rel_update" ON public.coach_athlete_relationships FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM public.coach_profiles cp WHERE cp.id = coach_id AND cp.user_id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
+    coach_id = public.get_current_coach_id()
+    OR athlete_id = public.get_current_athlete_id()
 );
 
--- EXERCISES (публичный каталог)
+DROP POLICY IF EXISTS "rel_insert" ON public.coach_athlete_relationships;
+CREATE POLICY "rel_insert" ON public.coach_athlete_relationships FOR INSERT WITH CHECK (
+    athlete_id = public.get_current_athlete_id()
+    OR coach_id = public.get_current_coach_id()
+);
+
+DROP POLICY IF EXISTS "rel_update" ON public.coach_athlete_relationships;
+CREATE POLICY "rel_update" ON public.coach_athlete_relationships FOR UPDATE USING (
+    coach_id = public.get_current_coach_id()
+    OR athlete_id = public.get_current_athlete_id()
+);
+
+-- EXERCISES (public catalog)
+DROP POLICY IF EXISTS "public_read_categories" ON public.exercise_categories;
 CREATE POLICY "public_read_categories" ON public.exercise_categories FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "public_read_exercises" ON public.exercises;
 CREATE POLICY "public_read_exercises" ON public.exercises FOR SELECT USING (true);
 
 -- WORKOUT SESSIONS
-CREATE POLICY "athlete_sessions" ON public.workout_sessions FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
+DROP POLICY IF EXISTS "athlete_sessions" ON public.workout_sessions;
+DROP POLICY IF EXISTS "coach_view_sessions" ON public.workout_sessions;
+DROP POLICY IF EXISTS "workout_sessions_select_policy" ON public.workout_sessions;
+CREATE POLICY "workout_sessions_select_policy" ON public.workout_sessions FOR SELECT USING (
+    public.can_access_athlete_telemetry(athlete_id)
 );
-CREATE POLICY "coach_view_sessions" ON public.workout_sessions FOR SELECT USING (
-    EXISTS (
-        SELECT 1 FROM public.coach_athlete_relationships car
-        JOIN public.coach_profiles cp ON car.coach_id = cp.id
-        WHERE car.athlete_id = athlete_id AND cp.user_id = auth.uid() AND car.status = 'active'
-    )
+
+DROP POLICY IF EXISTS "workout_sessions_modify_policy" ON public.workout_sessions;
+CREATE POLICY "workout_sessions_modify_policy" ON public.workout_sessions FOR ALL USING (
+    athlete_id = public.get_current_athlete_id()
 );
 
 -- REPETITIONS
-CREATE POLICY "athlete_repetitions" ON public.repetitions FOR ALL USING (
+DROP POLICY IF EXISTS "athlete_repetitions" ON public.repetitions;
+DROP POLICY IF EXISTS "repetitions_select_policy" ON public.repetitions;
+CREATE POLICY "repetitions_select_policy" ON public.repetitions FOR SELECT USING (
     EXISTS (
         SELECT 1 FROM public.workout_sessions ws
-        JOIN public.athlete_profiles ap ON ws.athlete_id = ap.id
-        WHERE ws.id = session_id AND ap.user_id = auth.uid()
+        WHERE ws.id = repetitions.session_id
+          AND public.can_access_athlete_telemetry(ws.athlete_id)
+    )
+);
+
+DROP POLICY IF EXISTS "repetitions_modify_policy" ON public.repetitions;
+CREATE POLICY "repetitions_modify_policy" ON public.repetitions FOR ALL USING (
+    EXISTS (
+        SELECT 1 FROM public.workout_sessions ws
+        WHERE ws.id = repetitions.session_id
+          AND ws.athlete_id = public.get_current_athlete_id()
+    )
+);
+
+-- TECHNIQUE ISSUES & SCORES
+DROP POLICY IF EXISTS "technique_issues_policy" ON public.technique_issues;
+CREATE POLICY "technique_issues_policy" ON public.technique_issues FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM public.workout_sessions ws
+        WHERE ws.id = technique_issues.session_id
+          AND public.can_access_athlete_telemetry(ws.athlete_id)
     )
 );
 
 -- SLEEP RECORDS
-CREATE POLICY "athlete_sleep" ON public.sleep_records FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
+DROP POLICY IF EXISTS "athlete_sleep" ON public.sleep_records;
+DROP POLICY IF EXISTS "sleep_records_select_policy" ON public.sleep_records;
+CREATE POLICY "sleep_records_select_policy" ON public.sleep_records FOR SELECT USING (
+    public.can_access_athlete_telemetry(athlete_id)
+);
+
+DROP POLICY IF EXISTS "sleep_records_modify_policy" ON public.sleep_records;
+CREATE POLICY "sleep_records_modify_policy" ON public.sleep_records FOR ALL USING (
+    athlete_id = public.get_current_athlete_id()
 );
 
 -- MEAL LOGS
+DROP POLICY IF EXISTS "user_meal_logs" ON public.meal_logs;
 CREATE POLICY "user_meal_logs" ON public.meal_logs FOR ALL USING (auth.uid() = user_id);
 
 -- NUTRITION
-CREATE POLICY "athlete_nutrition" ON public.nutrition_records FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
+DROP POLICY IF EXISTS "athlete_nutrition" ON public.nutrition_records;
+DROP POLICY IF EXISTS "nutrition_records_select_policy" ON public.nutrition_records;
+CREATE POLICY "nutrition_records_select_policy" ON public.nutrition_records FOR SELECT USING (
+    public.can_access_athlete_telemetry(athlete_id)
+);
+
+DROP POLICY IF EXISTS "nutrition_records_modify_policy" ON public.nutrition_records;
+CREATE POLICY "nutrition_records_modify_policy" ON public.nutrition_records FOR ALL USING (
+    athlete_id = public.get_current_athlete_id()
 );
 
 -- RECOVERY
-CREATE POLICY "athlete_recovery" ON public.recovery_records FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
+DROP POLICY IF EXISTS "athlete_recovery" ON public.recovery_records;
+DROP POLICY IF EXISTS "recovery_records_select_policy" ON public.recovery_records;
+CREATE POLICY "recovery_records_select_policy" ON public.recovery_records FOR SELECT USING (
+    public.can_access_athlete_telemetry(athlete_id)
+);
+
+DROP POLICY IF EXISTS "recovery_records_modify_policy" ON public.recovery_records;
+CREATE POLICY "recovery_records_modify_policy" ON public.recovery_records FOR ALL USING (
+    athlete_id = public.get_current_athlete_id()
 );
 
 -- GOALS
+DROP POLICY IF EXISTS "athlete_goals" ON public.goals;
 CREATE POLICY "athlete_goals" ON public.goals FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.athlete_profiles ap WHERE ap.id = athlete_id AND ap.user_id = auth.uid())
+    athlete_id = public.get_current_athlete_id()
 );
 
 -- NOTIFICATIONS
+DROP POLICY IF EXISTS "user_notifications" ON public.notifications;
 CREATE POLICY "user_notifications" ON public.notifications FOR ALL USING (auth.uid() = user_id);
 
 -- AI
+DROP POLICY IF EXISTS "user_ai_conversations" ON public.ai_conversations;
 CREATE POLICY "user_ai_conversations" ON public.ai_conversations FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_ai_messages" ON public.ai_messages;
 CREATE POLICY "user_ai_messages" ON public.ai_messages FOR ALL USING (auth.uid() = user_id);
 
 -- COACH COMMENTS
+DROP POLICY IF EXISTS "coach_comments_policy" ON public.coach_comments;
 CREATE POLICY "coach_comments_policy" ON public.coach_comments FOR ALL USING (
     EXISTS (SELECT 1 FROM public.coach_profiles cp WHERE cp.id = coach_id AND cp.user_id = auth.uid())
 );

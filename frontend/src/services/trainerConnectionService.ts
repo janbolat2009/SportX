@@ -121,16 +121,12 @@ export const trainerConnectionService = {
 
     let coachId = coachUserId;
     let coachName = fallbackName;
-    let specialization = "Biomechanics & Strength Coach";
-    let organization = "SportX High Performance Lab";
-    let bio = "Certified coach specializing in kinetic motion tracking, technique refinement, and athletic longevity.";
-    let certifications = "NSCA-CSCS, Olympic Biomechanics Specialist";
-    let experienceYears = 5;
+    let specialization = "";
 
     if (isSupabaseConfigured()) {
       try {
         // Query coach profile
-        const { data: coach, error } = await supabase
+        const { data: coach } = await supabase
           .from("coach_profiles")
           .select("id, user_id, specialization, experience_years, organization, bio, certifications")
           .eq("user_id", coachUserId)
@@ -139,25 +135,19 @@ export const trainerConnectionService = {
         if (coach) {
           coachId = coach.id;
           if (coach.specialization) specialization = coach.specialization;
-          if (coach.organization) organization = coach.organization;
-          if (coach.bio) bio = coach.bio;
-          if (coach.certifications) certifications = coach.certifications;
-          if (coach.experience_years) experienceYears = coach.experience_years;
         } else {
-          // Auto-create coach profile if missing
+          // Auto-create coach profile if missing with empty/clean defaults
           const { data: newCoach } = await supabase
             .from("coach_profiles")
             .insert({
               user_id: coachUserId,
-              specialization: "Biomechanics & Strength Coach",
-              experience_years: 5,
-              organization: "SportX High Performance Lab",
             })
             .select("id, specialization")
             .maybeSingle();
 
           if (newCoach) {
             coachId = newCoach.id;
+            if (newCoach.specialization) specialization = newCoach.specialization;
           }
         }
 
@@ -177,30 +167,8 @@ export const trainerConnectionService = {
     }
 
     const origin = typeof window !== "undefined" ? window.location.origin : "https://sportx.app";
-    // Standard permanent deep-link format and query param fallback
     const qrValue = `${origin}/connect/trainer/${encodeURIComponent(coachId)}`;
     const shareUrl = qrValue;
-
-    // Cache coach public dossier for instant offline & local resolution
-    const publicDossier: CoachPublicInfo = {
-      id: coachId,
-      user_id: coachUserId,
-      full_name: coachName,
-      specialization,
-      experience_years: experienceYears,
-      organization,
-      bio,
-      certifications,
-      stats: {
-        active_athletes: 1,
-        sessions_supervised: 18,
-        verification_status: "Verified Coach",
-      },
-    };
-    try {
-      localStorage.setItem(`sportx_coach_public_${coachId}`, JSON.stringify(publicDossier));
-      localStorage.setItem(`sportx_coach_public_${coachUserId}`, JSON.stringify(publicDossier));
-    } catch {}
 
     return {
       coachId,
@@ -263,175 +231,128 @@ export const trainerConnectionService = {
     const cleanId = this.parseConnectionInput(coachIdOrCode);
     if (!cleanId) return null;
 
-    // Check fast local public cache first
+    // Check local cache (only use if it has a real full_name, not a placeholder)
     try {
       const cached = localStorage.getItem(`sportx_coach_public_${cleanId}`);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed?.id && parsed?.full_name) {
+        // Only use cache if it has a real name (not the "Coach" placeholder)
+        if (parsed?.id && parsed?.full_name && parsed.full_name !== "Coach" && parsed.full_name !== "SportX Trainer") {
           return parsed as CoachPublicInfo;
         }
       }
     } catch {}
 
-    if (isSupabaseConfigured()) {
-      try {
-        // ── Step 1: Try coach_profiles by id (no join, avoids RLS cross-table issue)
-        let coachRow: any = null;
+    if (!isSupabaseConfigured()) return null;
 
-        const { data: byId } = await supabase
+    try {
+      // ── Step 1: coach_profiles by id (coach_profiles.id = QR value)
+      let coachRow: any = null;
+
+      const { data: byId } = await supabase
+        .from("coach_profiles")
+        .select("id, user_id, specialization, experience_years, organization, bio, certifications")
+        .eq("id", cleanId)
+        .maybeSingle();
+
+      if (byId) coachRow = byId;
+
+      // ── Step 2: coach_profiles by user_id (QR may encode auth user id)
+      if (!coachRow) {
+        const { data: byUserId } = await supabase
           .from("coach_profiles")
           .select("id, user_id, specialization, experience_years, organization, bio, certifications")
-          .eq("id", cleanId)
+          .eq("user_id", cleanId)
           .maybeSingle();
-
-        if (byId) coachRow = byId;
-
-        // ── Step 2: Try coach_profiles by user_id
-        if (!coachRow) {
-          const { data: byUserId } = await supabase
-            .from("coach_profiles")
-            .select("id, user_id, specialization, experience_years, organization, bio, certifications")
-            .eq("user_id", cleanId)
-            .maybeSingle();
-          if (byUserId) coachRow = byUserId;
-        }
-
-        if (coachRow) {
-          // ── Step 3: Fetch profile name separately (own RLS: auth.uid() = id OR role = coach/trainer)
-          let profileName = "Coach";
-          let profileEmail: string | undefined;
-          let profileAvatar: string | undefined;
-
-          try {
-            const { data: prof } = await supabase
-              .from("profiles")
-              .select("full_name, email, avatar_url")
-              .eq("id", coachRow.user_id)
-              .maybeSingle();
-            if (prof?.full_name) profileName = prof.full_name;
-            if (prof?.email) profileEmail = prof.email;
-            if (prof?.avatar_url) profileAvatar = prof.avatar_url;
-          } catch {}
-
-          // ── Step 4: Count active athletes
-          let activeCount = 1;
-          try {
-            const { count } = await supabase
-              .from("coach_athlete_relationships")
-              .select("id", { count: "exact", head: true })
-              .eq("coach_id", coachRow.id)
-              .eq("status", "active");
-            if (typeof count === "number" && count > 0) activeCount = count;
-          } catch {}
-
-          const coachInfo: CoachPublicInfo = {
-            id: String(coachRow.id),
-            user_id: String(coachRow.user_id),
-            full_name: profileName,
-            email: profileEmail,
-            specialization: coachRow.specialization || "Strength & Biomechanics Coach",
-            experience_years: coachRow.experience_years || 5,
-            organization: coachRow.organization || "SportX High Performance Lab",
-            bio: coachRow.bio || "Certified coach specializing in kinetic motion tracking, technique refinement, and athletic longevity.",
-            certifications: coachRow.certifications || "NSCA-CSCS",
-            avatar_url: profileAvatar,
-            stats: {
-              active_athletes: activeCount,
-              sessions_supervised: 16 + activeCount * 4,
-              verification_status: "Verified Coach",
-            },
-          };
-
-          try {
-            localStorage.setItem(`sportx_coach_public_${coachRow.id}`, JSON.stringify(coachInfo));
-            localStorage.setItem(`sportx_coach_public_${coachRow.user_id}`, JSON.stringify(coachInfo));
-          } catch {}
-
-          return coachInfo;
-        }
-
-        // ── Step 5: Try profiles table directly (user is coach/trainer)
-        const { data: userProf } = await supabase
-          .from("profiles")
-          .select("id, full_name, email, avatar_url, role")
-          .eq("id", cleanId)
-          .maybeSingle();
-
-        if (userProf) {
-          // Accept if role is coach/trainer OR if no role set (be lenient — RLS may not expose role)
-          const fallbackDossier: CoachPublicInfo = {
-            id: String(userProf.id),
-            user_id: String(userProf.id),
-            full_name: userProf.full_name || "Coach",
-            email: userProf.email,
-            specialization: "Strength & Biomechanics Coach",
-            experience_years: 5,
-            organization: "SportX Certified Center",
-            bio: "SportX certified biomechanics and kinetic movement specialist.",
-            certifications: "NSCA-CSCS",
-            avatar_url: userProf.avatar_url,
-            stats: {
-              active_athletes: 1,
-              sessions_supervised: 18,
-              verification_status: "Verified Coach",
-            },
-          };
-          try {
-            localStorage.setItem(`sportx_coach_public_${userProf.id}`, JSON.stringify(fallbackDossier));
-          } catch {}
-          return fallbackDossier;
-        }
-
-        // ── Step 6: If cleanId is a valid UUID and we couldn't reach Supabase (RLS blocked reads)
-        // Return a minimal placeholder so the user can at least attempt to connect.
-        // connectAthleteToCoach will verify via INSERT and catch real errors.
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (uuidRegex.test(cleanId)) {
-          const pendingDossier: CoachPublicInfo = {
-            id: cleanId,
-            user_id: cleanId,
-            full_name: "Coach",
-            specialization: "SportX Trainer",
-            experience_years: 0,
-            organization: "SportX",
-            bio: "",
-            certifications: "",
-            stats: { verification_status: "Pending Verification" },
-          };
-          return pendingDossier;
-        }
-
-      } catch (e) {
-        console.warn("Notice looking up coach in Supabase:", e);
-
-        // Network/RLS error — return placeholder for valid UUID so user isn't blocked
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (uuidRegex.test(cleanId)) {
-          return {
-            id: cleanId,
-            user_id: cleanId,
-            full_name: "Coach",
-            specialization: "SportX Trainer",
-            experience_years: 0,
-            organization: "SportX",
-            bio: "",
-            certifications: "",
-            stats: { verification_status: "Pending Verification" },
-          };
-        }
+        if (byUserId) coachRow = byUserId;
       }
+
+      if (coachRow) {
+        // ── Step 3: Fetch the real name from profiles table
+        let profileName: string | null = null;
+        let profileEmail: string | undefined;
+        let profileAvatar: string | undefined;
+
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name, email, avatar_url")
+          .eq("id", coachRow.user_id)
+          .maybeSingle();
+
+        if (prof?.full_name) profileName = prof.full_name;
+        if (prof?.email) profileEmail = prof.email;
+        if (prof?.avatar_url) profileAvatar = prof.avatar_url;
+
+        // ── Step 4: Count active athletes for this coach
+        let activeCount = 0;
+        const { count } = await supabase
+          .from("coach_athlete_relationships")
+          .select("id", { count: "exact", head: true })
+          .eq("coach_id", coachRow.id)
+          .eq("status", "active");
+        if (typeof count === "number") activeCount = count;
+
+        const coachInfo: CoachPublicInfo = {
+          id: String(coachRow.id),
+          user_id: String(coachRow.user_id),
+          full_name: profileName || "—",
+          email: profileEmail,
+          specialization: coachRow.specialization || "",
+          experience_years: coachRow.experience_years ?? undefined,
+          organization: coachRow.organization || undefined,
+          bio: coachRow.bio || undefined,
+          certifications: coachRow.certifications || undefined,
+          avatar_url: profileAvatar,
+          stats: {
+            active_athletes: activeCount,
+            sessions_supervised: undefined,
+            verification_status: "Verified Coach",
+          },
+        };
+
+        try {
+          localStorage.setItem(`sportx_coach_public_${coachRow.id}`, JSON.stringify(coachInfo));
+          localStorage.setItem(`sportx_coach_public_${coachRow.user_id}`, JSON.stringify(coachInfo));
+        } catch {}
+
+        return coachInfo;
+      }
+
+      // ── Step 5: Try profiles table — user with role coach/trainer but no coach_profile yet
+      const { data: userProf } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, avatar_url, role")
+        .eq("id", cleanId)
+        .maybeSingle();
+
+      if (userProf && (userProf.role === "coach" || userProf.role === "trainer")) {
+        const dossier: CoachPublicInfo = {
+          id: String(userProf.id),
+          user_id: String(userProf.id),
+          full_name: userProf.full_name || "—",
+          email: userProf.email,
+          specialization: "",
+          experience_years: undefined,
+          organization: undefined,
+          bio: undefined,
+          certifications: undefined,
+          avatar_url: userProf.avatar_url,
+          stats: { active_athletes: 0, sessions_supervised: undefined, verification_status: "Verified Coach" },
+        };
+        try {
+          localStorage.setItem(`sportx_coach_public_${userProf.id}`, JSON.stringify(dossier));
+        } catch {}
+        return dossier;
+      }
+
+      // Genuinely not found
+      return null;
+
+    } catch (e) {
+      console.warn("getCoachByConnectionId error:", e);
+      return null;
     }
-
-    // Fallback: check cache again
-    try {
-      const cached = localStorage.getItem(`sportx_coach_public_${cleanId}`);
-      if (cached) return JSON.parse(cached);
-    } catch {}
-
-    return null;
   },
-
 
   /**
    * Connect an athlete to a coach after QR confirmation
