@@ -9,7 +9,11 @@ import {
   Users, UserCheck
 } from "lucide-react";
 
-export const MessagesView: React.FC = () => {
+interface MessagesViewProps {
+  initialContactUserId?: string | null;
+}
+
+export const MessagesView: React.FC<MessagesViewProps> = ({ initialContactUserId }) => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [contacts, setContacts] = useState<ChatContact[]>([]);
@@ -32,6 +36,28 @@ export const MessagesView: React.FC = () => {
       const list = await chatService.getContactsForUser(user);
       setContacts(list);
       
+      // Auto-select target contact if requested
+      if (initialContactUserId) {
+        const found = list.find(
+          (c) => c.user_id === initialContactUserId || c.id === initialContactUserId
+        );
+        if (found) {
+          setSelectedContact(found);
+          return;
+        } else {
+          // Create temporary contact entry so chat opens immediately
+          const targetContact: ChatContact = {
+            id: initialContactUserId,
+            user_id: initialContactUserId,
+            full_name: isTrainer ? "Connected Athlete" : "Coach",
+            role: isTrainer ? "athlete" : "coach",
+          };
+          setSelectedContact(targetContact);
+          setContacts((prev) => [targetContact, ...prev]);
+          return;
+        }
+      }
+
       // Auto-select first contact on desktop if none is selected
       if (list.length > 0 && !selectedContact && window.innerWidth >= 768) {
         setSelectedContact(list[0]);
@@ -41,7 +67,7 @@ export const MessagesView: React.FC = () => {
     } finally {
       if (!silent) setLoadingContacts(false);
     }
-  }, [user, selectedContact]);
+  }, [user, selectedContact, initialContactUserId, isTrainer]);
 
   useEffect(() => {
     loadContacts();

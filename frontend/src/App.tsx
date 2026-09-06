@@ -19,6 +19,7 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { CoachRoute } from "./components/auth/CoachRoute";
 import { NightlightModal } from "./components/common/NightlightModal";
 import { FloatingAIAssistant } from "./components/common/FloatingAIAssistant";
+import { ConnectTrainerModal } from "./components/athlete/ConnectTrainerModal";
 
 const MainAppContent: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -27,8 +28,21 @@ const MainAppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<string>("train");
   const [activeExerciseSlug, setActiveExerciseSlug] = useState<string>("squat");
   const [showNightlight, setShowNightlight] = useState(false);
+  const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
+  const [autoConnectCoachId, setAutoConnectCoachId] = useState<string | null>(null);
 
   const isTrainer = user?.role === "coach" || user?.role === "trainer";
+
+  // Check URL parameters for direct coach connection from external QR scans
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const coachParam = params.get("connect_coach") || params.get("coach");
+      if (coachParam) {
+        setAutoConnectCoachId(coachParam);
+      }
+    }
+  }, []);
 
   // Automatically land trainer on coach dashboard when logging in
   useEffect(() => {
@@ -46,6 +60,11 @@ const MainAppContent: React.FC = () => {
 
   const handleStartVideoUpload = () => {
     setCurrentTab("video-upload");
+  };
+
+  const handleOpenChat = (targetUserId: string) => {
+    setActiveChatUserId(targetUserId);
+    setCurrentTab("messages");
   };
 
   const isCameraStudioActive = currentTab === "live-camera";
@@ -78,6 +97,7 @@ const MainAppContent: React.FC = () => {
             <AthleteDashboard
               onStartLiveCamera={handleStartLiveCamera}
               onStartVideoUpload={handleStartVideoUpload}
+              onOpenChat={handleOpenChat}
             />
           </ProtectedRoute>
         )}
@@ -137,23 +157,43 @@ const MainAppContent: React.FC = () => {
         {/* Trainer Hub / Coach Center */}
         {currentTab === "coach" && (
           <CoachRoute>
-            <CoachDashboard />
+            <CoachDashboard onOpenChat={handleOpenChat} />
           </CoachRoute>
         )}
 
         {/* Direct Messages Tab (Trainer <-> Athlete Communication) */}
         {currentTab === "messages" && (
           <ProtectedRoute>
-            <MessagesView />
+            <MessagesView initialContactUserId={activeChatUserId} />
           </ProtectedRoute>
         )}
 
         {/* Profile & Settings Tab */}
         {currentTab === "profile" && (
-          <ProfileView />
+          <ProfileView onOpenChat={handleOpenChat} />
         )}
 
       </main>
+
+      {/* Auto Coach QR Connect Modal from URL */}
+      {autoConnectCoachId && (
+        <ConnectTrainerModal
+          isOpen={true}
+          onClose={() => {
+            setAutoConnectCoachId(null);
+            if (typeof window !== "undefined" && window.history?.replaceState) {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+          }}
+          onConnected={(coach) => {
+            setAutoConnectCoachId(null);
+            if (typeof window !== "undefined" && window.history?.replaceState) {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+          }}
+          onOpenChat={handleOpenChat}
+        />
+      )}
 
       {/* Mobile Bottom Navigation (Hidden in Camera Studio) */}
       {!isCameraStudioActive && (

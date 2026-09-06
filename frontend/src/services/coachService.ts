@@ -5,6 +5,8 @@ import { CoachRosterAthlete, NotificationItem } from '../types';
 
 export const coachService = {
   async getSupervisedAthletes(coachUserId: string): Promise<CoachRosterAthlete[]> {
+    let roster: CoachRosterAthlete[] = [];
+
     if (isSupabaseConfigured() && coachUserId) {
       // 1. Get coach profile ID
       const { data: coach } = await supabase
@@ -13,7 +15,9 @@ export const coachService = {
         .eq('user_id', coachUserId)
         .maybeSingle();
 
-      if (coach) {
+      const coachProfId = coach?.id || coachUserId;
+
+      if (coachProfId) {
         const { data: rels, error } = await supabase
           .from('coach_athlete_relationships')
           .select(`
@@ -25,7 +29,7 @@ export const coachService = {
               sport,
               training_level,
               anonymized_subject_id,
-              profiles:user_id (full_name, email),
+              profiles:user_id (full_name, email, avatar_url),
               workout_sessions (
                 id,
                 overall_score,
@@ -34,11 +38,11 @@ export const coachService = {
               )
             )
           `)
-          .eq('coach_id', coach.id)
+          .eq('coach_id', coachProfId)
           .eq('status', 'active');
 
         if (!error && rels && rels.length > 0) {
-          return rels.map((r: any) => {
+          roster = rels.map((r: any) => {
             const ap = r.athlete_profiles;
             const user = ap?.profiles;
             const sessions = ap?.workout_sessions || [];
@@ -52,7 +56,7 @@ export const coachService = {
                     sessions.reduce((acc: number, curr: any) => acc + (curr.overall_score || 0), 0) /
                       sessions.length
                   )
-                : 85;
+                : 88;
 
             return {
               athlete_id: ap?.id || r.athlete_id,
@@ -76,8 +80,51 @@ export const coachService = {
       }
     }
 
-    // Fallback to local roster
-    return api.getCoachRoster();
+    // Check local storage relationships for immediate zero-latency visibility
+    try {
+      const rawLocals = localStorage.getItem('sportx_coach_athlete_relationships');
+      if (rawLocals) {
+        const localRels = JSON.parse(rawLocals);
+        for (const lr of localRels) {
+          if (
+            (lr.coach_id === coachUserId || lr.coach_id?.includes(coachUserId)) &&
+            lr.status === 'active'
+          ) {
+            const exists = roster.some((r) => r.athlete_id === lr.athlete_id || r.user_id === lr.athlete_id);
+            if (!exists) {
+              roster.unshift({
+                athlete_id: lr.athlete_id,
+                user_id: lr.athlete_id,
+                full_name: lr.athlete_name || 'New Connected Athlete',
+                email: lr.athlete_email || 'athlete@sportx.ai',
+                sport: 'Functional Training',
+                training_level: 'Intermediate',
+                anonymized_subject_id: 'ATH-LIVE',
+                total_sessions: 1,
+                recent_average_score: 90,
+                average_technique_score: 90,
+                latest_session_exercise: 'Barbell Squat',
+                latest_session_score: 90,
+                latest_session_date: 'Just now',
+                pending_assignments: 0,
+                status: 'active',
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+
+    if (roster.length > 0) {
+      return roster;
+    }
+
+    // Fallback to local roster from API
+    try {
+      return await api.getCoachRoster();
+    } catch {
+      return [];
+    }
   },
 
   async getCoachAlerts(coachUserId: string): Promise<NotificationItem[]> {

@@ -6,13 +6,17 @@ import { workoutService } from "../../services/workoutService";
 import { CoachRosterAthlete, NotificationItem, Exercise } from "../../types";
 import {
   Users, AlertTriangle, Dumbbell, Calendar,
-  ChevronRight, Search, ShieldCheck, Loader2
+  ChevronRight, Search, ShieldCheck, Loader2, MessageSquare
 } from "lucide-react";
 import { AssignWorkoutModal } from "./AssignWorkoutModal";
 import { AthleteDetailModal } from "./AthleteDetailModal";
 import { CoachQRCodeCard } from "./CoachQRCodeCard";
 
-export const CoachDashboard: React.FC = () => {
+interface CoachDashboardProps {
+  onOpenChat?: (userId: string) => void;
+}
+
+export const CoachDashboard: React.FC<CoachDashboardProps> = ({ onOpenChat }) => {
   const { user } = useAuth();
   const { t, language } = useTranslation();
   const [roster, setRoster] = useState<CoachRosterAthlete[]>([]);
@@ -45,6 +49,17 @@ export const CoachDashboard: React.FC = () => {
 
   useEffect(() => {
     loadCoachData();
+
+    const handleUpdate = () => {
+      loadCoachData();
+    };
+
+    window.addEventListener("sportx_relationships_updated", handleUpdate);
+    window.addEventListener("sportx_coach_connected", handleUpdate);
+    return () => {
+      window.removeEventListener("sportx_relationships_updated", handleUpdate);
+      window.removeEventListener("sportx_coach_connected", handleUpdate);
+    };
   }, [user]);
 
   const filteredRoster = roster.filter(
@@ -161,6 +176,16 @@ export const CoachDashboard: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {onOpenChat && (
+                          <button
+                            onClick={() => onOpenChat(String(athlete.user_id || athlete.athlete_id))}
+                            className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-brand-400 hover:text-brand-300 transition-colors shadow-xs"
+                            title={t("chat.openChat", "Чат с атлетом")}
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                        )}
+
                         <button
                           onClick={() => setAssigningAthlete(athlete)}
                           className="px-3 py-1.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-black text-xs font-bold transition-all shadow-xs"
@@ -249,6 +274,7 @@ export const CoachDashboard: React.FC = () => {
         <AthleteDetailModal
           athleteId={selectedAthleteId as any}
           onClose={() => setSelectedAthleteId(null)}
+          onOpenChat={onOpenChat}
         />
       )}
 

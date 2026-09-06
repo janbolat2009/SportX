@@ -8,16 +8,20 @@ import { Exercise, WorkoutSession, AssignedWorkout, TrainerFeedback } from '../.
 import { coachService } from '../../services/coachService';
 import {
   Play, Upload, Flame, Moon, Utensils, Award, TrendingUp,
-  ChevronRight, ArrowRight, ShieldCheck, Dumbbell, Clock, Activity, Loader2, MessageSquare
+  ChevronRight, ArrowRight, ShieldCheck, Dumbbell, Clock, Activity, Loader2, MessageSquare,
+  QrCode, UserCheck
 } from 'lucide-react';
 import { HolisticTrackingModal } from './HolisticTrackingModal';
+import { trainerConnectionService, CoachPublicInfo } from '../../services/trainerConnectionService';
+import { ConnectTrainerModal } from './ConnectTrainerModal';
 
 interface Props {
   onStartLiveCamera: (exerciseSlug?: string) => void;
   onStartVideoUpload: () => void;
+  onOpenChat?: (coachUserId: string) => void;
 }
 
-export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVideoUpload }) => {
+export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVideoUpload, onOpenChat }) => {
   const { user } = useAuth();
   const { t, language } = useTranslation();
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -25,6 +29,8 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [readiness, setReadiness] = useState<any>(null);
   const [trainerFeedbacks, setTrainerFeedbacks] = useState<TrainerFeedback[]>([]);
+  const [connectedCoach, setConnectedCoach] = useState<CoachPublicInfo | null>(null);
+  const [showConnectModal, setShowConnectModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [showHolisticModal, setShowHolisticModal] = useState(false);
@@ -33,18 +39,20 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
   const loadDashboardData = async () => {
     try {
       const userIdStr = user?.id ? String(user.id) : undefined;
-      const [exData, assignData, sessData, readData, feedbackData] = await Promise.all([
+      const [exData, assignData, sessData, readData, feedbackData, coachData] = await Promise.all([
         workoutService.getExercises(),
         workoutService.getAssignedWorkouts(userIdStr),
         workoutService.getWorkoutSessions(userIdStr),
         recoveryService.getReadinessScore(userIdStr),
-        coachService.getAthleteTrainerFeedback(userIdStr || 'athlete-1')
+        coachService.getAthleteTrainerFeedback(userIdStr || 'athlete-1'),
+        userIdStr ? trainerConnectionService.getConnectedCoachForAthlete(userIdStr) : Promise.resolve(null)
       ]);
       setExercises(exData);
       setAssignedWorkouts(assignData);
       setRecentSessions(sessData);
       setReadiness(readData);
       setTrainerFeedbacks(feedbackData);
+      setConnectedCoach(coachData);
     } catch (e) {
       console.error('Failed to load athlete dashboard data:', e);
     } finally {
@@ -54,6 +62,17 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
 
   useEffect(() => {
     loadDashboardData();
+
+    const handleUpdate = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('sportx_relationships_updated', handleUpdate);
+    window.addEventListener('sportx_coach_connected', handleUpdate);
+    return () => {
+      window.removeEventListener('sportx_relationships_updated', handleUpdate);
+      window.removeEventListener('sportx_coach_connected', handleUpdate);
+    };
   }, [user]);
 
   const defaultExercises = [
@@ -116,7 +135,89 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
         </div>
       </div>
 
-      {/* 2. Holistic Quick Summary (Sleep, Nutrition, Recovery) */}
+      {/* 2. Coach Connection & Direct Advice Card */}
+      {connectedCoach ? (
+        <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-zinc-900/90 border border-stone-200/80 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="relative shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm overflow-hidden">
+                {connectedCoach.avatar_url ? (
+                  <img src={connectedCoach.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  connectedCoach.full_name.charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-brand-400 border border-emerald-500/20">
+                  {t("auth.trainer", "Мой тренер")}
+                </span>
+                <span className="text-xs text-stone-500 dark:text-zinc-400">• Онлайн</span>
+              </div>
+              <h3 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white truncate mt-0.5">
+                {connectedCoach.full_name}
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-zinc-400 truncate">
+                {connectedCoach.specialization}
+                {connectedCoach.organization ? ` • ${connectedCoach.organization}` : ""}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenChat && (
+              <button
+                type="button"
+                onClick={() => onOpenChat(connectedCoach.user_id || connectedCoach.id)}
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>{t("trainer.askAdvice", "Спросить совет / Чат")}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowConnectModal(true)}
+              className="px-3 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-700 dark:text-zinc-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+              title="Сменить тренера по QR-коду"
+            >
+              <QrCode className="w-4 h-4 text-emerald-600 dark:text-brand-400" />
+              <span className="hidden sm:inline">QR</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-brand-400 flex items-center justify-center font-bold shrink-0 shadow-xs">
+              <QrCode className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-stone-900 dark:text-white">
+                {t("qr.connectTitle", "Подключите вашего тренера")}
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-zinc-400">
+                {t("qr.scanPromptSubtitle", "Отсканируйте QR-код тренера, чтобы отправлять тренировки и спрашивать советы в чате")}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowConnectModal(true)}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 active:scale-95 cursor-pointer shrink-0"
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>{t("qr.scanAction", "Сканировать QR-код")}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 3. Holistic Quick Summary (Sleep, Nutrition, Recovery) */}
       <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
         
         <button
@@ -350,6 +451,18 @@ export const AthleteDashboard: React.FC<Props> = ({ onStartLiveCamera, onStartVi
           }}
         />
       )}
+
+      {/* Connect Trainer Modal */}
+      <ConnectTrainerModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        onConnected={(coach) => {
+          setConnectedCoach(coach);
+          setShowConnectModal(false);
+          loadDashboardData();
+        }}
+        onOpenChat={onOpenChat}
+      />
 
     </div>
   );

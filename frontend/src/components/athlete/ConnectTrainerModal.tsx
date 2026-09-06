@@ -581,38 +581,110 @@ export const ConnectTrainerModal: React.FC<Props> = ({
           </div>
         )}
 
-        {/* STEP 2: Confirmation Dialog */}
+        {/* STEP 2: Full Real Coach Profile Confirmation Dialog */}
         {step === "confirm" && scannedCoach && (
-          <div className="space-y-4 text-center py-2 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-brand-400 mx-auto flex items-center justify-center font-bold text-2xl shadow-sm overflow-hidden">
-              {scannedCoach.avatar_url ? (
-                <img src={scannedCoach.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                scannedCoach.full_name.charAt(0).toUpperCase()
-              )}
+          <div className="space-y-4 py-1 animate-in fade-in zoom-in-95 duration-200">
+            {/* Coach Card Header */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 text-center space-y-2.5">
+              <div className="relative w-18 h-18 mx-auto">
+                <div className="w-18 h-18 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-2xl shadow-md overflow-hidden ring-2 ring-emerald-500/30">
+                  {scannedCoach.avatar_url ? (
+                    <img src={scannedCoach.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    scannedCoach.full_name.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 text-black flex items-center justify-center shadow-xs">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-brand-300 text-[10px] font-bold uppercase tracking-wider mb-1">
+                  <span>{scannedCoach.stats?.verification_status || t("auth.trainer", "Verified Trainer")}</span>
+                </div>
+                <h4 className="text-base font-bold text-stone-900 dark:text-white">
+                  {scannedCoach.full_name}
+                </h4>
+                <p className="text-xs text-stone-600 dark:text-zinc-400 font-medium">
+                  {scannedCoach.specialization}
+                </p>
+                {scannedCoach.organization && (
+                  <p className="text-[11px] text-stone-500 dark:text-zinc-400">
+                    {scannedCoach.organization}
+                  </p>
+                )}
+              </div>
+
+              {/* Coach Telemetry & Stats Bar */}
+              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-emerald-500/15 text-center">
+                <div className="p-1.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
+                  <span className="text-[10px] text-stone-500 dark:text-zinc-400 block font-medium">
+                    {t("trainer.experience", "Опыт")}
+                  </span>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white">
+                    {scannedCoach.experience_years ? `${scannedCoach.experience_years} лет` : "5+ лет"}
+                  </span>
+                </div>
+                <div className="p-1.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
+                  <span className="text-[10px] text-stone-500 dark:text-zinc-400 block font-medium">
+                    {t("trainer.activeAthletes", "Атлетов")}
+                  </span>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white">
+                    {scannedCoach.stats?.active_athletes ?? 1}
+                  </span>
+                </div>
+                <div className="p-1.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-emerald-500/10">
+                  <span className="text-[10px] text-stone-500 dark:text-zinc-400 block font-medium">
+                    {t("trainer.status", "Статус")}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-brand-400">
+                    Активен
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-brand-400 border border-emerald-500/20">
-                {t("auth.trainer", "Verified Trainer")}
-              </span>
-              <h4 className="text-base font-bold text-stone-900 dark:text-white">
-                {t("qr.confirmConnect", `Connect with ${scannedCoach.full_name}?`)}
-              </h4>
-              <p className="text-xs text-stone-500 dark:text-zinc-400">
-                {scannedCoach.specialization} • {scannedCoach.organization || "SportX"}
-              </p>
-            </div>
+            {/* Bio & Credentials Details */}
+            {scannedCoach.bio && (
+              <div className="p-3 rounded-2xl bg-stone-50 dark:bg-zinc-950 border border-stone-200/80 dark:border-zinc-800 text-left space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-zinc-400">
+                  {t("trainer.about", "О тренере")}
+                </p>
+                <p className="text-xs text-stone-700 dark:text-zinc-300 leading-relaxed">
+                  {scannedCoach.bio}
+                </p>
+              </div>
+            )}
 
-            <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 text-left text-xs text-stone-600 dark:text-zinc-400 space-y-1.5">
-              <p className="flex items-center gap-1.5 font-semibold text-stone-800 dark:text-zinc-200">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-brand-400" />
-                <span>{t("qr.whatHappens", "What this connects:")}</span>
+            {scannedCoach.certifications && (
+              <div className="p-3 rounded-2xl bg-stone-50 dark:bg-zinc-950 border border-stone-200/80 dark:border-zinc-800 text-left space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-zinc-400">
+                  {t("trainer.certifications", "Квалификация и сертификаты")}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {scannedCoach.certifications.split(",").map((cert, cIdx) => (
+                    <span
+                      key={cIdx}
+                      className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-brand-400 text-[10px] font-medium border border-emerald-500/20"
+                    >
+                      {cert.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* What this connection enables */}
+            <div className="p-3 rounded-2xl bg-stone-50 dark:bg-zinc-950 border border-stone-200/80 dark:border-zinc-800 text-left space-y-1.5">
+              <p className="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-zinc-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-brand-400" />
+                <span>{t("qr.whatHappens", "Что даст подключение:")}</span>
               </p>
-              <ul className="text-[11px] space-y-1 text-stone-500 dark:text-zinc-400 list-disc list-inside">
-                <li>{t("qr.sync1", "Trainer can review your exercise technique & form alerts")}</li>
-                <li>{t("qr.sync2", "Direct messaging and feedback communication becomes active")}</li>
-                <li>{t("qr.sync3", "Your workouts & repetition progress will appear in trainer hub")}</li>
+              <ul className="text-[11px] space-y-1 text-stone-600 dark:text-zinc-400 list-disc list-inside">
+                <li>Тренер в реальном времени увидит ваши тренировки, видео и ошибки техники</li>
+                <li>Открывается прямой чат для персональных советов и вопросов</li>
+                <li>Тренер сможет назначать индивидуальные упражнения и планы</li>
               </ul>
             </div>
 
@@ -622,23 +694,23 @@ export const ConnectTrainerModal: React.FC<Props> = ({
               </p>
             )}
 
-            {/* Single Primary Action Button: "Connect" */}
-            <div className="space-y-2 pt-2">
+            {/* Actions */}
+            <div className="space-y-2 pt-1">
               <button
                 type="button"
                 onClick={handleConfirmConnection}
                 disabled={connecting}
-                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white dark:bg-brand-500 dark:hover:bg-brand-400 dark:text-black font-bold text-xs shadow-md shadow-emerald-600/20 dark:shadow-brand-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 {connecting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{t("qr.connecting", "Connecting...")}</span>
+                    <span>{t("qr.connecting", "Подключение...")}</span>
                   </>
                 ) : (
                   <>
                     <UserCheck className="w-4 h-4" />
-                    <span>{t("qr.connectBtn", "Connect")}</span>
+                    <span>{t("qr.connectBtn", "Подтвердить подключение")}</span>
                   </>
                 )}
               </button>
@@ -647,15 +719,15 @@ export const ConnectTrainerModal: React.FC<Props> = ({
                 type="button"
                 onClick={resetScanner}
                 disabled={connecting}
-                className="w-full py-2 text-xs font-semibold text-stone-500 hover:text-stone-800 dark:text-zinc-400 dark:hover:text-white transition-colors"
+                className="w-full py-1.5 text-xs font-semibold text-stone-500 hover:text-stone-800 dark:text-zinc-400 dark:hover:text-white transition-colors"
               >
-                {t("common.cancel", "Scan another code")}
+                {t("common.cancel", "Отсканировать другой QR-код")}
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Success State */}
+        {/* STEP 3: Success State with Direct Chat Access */}
         {step === "success" && scannedCoach && (
           <div className="space-y-4 text-center py-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 rounded-full bg-emerald-600 text-white mx-auto flex items-center justify-center shadow-lg shadow-emerald-600/30">
@@ -664,36 +736,37 @@ export const ConnectTrainerModal: React.FC<Props> = ({
 
             <div className="space-y-1">
               <h4 className="text-base font-bold text-stone-900 dark:text-white">
-                {t("qr.connectedSuccess", "Successfully Connected!")}
+                {t("qr.connectedSuccess", "Успешно подключено!")}
               </h4>
-              <p className="text-xs text-stone-500 dark:text-zinc-400 leading-relaxed max-w-xs mx-auto">
-                {t("qr.connectedSuccessDesc", `You and ${scannedCoach.full_name} are now connected. You can now chat and receive real-time coaching feedback.`)}
+              <p className="text-xs text-stone-600 dark:text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                {t(
+                  "qr.connectedSuccessDesc",
+                  `Вы подключены к тренеру ${scannedCoach.full_name}. Теперь тренер видит ваши тренировки, а вы можете задавать любые вопросы и получать персональные советы.`
+                )}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-3">
-              {onOpenChat && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenChat(scannedCoach.user_id);
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{t("qr.openChat", "Message Trainer")}</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenChat) {
+                    onOpenChat(scannedCoach.user_id || scannedCoach.id);
+                  }
+                }}
+                className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>{t("qr.openChat", "Спросить совет / Чат")}</span>
+              </button>
 
               <button
                 type="button"
                 onClick={onClose}
-                className={`py-2.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-800 dark:text-zinc-200 font-bold text-xs transition-all active:scale-95 ${
-                  onOpenChat ? "" : "col-span-2"
-                }`}
+                className="py-2.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-stone-800 dark:text-zinc-200 font-bold text-xs transition-all active:scale-95"
               >
-                {t("common.done", "Done")}
+                {t("common.done", "Готово")}
               </button>
             </div>
           </div>

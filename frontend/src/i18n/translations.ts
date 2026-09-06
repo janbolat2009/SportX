@@ -2236,6 +2236,36 @@ export const translations: TranslationDictionary = {
     ru: 'Попробовать снова',
     kk: 'Қайта көру',
   },
+  'trainer.askAdvice': {
+    en: 'Ask for Advice / Chat',
+    ru: 'Спросить совет / Чат',
+    kk: 'Кеңес сұрау / Чат',
+  },
+  'qr.scanAction': {
+    en: 'Scan QR Code',
+    ru: 'Сканировать QR-код',
+    kk: 'QR-код сканерлеу',
+  },
+  'qr.scanPromptSubtitle': {
+    en: 'Scan your coach’s QR code to link workouts and receive direct advice in chat.',
+    ru: 'Отсканируйте QR-код тренера, чтобы отправлять тренировки и спрашивать советы в чате.',
+    kk: 'Жаттығуларды байланыстыру және чатта кеңес алу үшін бапкердің QR-кодын сканерлеңіз.',
+  },
+  'trainer.experience': {
+    en: 'Experience',
+    ru: 'Опыт',
+    kk: 'Тәжірибе',
+  },
+  'trainer.about': {
+    en: 'About Coach',
+    ru: 'О тренере',
+    kk: 'Бапкер туралы',
+  },
+  'trainer.certifications': {
+    en: 'Certifications & Credentials',
+    ru: 'Квалификация и сертификаты',
+    kk: 'Біліктілік пен сертификаттар',
+  },
 };
 
 export const getTranslation = (key: string, lang: Language): string => {

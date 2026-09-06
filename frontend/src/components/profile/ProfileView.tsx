@@ -9,13 +9,17 @@ import { UserRole } from '../../types';
 import {
   User as UserIcon, Shield, LogOut, CheckCircle2,
   Camera, Loader2, Dumbbell, Award, Flame, AlertCircle, RefreshCw, Globe,
-  QrCode, UserCheck, Unlink
+  QrCode, UserCheck, Unlink, MessageSquare
 } from 'lucide-react';
 import { CoachQRCodeCard } from '../coach/CoachQRCodeCard';
 import { ConnectTrainerModal } from '../athlete/ConnectTrainerModal';
 import { trainerConnectionService, CoachPublicInfo } from '../../services/trainerConnectionService';
 
-export const ProfileView: React.FC = () => {
+interface ProfileViewProps {
+  onOpenChat?: (coachUserId: string) => void;
+}
+
+export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenChat }) => {
   const {
     user,
     athleteProfile,
@@ -492,7 +496,18 @@ export const ProfileView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
+                    {onOpenChat && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenChat(connectedCoach.user_id || connectedCoach.id)}
+                        className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>{t('trainer.askAdvice', 'Спросить совет / Чат')}</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => setShowConnectModal(true)}
