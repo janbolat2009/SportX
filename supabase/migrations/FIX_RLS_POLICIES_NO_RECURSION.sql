@@ -183,6 +183,15 @@ CREATE POLICY "technique_issues_policy" ON public.technique_issues FOR SELECT US
     )
 );
 
+DROP POLICY IF EXISTS "technique_issues_modify_policy" ON public.technique_issues;
+CREATE POLICY "technique_issues_modify_policy" ON public.technique_issues FOR ALL USING (
+    EXISTS (
+        SELECT 1 FROM public.workout_sessions ws
+        WHERE ws.id = technique_issues.session_id
+          AND ws.athlete_id = public.get_current_athlete_id()
+    )
+);
+
 -- 9. SLEEP RECORDS
 DROP POLICY IF EXISTS "athlete_sleep" ON public.sleep_records;
 DROP POLICY IF EXISTS "Athletes manage sleep" ON public.sleep_records;
@@ -227,4 +236,25 @@ DROP POLICY IF EXISTS "athlete_goals" ON public.goals;
 DROP POLICY IF EXISTS "Athletes manage goals" ON public.goals;
 CREATE POLICY "athlete_goals" ON public.goals FOR ALL USING (
     athlete_id = public.get_current_athlete_id()
+);
+
+-- 13. MEAL LOGS
+DROP POLICY IF EXISTS "meal_logs_user_policy" ON public.meal_logs;
+DROP POLICY IF EXISTS "Users can manage own meal logs" ON public.meal_logs;
+DROP POLICY IF EXISTS "user_meal_logs" ON public.meal_logs;
+DROP POLICY IF EXISTS "meal_logs_modify_policy" ON public.meal_logs;
+CREATE POLICY "meal_logs_modify_policy" ON public.meal_logs FOR ALL USING (
+    auth.uid() = user_id
+);
+
+DROP POLICY IF EXISTS "meal_logs_select_policy" ON public.meal_logs;
+CREATE POLICY "meal_logs_select_policy" ON public.meal_logs FOR SELECT USING (
+    auth.uid() = user_id
+    OR EXISTS (
+        SELECT 1 FROM public.coach_athlete_relationships car
+        JOIN public.athlete_profiles ap ON ap.id = car.athlete_id
+        WHERE ap.user_id = meal_logs.user_id
+          AND car.coach_id = public.get_current_coach_id()
+          AND car.status = 'ACTIVE'
+    )
 );

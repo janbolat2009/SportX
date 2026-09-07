@@ -373,6 +373,29 @@ export const NutritionView: React.FC = () => {
           model_version: 'apple-oneclick-preset',
           created_at: new Date().toISOString(),
         });
+
+        // Also sync to nutrition_records for trainer dashboard visibility
+        try {
+          const { data: ap } = await supabase
+            .from('athlete_profiles')
+            .select('id')
+            .eq('user_id', String(user.id))
+            .maybeSingle();
+
+          if (ap) {
+            await supabase.from('nutrition_records').insert({
+              athlete_id: ap.id,
+              date: new Date().toISOString().split('T')[0],
+              meal_type: preset.mealType.toUpperCase(),
+              meal_description: `${name} (${preset.grams}g)`,
+              calories: Math.round(preset.calories),
+              protein_g: Number(preset.protein) || 0,
+              carbs_g: Number(preset.carbs) || 0,
+              fats_g: Number(preset.fat) || 0,
+              water_ml: 250,
+            });
+          }
+        } catch {}
       } catch (err) {
         console.warn('Notice saving meal log:', err);
       }
@@ -436,6 +459,29 @@ export const NutritionView: React.FC = () => {
           model_version: 'sportx-nutrition-v2.0',
           created_at: new Date().toISOString(),
         });
+
+        // Also sync to nutrition_records for trainer dashboard visibility
+        try {
+          const { data: ap } = await supabase
+            .from('athlete_profiles')
+            .select('id')
+            .eq('user_id', String(user.id))
+            .maybeSingle();
+
+          if (ap) {
+            await supabase.from('nutrition_records').insert({
+              athlete_id: ap.id,
+              date: new Date().toISOString().split('T')[0],
+              meal_type: activeMealCategory.toUpperCase(),
+              meal_description: primaryName,
+              calories: Math.round(customCalories),
+              protein_g: Number(customProtein) || 0,
+              carbs_g: Number(customCarbs) || 0,
+              fats_g: Number(customFat) || 0,
+              water_ml: 250,
+            });
+          }
+        } catch {}
       } catch (err) {
         console.warn('Notice saving custom meal:', err);
       }

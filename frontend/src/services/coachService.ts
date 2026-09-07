@@ -196,44 +196,134 @@ export const coachService = {
         userProfile = uProf;
       }
 
-      // 3. Fetch all workout sessions for this athlete
-      const { data: sessionsData } = await supabase
+      // 3. Fetch all workout sessions for this athlete (check both athleteProfile.id and user_id)
+      let sessionsData: any[] = [];
+      const { data: sData } = await supabase
         .from('workout_sessions')
         .select(`
           *,
           exercises:exercise_id (name, slug),
           technique_issues (*)
         `)
-        .eq('athlete_id', athleteId)
+        .or(`athlete_id.eq.${athleteId},athlete_id.eq.${userId}`)
         .order('created_at', { ascending: false });
+
+      if (sData && sData.length > 0) {
+        sessionsData = sData;
+      } else {
+        // Fallback: check by athleteId alone
+        const { data: sById } = await supabase
+          .from('workout_sessions')
+          .select(`
+            *,
+            exercises:exercise_id (name, slug),
+            technique_issues (*)
+          `)
+          .eq('athlete_id', athleteId)
+          .order('created_at', { ascending: false });
+        if (sById) sessionsData = sById;
+      }
 
       const sessions = sessionsData || [];
 
-      // 4. Fetch sleep records for this athlete
+      // 4. Fetch sleep records for this athlete (check both athlete_id and user_id, plus local storage fallback)
+      let sleepRecords: any[] = [];
       const { data: sleepData } = await supabase
         .from('sleep_records')
         .select('*')
-        .eq('athlete_id', athleteId)
+        .or(`athlete_id.eq.${athleteId},athlete_id.eq.${userId}`)
         .order('sleep_date', { ascending: false })
         .limit(14);
 
-      const sleepRecords = sleepData || [];
+      if (sleepData && sleepData.length > 0) {
+        sleepRecords = sleepData;
+      } else {
+        // Check local storage for instant sync if logged on this device
+        try {
+          const rawSleep = localStorage.getItem(`sportx_sleep_records_${userId}`);
+          if (rawSleep) sleepRecords = JSON.parse(rawSleep);
+        } catch {}
+      }
 
-      // 5. Fetch nutrition records for this athlete
-      const { data: nutritionData } = await supabase
+      // 5. Fetch nutrition records AND meal_logs for this athlete
+      let mergedNutrition: any[] = [];
+
+      // 5a. Query nutrition_records
+      const { data: nrData } = await supabase
         .from('nutrition_records')
         .select('*')
-        .eq('athlete_id', athleteId)
+        .or(`athlete_id.eq.${athleteId},athlete_id.eq.${userId}`)
         .order('date', { ascending: false })
         .limit(14);
 
-      const nutritionRecords = nutritionData || [];
+      if (nrData && nrData.length > 0) {
+        mergedNutrition.push(...nrData);
+      }
+
+      // 5b. Query meal_logs (populated by NutritionView)
+      if (userId) {
+        const { data: mlData } = await supabase
+          .from('meal_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(14);
+
+        if (mlData && mlData.length > 0) {
+          for (const ml of mlData) {
+            const mlDate = ml.created_at ? ml.created_at.split('T')[0] : new Date().toISOString().split('T')[0];
+            if (!mergedNutrition.some((n) => n.id === ml.id || (n.meal_description === ml.description && n.date === mlDate))) {
+              mergedNutrition.push({
+                id: ml.id,
+                athlete_id: athleteId,
+                date: mlDate,
+                meal_type: ml.meal_type || 'MEAL',
+                meal_description: ml.food_name || ml.description || 'Meal',
+                calories: Math.round(Number(ml.calories) || 0),
+                protein_g: Number(ml.protein) || 0,
+                carbs_g: Number(ml.carbohydrates) || 0,
+                fats_g: Number(ml.fat) || 0,
+                water_ml: 250,
+                created_at: ml.created_at,
+              });
+            }
+          }
+        } else {
+          // Local storage fallback for meals logged on this device
+          try {
+            const rawMeals = localStorage.getItem(`sportx_meals_${userId}`);
+            if (rawMeals) {
+              const localMeals = JSON.parse(rawMeals);
+              for (const lm of localMeals) {
+                const lmDate = lm.created_at ? lm.created_at.split('T')[0] : new Date().toISOString().split('T')[0];
+                mergedNutrition.push({
+                  id: lm.id,
+                  athlete_id: athleteId,
+                  date: lmDate,
+                  meal_type: lm.meal_type,
+                  meal_description: lm.food_name || lm.description,
+                  calories: lm.calories,
+                  protein_g: lm.protein,
+                  carbs_g: lm.carbs,
+                  fats_g: lm.fat,
+                  water_ml: 250,
+                  created_at: lm.created_at,
+                });
+              }
+            }
+          } catch {}
+        }
+      }
+
+      // Sort merged nutrition by date descending
+      mergedNutrition.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
+      const nutritionRecords = mergedNutrition;
 
       // 6. Fetch recovery records for this athlete
       const { data: recoveryData } = await supabase
         .from('recovery_records')
         .select('*')
-        .eq('athlete_id', athleteId)
+        .or(`athlete_id.eq.${athleteId},athlete_id.eq.${userId}`)
         .order('log_date', { ascending: false })
         .limit(7);
 
@@ -282,9 +372,51 @@ export const coachService = {
         recentCalories = nutritionRecords[0].calories || null;
       }
 
-      // Latest session feedback
+      // 8. Generate or extract intelligent AI feedback
       const latestSession = sessions[0];
-      const latestFeedback = latestSession?.feedback_summary || null;
+      let latestFeedback = latestSession?.feedback_summary || null;
+
+      // If no feedback or just a default short string, generate comprehensive AI biomechanical & holistic analysis
+      if (!latestFeedback || latestFeedback.length < 25) {
+        if (totalSessions > 0) {
+          const exName = (latestSession as any)?.exercises?.name || 'Workout';
+          const feedbackParts: string[] = [];
+
+          if (avgScore && avgScore >= 85) {
+            feedbackParts.push(`Отличный уровень биомеханики (${avgScore}%). Кинематическая цепь стабильна, траектория движения близка к эталонной.`);
+          } else if (avgScore && avgScore >= 70) {
+            feedbackParts.push(`Хороший базовый уровень техники (${avgScore}%). Рекомендуется удерживать стабильный темп и контролировать нижнюю точку траектории.`);
+          } else if (avgScore) {
+            feedbackParts.push(`Техника требует внимания (${avgScore}%). Выявлены систематические отклонения под нагрузкой, требующие коррекции тренера.`);
+          }
+
+          if (avgSymmetry != null && avgSymmetry > 0) {
+            if (avgSymmetry >= 88) {
+              feedbackParts.push(`Симметрия движения сбалансирована (${avgSymmetry}%). Нагрузка равномерно распределяется между левой и правой сторонами.`);
+            } else {
+              feedbackParts.push(`Зафиксирована боковая асимметрия (${avgSymmetry}%). Обратите внимание на компенсаторный перенос веса.`);
+            }
+          }
+
+          const topIssues = Object.entries(issueCounts);
+          if (topIssues.length > 0) {
+            const issueList = topIssues.map(([name, count]) => `${name} (${count}x)`).join(', ');
+            feedbackParts.push(`Точки внимания: ${issueList}.`);
+          } else {
+            feedbackParts.push(`Критических нарушений углов в суставах не выявлено.`);
+          }
+
+          if (avgSleepHours != null && avgSleepHours > 0) {
+            if (avgSleepHours < 7.0) {
+              feedbackParts.push(`Сон атлета (${avgSleepHours}ч) ниже нормы: утомление может ухудшать контроль техники.`);
+            } else {
+              feedbackParts.push(`Восстановление: сон атлета в норме (${avgSleepHours}ч).`);
+            }
+          }
+
+          latestFeedback = feedbackParts.join(' ');
+        }
+      }
 
       return {
         athlete_id: athleteId,

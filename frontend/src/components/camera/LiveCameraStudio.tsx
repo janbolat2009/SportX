@@ -501,13 +501,60 @@ export const LiveCameraStudio: React.FC<Props> = ({
 
         if (ap) {
           const exObj = exercises.find((e) => e.slug === selectedSlug) || exercises[0];
+          // Synthesize structured AI biomechanical feedback
+          const exName = exObj?.name || 'Workout';
+          const validCount = sessionReps.filter((r) => r.is_valid).length;
+          const aiFeedbackParts: string[] = [];
+
+          if (calculatedOverall >= 85) {
+            aiFeedbackParts.push(`Отличная биомеханика (${calculatedOverall}%). Выполнено ${repCount} повторений (${validCount} чистых). Кинематическая цепь и стабильность в норме.`);
+          } else if (calculatedOverall >= 70) {
+            aiFeedbackParts.push(`Хороший результат (${calculatedOverall}%). Завершено ${repCount} повторений. Сохраняйте плавный темп и контролируйте крайние точки траектории.`);
+          } else {
+            aiFeedbackParts.push(`Техника требует внимания (${calculatedOverall}%). Завершено ${repCount} повторений. Зафиксированы движения с отклонением от безопасной траектории.`);
+          }
+
+          if (symmetryRatio >= 88) {
+            aiFeedbackParts.push(`Симметрия движения: ${symmetryRatio}% (сбалансированная нагрузка).`);
+          } else {
+            aiFeedbackParts.push(`Симметрия движения: ${symmetryRatio}% (зафиксирован перекос нагрузки).`);
+          }
+
+          // Gather all detected issues
+          const allIssues = [...sessionIssues];
+          sessionReps.forEach((r) => {
+            if (Array.isArray(r.detected_errors)) {
+              r.detected_errors.forEach((err: any) => {
+                const errName = typeof err === 'string' ? err : err.error_name || err.name || 'Technique Variance';
+                if (!allIssues.some((i) => (i.error_name || i.name) === errName)) {
+                  allIssues.push({
+                    error_name: errName,
+                    error_code: typeof err === 'string' ? 'TECHNIQUE_DEVIATION' : err.error_code || 'DEVIATION',
+                    severity: typeof err === 'object' && err.severity ? err.severity : 'medium',
+                    description: typeof err === 'object' && err.description ? err.description : 'Deviation detected during repetition.',
+                    corrective_instruction: typeof err === 'object' && err.corrective_instruction ? err.corrective_instruction : 'Maintain steady posture.',
+                  });
+                }
+              });
+            }
+          });
+
+          if (allIssues.length > 0) {
+            const issueNames = Array.from(new Set(allIssues.map((i: any) => i.error_name || i.name || i.type))).slice(0, 3);
+            aiFeedbackParts.push(`Зафиксированные отклонения: ${issueNames.join(', ')}.`);
+          } else {
+            aiFeedbackParts.push(`Критических нарушений углов в суставах не выявлено.`);
+          }
+
+          const fullAiFeedback = aiFeedbackParts.join(' ');
+
           const newSession = await workoutService.createWorkoutSession({
             athlete_id: (ap as any).id,
             exercise_id: exObj?.id || 1,
             session_type: 'LIVE_CAMERA',
             duration_seconds: duration,
             total_reps: repCount,
-            valid_reps: sessionReps.filter((r) => r.is_valid).length,
+            valid_reps: validCount,
             overall_score: calculatedOverall,
             alignment_score: symmetryRatio,
             rom_score: calculatedOverall,
@@ -515,7 +562,7 @@ export const LiveCameraStudio: React.FC<Props> = ({
             tempo_score: 88,
             stability_score: 90,
             model_version: 'sportx-biomech-v2.0',
-            feedback_summary: t(activeCueKey, activeCueDefault) || `Completed ${repCount} repetitions with solid technique.`,
+            feedback_summary: fullAiFeedback,
           });
 
           if (newSession && sessionReps.length > 0) {
@@ -539,6 +586,24 @@ export const LiveCameraStudio: React.FC<Props> = ({
                 detected_errors: (r.detected_errors as any) || null,
               }))
             );
+          }
+
+          // Persist technique issues to Supabase
+          if (newSession && allIssues.length > 0) {
+            try {
+              await supabase.from('technique_issues').insert(
+                allIssues.map((iss: any) => ({
+                  session_id: newSession.id,
+                  error_code: iss.error_code || iss.code || iss.type || 'TECHNIQUE_DEVIATION',
+                  error_name: iss.error_name || iss.name || iss.title || 'Movement Discrepancy',
+                  severity: iss.severity || 'medium',
+                  description: iss.description || iss.explanation || 'Deviation detected in movement trajectory.',
+                  corrective_instruction: iss.corrective_instruction || iss.correction || iss.cue || 'Focus on alignment and steady tempo.',
+                }))
+              );
+            } catch (issErr) {
+              console.warn('Notice saving technique issues to Supabase:', issErr);
+            }
           }
 
           savedSession = {
